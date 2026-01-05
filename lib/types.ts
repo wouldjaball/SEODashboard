@@ -281,6 +281,7 @@ export interface Company {
   name: string
   logo?: string
   industry: string
+  color: string  // Brand color for visual identification (hex)
   // Google Analytics
   gaMetrics: GAMetrics
   gaWeeklyData: GAWeeklyData[]

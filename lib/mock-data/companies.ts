@@ -73,6 +73,7 @@ const vestigeView: Company = {
   id: "vestige-view",
   name: "Vestige View",
   industry: "Security Technology",
+  color: "#22c55e", // Green
   gaMetrics,
   gaWeeklyData,
   gaChannelData,
@@ -114,6 +115,7 @@ const acmeCorp: Company = {
   id: "acme-corp",
   name: "Acme Corp",
   industry: "Software & SaaS",
+  color: "#3b82f6", // Blue
   gaMetrics: scaleObject(gaMetrics, 1.5),
   gaWeeklyData: scaleArray(gaWeeklyData, 1.5),
   gaChannelData: scaleArray(gaChannelData, 1.5),
@@ -173,6 +175,7 @@ const globalTech: Company = {
   id: "globaltech",
   name: "GlobalTech Industries",
   industry: "Manufacturing",
+  color: "#f97316", // Orange
   gaMetrics: scaleObject(gaMetrics, 3.0),
   gaWeeklyData: scaleArray(gaWeeklyData, 3.0),
   gaChannelData: scaleArray(gaChannelData, 3.0),
@@ -232,6 +235,7 @@ const bloomWellness: Company = {
   id: "bloom-wellness",
   name: "Bloom Wellness",
   industry: "Health & Wellness",
+  color: "#ec4899", // Pink
   gaMetrics: scaleObject(gaMetrics, 0.4),
   gaWeeklyData: scaleArray(gaWeeklyData, 0.4),
   gaChannelData: scaleArray(gaChannelData, 0.4),
@@ -291,6 +295,7 @@ const nexusFinancial: Company = {
   id: "nexus-financial",
   name: "Nexus Financial",
   industry: "Financial Services",
+  color: "#6366f1", // Indigo
   gaMetrics: scaleObject(gaMetrics, 2.2),
   gaWeeklyData: scaleArray(gaWeeklyData, 2.2),
   gaChannelData: scaleArray(gaChannelData, 2.2),

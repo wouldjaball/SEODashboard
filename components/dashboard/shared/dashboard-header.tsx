@@ -3,18 +3,37 @@
 import { BarChart3 } from "lucide-react"
 import { useCompany } from "@/lib/company-context"
 import { CompanySwitcher } from "./company-switcher"
+import { Badge } from "@/components/ui/badge"
 
 export function DashboardHeader() {
   const { company } = useCompany()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-gray-900 text-white safe-area-inset-top">
-      <div className="container flex h-12 sm:h-14 items-center px-3 sm:px-4 gap-2 sm:gap-4">
-        <div className="flex items-center gap-2 shrink-0">
-          <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 shrink-0" />
-          <span className="text-base sm:text-lg font-bold hidden sm:inline">{company.name}</span>
+      <div className="container flex h-14 sm:h-16 items-center px-3 sm:px-4 gap-3 sm:gap-4">
+        {/* Logo and Brand */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div
+            className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-lg"
+            style={{ backgroundColor: company.color }}
+          >
+            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+          </div>
+          <div className="hidden md:flex flex-col min-w-0">
+            <span className="text-sm sm:text-base font-bold truncate leading-tight">
+              {company.name}
+            </span>
+            <span className="text-[10px] sm:text-xs text-gray-400 truncate leading-tight">
+              {company.industry}
+            </span>
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2 sm:gap-4">
+
+        {/* Center space */}
+        <div className="flex-1" />
+
+        {/* Company Switcher */}
+        <div className="flex items-center gap-2 sm:gap-4">
           <CompanySwitcher />
         </div>
       </div>
