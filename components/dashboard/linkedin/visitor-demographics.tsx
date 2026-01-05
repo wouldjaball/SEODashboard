@@ -24,19 +24,19 @@ interface VisitorDemographicsProps {
 }
 
 const industryConfig = {
-  value: { label: "Visitors", color: "hsl(var(--chart-2))" },
+  value: { label: "Visitors", color: "var(--chart-2)" },
 } satisfies ChartConfig
 
 const seniorityConfig = {
-  value: { label: "Visitors", color: "hsl(var(--chart-1))" },
+  value: { label: "Visitors", color: "var(--chart-1)" },
 } satisfies ChartConfig
 
 const jobFunctionConfig = {
-  value: { label: "Visitors", color: "hsl(var(--chart-3))" },
+  value: { label: "Visitors", color: "var(--chart-3)" },
 } satisfies ChartConfig
 
 const companySizeConfig = {
-  value: { label: "Visitors", color: "hsl(var(--chart-4))" },
+  value: { label: "Visitors", color: "var(--chart-4)" },
 } satisfies ChartConfig
 
 // Helper to truncate long segment labels for mobile

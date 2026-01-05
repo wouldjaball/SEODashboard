@@ -28,12 +28,12 @@ interface DevicePerformanceProps {
 }
 
 const chartConfig = {
-  desktop: { label: "Desktop", color: "hsl(var(--chart-1))" },
-  mobile: { label: "Mobile", color: "hsl(var(--chart-2))" },
-  tablet: { label: "Tablet", color: "hsl(var(--chart-3))" },
+  desktop: { label: "Desktop", color: "var(--chart-1)" },
+  mobile: { label: "Mobile", color: "var(--chart-2)" },
+  tablet: { label: "Tablet", color: "var(--chart-3)" },
 } satisfies ChartConfig
 
-const deviceColors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))"]
+const deviceColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"]
 
 export function DevicePerformance({ data }: DevicePerformanceProps) {
   const pieData = data.map((d) => ({

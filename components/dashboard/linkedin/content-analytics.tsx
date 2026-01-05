@@ -27,7 +27,7 @@ interface ContentAnalyticsProps {
 const chartConfig = {
   impressions: {
     label: "Impressions",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
 } satisfies ChartConfig
 

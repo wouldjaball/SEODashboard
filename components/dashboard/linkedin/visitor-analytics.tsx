@@ -29,11 +29,11 @@ interface VisitorAnalyticsProps {
 const chartConfig = {
   desktopVisitors: {
     label: "Desktop",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
   mobileVisitors: {
     label: "Mobile",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
 } satisfies ChartConfig
 

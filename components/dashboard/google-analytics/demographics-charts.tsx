@@ -34,19 +34,19 @@ interface DemographicsChartsProps {
 }
 
 const deviceChartConfig = {
-  desktop: { label: "Desktop", color: "hsl(var(--chart-1))" },
-  mobile: { label: "Mobile", color: "hsl(var(--chart-2))" },
-  tablet: { label: "Tablet", color: "hsl(var(--chart-3))" },
+  desktop: { label: "Desktop", color: "var(--chart-1)" },
+  mobile: { label: "Mobile", color: "var(--chart-2)" },
+  tablet: { label: "Tablet", color: "var(--chart-3)" },
 } satisfies ChartConfig
 
 const genderChartConfig = {
-  male: { label: "Male", color: "hsl(var(--chart-4))" },
-  female: { label: "Female", color: "hsl(var(--chart-5))" },
-  unknown: { label: "Unknown", color: "hsl(220 9% 46%)" },
+  male: { label: "Male", color: "var(--chart-4)" },
+  female: { label: "Female", color: "var(--chart-5)" },
+  unknown: { label: "Unknown", color: "#71717a" },
 } satisfies ChartConfig
 
 const ageChartConfig = {
-  totalUsers: { label: "Users", color: "hsl(var(--chart-1))" },
+  totalUsers: { label: "Users", color: "var(--chart-1)" },
 } satisfies ChartConfig
 
 export function DemographicsCharts({ devices, gender, age }: DemographicsChartsProps) {
@@ -63,8 +63,8 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
   const totalDeviceUsers = devices.reduce((sum, d) => sum + d.totalUsers, 0)
   const totalGenderUsers = gender.reduce((sum, g) => sum + g.totalUsers, 0)
 
-  const deviceColors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))"]
-  const genderColors = ["hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(220 9% 46%)"]
+  const deviceColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"]
+  const genderColors = ["var(--chart-4)", "var(--chart-5)", "#71717a"]
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">

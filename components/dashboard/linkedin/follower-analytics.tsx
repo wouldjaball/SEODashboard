@@ -29,11 +29,11 @@ interface FollowerAnalyticsProps {
 const chartConfig = {
   sponsored: {
     label: "Sponsored",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
   organic: {
     label: "Organic",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
 } satisfies ChartConfig
 
