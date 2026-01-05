@@ -9,55 +9,10 @@ import { GSCReport } from "@/components/dashboard/search-console"
 import { YTReport } from "@/components/dashboard/youtube"
 import { LIReport } from "@/components/dashboard/linkedin"
 import { BarChart3, Search, Youtube, Linkedin } from "lucide-react"
-
-// Import mock data
-import {
-  gaMetrics,
-  gaWeeklyData,
-  gaChannelData,
-  gaTrafficShare,
-  gaSourcePerformance,
-  gaLandingPages,
-  gaRegions,
-  gaDevices,
-  gaGender,
-  gaAge,
-} from "@/lib/mock-data/google-analytics"
-
-import {
-  gscMetrics,
-  gscWeeklyData,
-  gscIndexData,
-  gscKeywords,
-  gscLandingPages,
-  gscCountries,
-  gscDevices,
-} from "@/lib/mock-data/search-console"
-
-import {
-  ytMetrics,
-  ytVideos,
-  ytViewsSparkline,
-  ytWatchTimeSparkline,
-  ytSharesSparkline,
-  ytLikesSparkline,
-} from "@/lib/mock-data/youtube"
-
-import {
-  liVisitorMetrics,
-  liFollowerMetrics,
-  liContentMetrics,
-  liVisitorDaily,
-  liFollowerDaily,
-  liImpressionDaily,
-  liIndustryDemographics,
-  liSeniorityDemographics,
-  liJobFunctionDemographics,
-  liCompanySizeDemographics,
-  liUpdates,
-} from "@/lib/mock-data/linkedin"
+import { useCompany } from "@/lib/company-context"
 
 export default function DashboardPage() {
+  const { company } = useCompany()
   const [dateRange, setDateRange] = useState({
     from: subDays(new Date(), 30),
     to: new Date(),
@@ -70,7 +25,7 @@ export default function DashboardPage() {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Analytics Dashboard</h1>
           <p className="text-sm text-muted-foreground truncate">
-            Multi-source analytics overview
+            {company.industry} • Multi-source analytics overview
           </p>
         </div>
         <div className="shrink-0">
@@ -114,58 +69,58 @@ export default function DashboardPage() {
         {/* Google Analytics Tab */}
         <TabsContent value="google-analytics" className="space-y-4 sm:space-y-6 mt-0">
           <GAReport
-            metrics={gaMetrics}
-            weeklyData={gaWeeklyData}
-            channelData={gaChannelData}
-            trafficShare={gaTrafficShare}
-            sourcePerformance={gaSourcePerformance}
-            landingPages={gaLandingPages}
-            regions={gaRegions}
-            devices={gaDevices}
-            gender={gaGender}
-            age={gaAge}
+            metrics={company.gaMetrics}
+            weeklyData={company.gaWeeklyData}
+            channelData={company.gaChannelData}
+            trafficShare={company.gaTrafficShare}
+            sourcePerformance={company.gaSourcePerformance}
+            landingPages={company.gaLandingPages}
+            regions={company.gaRegions}
+            devices={company.gaDevices}
+            gender={company.gaGender}
+            age={company.gaAge}
           />
         </TabsContent>
 
         {/* Search Console Tab */}
         <TabsContent value="search-console" className="space-y-4 sm:space-y-6 mt-0">
           <GSCReport
-            metrics={gscMetrics}
-            weeklyData={gscWeeklyData}
-            indexData={gscIndexData}
-            keywords={gscKeywords}
-            landingPages={gscLandingPages}
-            countries={gscCountries}
-            devices={gscDevices}
+            metrics={company.gscMetrics}
+            weeklyData={company.gscWeeklyData}
+            indexData={company.gscIndexData}
+            keywords={company.gscKeywords}
+            landingPages={company.gscLandingPages}
+            countries={company.gscCountries}
+            devices={company.gscDevices}
           />
         </TabsContent>
 
         {/* YouTube Tab */}
         <TabsContent value="youtube" className="space-y-4 sm:space-y-6 mt-0">
           <YTReport
-            metrics={ytMetrics}
-            videos={ytVideos}
-            viewsSparkline={ytViewsSparkline}
-            watchTimeSparkline={ytWatchTimeSparkline}
-            sharesSparkline={ytSharesSparkline}
-            likesSparkline={ytLikesSparkline}
+            metrics={company.ytMetrics}
+            videos={company.ytVideos}
+            viewsSparkline={company.ytViewsSparkline}
+            watchTimeSparkline={company.ytWatchTimeSparkline}
+            sharesSparkline={company.ytSharesSparkline}
+            likesSparkline={company.ytLikesSparkline}
           />
         </TabsContent>
 
         {/* LinkedIn Tab */}
         <TabsContent value="linkedin" className="space-y-4 sm:space-y-6 mt-0">
           <LIReport
-            visitorMetrics={liVisitorMetrics}
-            followerMetrics={liFollowerMetrics}
-            contentMetrics={liContentMetrics}
-            visitorDaily={liVisitorDaily}
-            followerDaily={liFollowerDaily}
-            impressionDaily={liImpressionDaily}
-            industryDemographics={liIndustryDemographics}
-            seniorityDemographics={liSeniorityDemographics}
-            jobFunctionDemographics={liJobFunctionDemographics}
-            companySizeDemographics={liCompanySizeDemographics}
-            updates={liUpdates}
+            visitorMetrics={company.liVisitorMetrics}
+            followerMetrics={company.liFollowerMetrics}
+            contentMetrics={company.liContentMetrics}
+            visitorDaily={company.liVisitorDaily}
+            followerDaily={company.liFollowerDaily}
+            impressionDaily={company.liImpressionDaily}
+            industryDemographics={company.liIndustryDemographics}
+            seniorityDemographics={company.liSeniorityDemographics}
+            jobFunctionDemographics={company.liJobFunctionDemographics}
+            companySizeDemographics={company.liCompanySizeDemographics}
+            updates={company.liUpdates}
           />
         </TabsContent>
       </Tabs>

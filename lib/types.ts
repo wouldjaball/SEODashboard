@@ -274,3 +274,49 @@ export interface FilterOption {
   value: string
   label: string
 }
+
+// Company type for multi-tenant data
+export interface Company {
+  id: string
+  name: string
+  logo?: string
+  industry: string
+  // Google Analytics
+  gaMetrics: GAMetrics
+  gaWeeklyData: GAWeeklyData[]
+  gaChannelData: GAChannelData[]
+  gaTrafficShare: GATrafficShare[]
+  gaSourcePerformance: GASourcePerformance[]
+  gaLandingPages: GALandingPage[]
+  gaRegions: GARegion[]
+  gaDevices: GADevice[]
+  gaGender: GADemographic[]
+  gaAge: GADemographic[]
+  // Search Console
+  gscMetrics: GSCMetrics
+  gscWeeklyData: GSCWeeklyData[]
+  gscIndexData: GSCIndexData[]
+  gscKeywords: GSCKeyword[]
+  gscLandingPages: GSCLandingPage[]
+  gscCountries: GSCCountry[]
+  gscDevices: GSCDeviceData[]
+  // YouTube
+  ytMetrics: YTMetrics
+  ytVideos: YTVideo[]
+  ytViewsSparkline: number[]
+  ytWatchTimeSparkline: number[]
+  ytSharesSparkline: number[]
+  ytLikesSparkline: number[]
+  // LinkedIn
+  liVisitorMetrics: LIVisitorMetrics
+  liFollowerMetrics: LIFollowerMetrics
+  liContentMetrics: LIContentMetrics
+  liVisitorDaily: LIVisitorDaily[]
+  liFollowerDaily: LIFollowerDaily[]
+  liImpressionDaily: LIImpressionDaily[]
+  liIndustryDemographics: LIDemographic[]
+  liSeniorityDemographics: LIDemographic[]
+  liJobFunctionDemographics: LIDemographic[]
+  liCompanySizeDemographics: LIDemographic[]
+  liUpdates: LIUpdate[]
+}
