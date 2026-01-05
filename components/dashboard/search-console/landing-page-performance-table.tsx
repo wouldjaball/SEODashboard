@@ -13,37 +13,38 @@ const columns: ColumnDef<GSCLandingPage>[] = [
     accessorKey: "url",
     header: "URL",
     cell: (row) => (
-      <div className="max-w-[300px] truncate font-medium" title={row.url}>
+      <div className="max-w-[120px] sm:max-w-[200px] md:max-w-[300px] truncate font-medium text-xs sm:text-sm" title={row.url}>
         {row.url}
       </div>
     ),
   },
   {
     accessorKey: "impressions",
-    header: "Impressions",
-    cell: (row) => formatNumber(row.impressions),
+    header: "Impr.",
+    cell: (row) => <span className="text-xs sm:text-sm">{formatNumber(row.impressions)}</span>,
+    className: "hidden sm:table-cell",
   },
   {
     accessorKey: "clicks",
     header: "Clicks",
-    cell: (row) => formatNumber(row.clicks),
+    cell: (row) => <span className="text-xs sm:text-sm">{formatNumber(row.clicks)}</span>,
   },
   {
     accessorKey: "ctr",
     header: "CTR",
-    cell: (row) => formatPercent(row.ctr),
+    cell: (row) => <span className="text-xs sm:text-sm">{formatPercent(row.ctr)}</span>,
   },
   {
     accessorKey: "avgPosition",
-    header: "Avg. Position",
-    cell: (row) => row.avgPosition.toFixed(1),
+    header: "Pos.",
+    cell: (row) => <span className="text-xs sm:text-sm">{row.avgPosition.toFixed(1)}</span>,
   },
 ]
 
 export function LandingPagePerformanceTable({ data }: LandingPagePerformanceTableProps) {
   return (
     <div className="space-y-2">
-      <h3 className="text-base font-semibold">Landing Page Performance</h3>
+      <h3 className="text-sm sm:text-base font-semibold">Landing Page Performance</h3>
       <DataTable
         data={data}
         columns={columns}

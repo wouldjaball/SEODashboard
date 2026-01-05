@@ -67,14 +67,14 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
   const genderColors = ["hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(220 9% 46%)"]
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
       {/* Device Breakdown */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Device</CardTitle>
+        <CardHeader className="pb-2 px-3 sm:px-6">
+          <CardTitle className="text-sm sm:text-base font-semibold">Device</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={deviceChartConfig} className="h-[150px] w-full">
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <ChartContainer config={deviceChartConfig} className="h-[120px] sm:h-[150px] w-full">
             <PieChart>
               <Pie
                 data={deviceData}
@@ -127,11 +127,11 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
 
       {/* Gender Breakdown */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Gender</CardTitle>
+        <CardHeader className="pb-2 px-3 sm:px-6">
+          <CardTitle className="text-sm sm:text-base font-semibold">Gender</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={genderChartConfig} className="h-[150px] w-full">
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <ChartContainer config={genderChartConfig} className="h-[120px] sm:h-[150px] w-full">
             <PieChart>
               <Pie
                 data={genderData}
@@ -183,27 +183,31 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
       </Card>
 
       {/* Age Breakdown */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Age</CardTitle>
+      <Card className="sm:col-span-2 lg:col-span-1">
+        <CardHeader className="pb-2 px-3 sm:px-6">
+          <CardTitle className="text-sm sm:text-base font-semibold">Age</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={ageChartConfig} className="h-[250px] w-full">
+        <CardContent className="px-2 sm:px-6 pb-3 sm:pb-6">
+          <ChartContainer config={ageChartConfig} className="h-[180px] sm:h-[250px] w-full">
             <BarChart
               data={age}
               layout="vertical"
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 5, right: 10, left: 5, bottom: 5 }}
             >
               <XAxis
                 type="number"
-                tick={{ fontSize: 10 }}
+                tick={{ fontSize: 9 }}
                 tickFormatter={(value) => formatNumber(value)}
+                axisLine={false}
+                tickLine={false}
               />
               <YAxis
                 type="category"
                 dataKey="segment"
-                tick={{ fontSize: 10 }}
-                width={40}
+                tick={{ fontSize: 9 }}
+                width={45}
+                axisLine={false}
+                tickLine={false}
               />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Bar dataKey="totalUsers" fill="var(--color-totalUsers)" radius={[0, 4, 4, 0]} />

@@ -80,40 +80,36 @@ export default function DashboardPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="google-analytics" className="space-y-4 sm:space-y-6">
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex h-12 sm:h-10 w-auto min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-4 gap-1 p-1">
-            <TabsTrigger
-              value="google-analytics"
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm min-h-[40px] sm:min-h-0"
-            >
-              <BarChart3 className="h-4 w-4 shrink-0" />
-              <span className="hidden xs:inline sm:inline">Analytics</span>
-              <span className="xs:hidden sm:hidden">GA</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="search-console"
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm min-h-[40px] sm:min-h-0"
-            >
-              <Search className="h-4 w-4 shrink-0" />
-              <span className="hidden xs:inline sm:inline">Search</span>
-              <span className="xs:hidden sm:hidden">GSC</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="youtube"
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm min-h-[40px] sm:min-h-0"
-            >
-              <Youtube className="h-4 w-4 shrink-0" />
-              <span>YouTube</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="linkedin"
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm min-h-[40px] sm:min-h-0"
-            >
-              <Linkedin className="h-4 w-4 shrink-0" />
-              <span>LinkedIn</span>
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="grid grid-cols-4 h-auto p-1 gap-0.5 sm:gap-1">
+          <TabsTrigger
+            value="google-analytics"
+            className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2 text-[10px] sm:text-sm min-h-[52px] sm:min-h-[40px]"
+          >
+            <BarChart3 className="h-4 w-4 shrink-0" />
+            <span className="truncate leading-tight">Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="search-console"
+            className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2 text-[10px] sm:text-sm min-h-[52px] sm:min-h-[40px]"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="truncate leading-tight">Search</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="youtube"
+            className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2 text-[10px] sm:text-sm min-h-[52px] sm:min-h-[40px]"
+          >
+            <Youtube className="h-4 w-4 shrink-0" />
+            <span className="truncate leading-tight">YouTube</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="linkedin"
+            className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2 text-[10px] sm:text-sm min-h-[52px] sm:min-h-[40px]"
+          >
+            <Linkedin className="h-4 w-4 shrink-0" />
+            <span className="truncate leading-tight">LinkedIn</span>
+          </TabsTrigger>
+        </TabsList>
 
         {/* Google Analytics Tab */}
         <TabsContent value="google-analytics" className="space-y-4 sm:space-y-6 mt-0">

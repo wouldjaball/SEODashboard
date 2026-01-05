@@ -123,7 +123,7 @@ export function DataTable<T extends object>({
   return (
     <div className={cn("space-y-4", className)}>
       {searchable && (
-        <div className="relative max-w-sm">
+        <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
@@ -132,7 +132,7 @@ export function DataTable<T extends object>({
               setSearch(e.target.value)
               setCurrentPage(1)
             }}
-            className="pl-9"
+            className="pl-9 h-9 text-sm"
           />
         </div>
       )}
@@ -189,27 +189,32 @@ export function DataTable<T extends object>({
         </Table>
       </div>
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {startItem} - {endItem} / {sortedData.length}
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+            {startItem}-{endItem} / {sortedData.length}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
+              className="h-8 w-8 p-0 sm:w-auto sm:px-3"
             >
               <ChevronLeft className="h-4 w-4" />
-              Previous
+              <span className="hidden sm:inline ml-1">Prev</span>
             </Button>
+            <span className="text-xs sm:text-sm text-muted-foreground px-1">
+              {currentPage}/{totalPages}
+            </span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
+              className="h-8 w-8 p-0 sm:w-auto sm:px-3"
             >
-              Next
+              <span className="hidden sm:inline mr-1">Next</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

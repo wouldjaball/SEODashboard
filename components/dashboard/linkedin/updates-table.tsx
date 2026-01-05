@@ -17,63 +17,45 @@ const columns: ColumnDef<LIUpdate>[] = [
     accessorKey: "title",
     header: "Update",
     cell: (row) => (
-      <div className="flex items-center gap-3 min-w-[200px]">
+      <div className="flex items-center gap-2 sm:gap-3">
         {row.imageUrl && (
-          <Avatar className="h-10 w-10 rounded-md shrink-0">
+          <Avatar className="h-8 w-8 sm:h-10 sm:w-10 rounded-md shrink-0 hidden sm:flex">
             <AvatarImage src={row.imageUrl} alt="" className="object-cover" />
-            <AvatarFallback className="rounded-md bg-muted">LI</AvatarFallback>
+            <AvatarFallback className="rounded-md bg-muted text-[10px]">LI</AvatarFallback>
           </Avatar>
         )}
-        <div className="max-w-[250px] truncate" title={row.title}>
+        <div className="max-w-[120px] sm:max-w-[180px] md:max-w-[250px] truncate text-xs sm:text-sm" title={row.title}>
           {row.title}
         </div>
       </div>
     ),
   },
   {
-    accessorKey: "publishedAt",
-    header: "Published",
-    cell: (row) => format(parseISO(row.publishedAt), "MMM d, yyyy"),
-  },
-  {
     accessorKey: "impressions",
-    header: "Impressions",
-    cell: (row) => formatNumber(row.impressions),
-  },
-  {
-    accessorKey: "videoViews",
-    header: "Video Views",
-    cell: (row) => row.videoViews > 0 ? formatNumber(row.videoViews) : "-",
+    header: "Impr.",
+    cell: (row) => <span className="text-xs sm:text-sm">{formatNumber(row.impressions)}</span>,
   },
   {
     accessorKey: "clicks",
     header: "Clicks",
-    cell: (row) => formatNumber(row.clicks, { suffix: false }),
-  },
-  {
-    accessorKey: "ctr",
-    header: "CTR",
-    cell: (row) => formatPercent(row.ctr),
+    cell: (row) => <span className="text-xs sm:text-sm">{formatNumber(row.clicks, { suffix: false })}</span>,
+    className: "hidden sm:table-cell",
   },
   {
     accessorKey: "reactions",
-    header: "Reactions",
-    cell: (row) => formatNumber(row.reactions, { suffix: false }),
-  },
-  {
-    accessorKey: "comments",
-    header: "Comments",
-    cell: (row) => formatNumber(row.comments, { suffix: false }),
-  },
-  {
-    accessorKey: "shares",
-    header: "Shares",
-    cell: (row) => formatNumber(row.shares, { suffix: false }),
+    header: "React.",
+    cell: (row) => <span className="text-xs sm:text-sm">{formatNumber(row.reactions, { suffix: false })}</span>,
   },
   {
     accessorKey: "engagementRate",
-    header: "Engagement",
-    cell: (row) => formatPercent(row.engagementRate),
+    header: "Eng.",
+    cell: (row) => <span className="text-xs sm:text-sm">{formatPercent(row.engagementRate)}</span>,
+  },
+  {
+    accessorKey: "publishedAt",
+    header: "Date",
+    cell: (row) => <span className="text-xs sm:text-sm">{format(parseISO(row.publishedAt), "MMM d")}</span>,
+    className: "hidden md:table-cell",
   },
   {
     accessorKey: "linkUrl",
@@ -83,11 +65,11 @@ const columns: ColumnDef<LIUpdate>[] = [
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8"
+        className="h-7 w-7 sm:h-8 sm:w-8"
         asChild
       >
         <a href={row.linkUrl} target="_blank" rel="noopener noreferrer">
-          <ExternalLink className="h-4 w-4" />
+          <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </a>
       </Button>
     ),
@@ -97,7 +79,7 @@ const columns: ColumnDef<LIUpdate>[] = [
 export function UpdatesTable({ data }: UpdatesTableProps) {
   return (
     <div className="space-y-2">
-      <h3 className="text-lg font-semibold">Updates</h3>
+      <h3 className="text-sm sm:text-lg font-semibold">Updates</h3>
       <DataTable
         data={data}
         columns={columns}
