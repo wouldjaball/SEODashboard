@@ -78,43 +78,41 @@
   --chart-5: #ec4899;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #fafafa;
+.dark {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
 
-    --card: #0a0a0a;
-    --card-foreground: #fafafa;
+  --card: #0a0a0a;
+  --card-foreground: #fafafa;
 
-    --popover: #0a0a0a;
-    --popover-foreground: #fafafa;
+  --popover: #0a0a0a;
+  --popover-foreground: #fafafa;
 
-    --primary: #22c55e;
-    --primary-foreground: #ffffff;
+  --primary: #22c55e;
+  --primary-foreground: #ffffff;
 
-    --secondary: #27272a;
-    --secondary-foreground: #fafafa;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
 
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
 
-    --accent: #27272a;
-    --accent-foreground: #fafafa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
 
-    --destructive: #7f1d1d;
-    --destructive-foreground: #fafafa;
+  --destructive: #7f1d1d;
+  --destructive-foreground: #fafafa;
 
-    --border: #27272a;
-    --input: #27272a;
-    --ring: #22c55e;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #22c55e;
 
-    /* Chart colors for dark mode - vibrant distinct colors */
-    --chart-1: #4ade80;
-    --chart-2: #60a5fa;
-    --chart-3: #fb923c;
-    --chart-4: #a78bfa;
-    --chart-5: #f472b6;
-  }
+  /* Chart colors for dark mode - vibrant distinct colors */
+  --chart-1: #4ade80;
+  --chart-2: #60a5fa;
+  --chart-3: #fb923c;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
 }
 
 * {

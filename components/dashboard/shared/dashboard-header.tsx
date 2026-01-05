@@ -3,13 +3,13 @@
 import { BarChart3 } from "lucide-react"
 import { useCompany } from "@/lib/company-context"
 import { CompanySwitcher } from "./company-switcher"
-import { Badge } from "@/components/ui/badge"
+import { ModeToggle } from "@/components/mode-toggle"
 
 export function DashboardHeader() {
   const { company } = useCompany()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-gray-900 text-white safe-area-inset-top">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-top">
       <div className="container flex h-14 sm:h-16 items-center px-3 sm:px-4 gap-3 sm:gap-4">
         {/* Logo and Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
@@ -23,7 +23,7 @@ export function DashboardHeader() {
             <span className="text-sm sm:text-base font-bold truncate leading-tight">
               {company.name}
             </span>
-            <span className="text-[10px] sm:text-xs text-gray-400 truncate leading-tight">
+            <span className="text-[10px] sm:text-xs text-muted-foreground truncate leading-tight">
               {company.industry}
             </span>
           </div>
@@ -32,8 +32,9 @@ export function DashboardHeader() {
         {/* Center space */}
         <div className="flex-1" />
 
-        {/* Company Switcher */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        {/* Controls */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ModeToggle />
           <CompanySwitcher />
         </div>
       </div>

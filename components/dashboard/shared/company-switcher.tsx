@@ -31,7 +31,7 @@ export function CompanySwitcher() {
         if (selected) setCompany(selected)
       }}
     >
-      <SelectTrigger className="w-[180px] sm:w-[220px] h-10 sm:h-11 text-sm bg-gray-800 border-gray-700 text-white hover:bg-gray-700 transition-colors">
+      <SelectTrigger className="w-[180px] sm:w-[220px] h-10 sm:h-11 text-sm bg-secondary border-border hover:bg-accent transition-colors">
         <div className="flex items-center gap-2.5 truncate">
           <Avatar className="h-6 w-6 sm:h-7 sm:w-7 shrink-0">
             <AvatarFallback
