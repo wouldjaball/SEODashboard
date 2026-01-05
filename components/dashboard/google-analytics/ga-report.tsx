@@ -46,11 +46,11 @@ export function GAReport({
   age,
 }: GAReportProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* KPI Overview */}
       <GAKPIOverview metrics={metrics} />
 
-      {/* Charts Row */}
+      {/* Charts Row - Stack on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3">
           <WeeklyPerformanceChart data={weeklyData} />
@@ -69,8 +69,8 @@ export function GAReport({
       {/* Landing Page Table */}
       <LandingPageTable data={landingPages} />
 
-      {/* Region & Demographics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Region & Demographics - Stack on mobile and tablet */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <RegionMap data={regions} />
         <DemographicsCharts devices={devices} gender={gender} age={age} />
       </div>

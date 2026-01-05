@@ -17,7 +17,7 @@ export function GAKPIOverview({ metrics }: GAKPIOverviewProps) {
   const prev = metrics.previousPeriod
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
       <KPICard
         title="Total Users"
         value={metrics.totalUsers}
@@ -47,7 +47,7 @@ export function GAKPIOverview({ metrics }: GAKPIOverviewProps) {
         format="number"
       />
       <KPICard
-        title="Avg. Session Duration"
+        title="Avg. Duration"
         value={metrics.avgSessionDuration}
         change={getChange(metrics.avgSessionDuration, prev?.avgSessionDuration)}
         icon={Clock}
@@ -68,7 +68,7 @@ export function GAKPIOverview({ metrics }: GAKPIOverviewProps) {
         format="number"
       />
       <KPICard
-        title="User Key Event Rate"
+        title="Event Rate"
         value={metrics.userKeyEventRate}
         change={getChange(metrics.userKeyEventRate, prev?.userKeyEventRate)}
         icon={TrendingUp}

@@ -36,7 +36,7 @@ export function KPICard({
   title,
   value,
   change,
-  changeLabel = "vs previous period",
+  changeLabel = "vs prev",
   format = "number",
   icon: Icon,
   sparklineData,
@@ -60,26 +60,26 @@ export function KPICard({
   const sparklineId = React.useId()
 
   return (
-    <Card className={cn("relative overflow-hidden", className)}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-2xl font-bold tracking-tight">{formattedValue}</p>
+    <Card className={cn("relative overflow-hidden touch-manipulation", className)}>
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
               {Icon && (
-                <Icon className="h-4 w-4 text-muted-foreground" />
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
               )}
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{title}</p>
             </div>
+            <p className="text-lg sm:text-2xl font-bold tracking-tight truncate">{formattedValue}</p>
             {change !== undefined && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <MetricBadge value={change} size="sm" />
-                <span className="text-xs text-muted-foreground">{changeLabel}</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:inline">{changeLabel}</span>
               </div>
             )}
           </div>
           {sparklineData && sparklineData.length > 0 && (
-            <ChartContainer config={sparklineConfig} className="h-12 w-20">
+            <ChartContainer config={sparklineConfig} className="h-10 w-16 sm:h-12 sm:w-20 shrink-0">
               <AreaChart data={sparklineData.map((v, i) => ({ value: v, index: i }))}>
                 <defs>
                   <linearGradient id={`sparklineGradient-${sparklineId}`} x1="0" y1="0" x2="0" y2="1">

@@ -65,17 +65,22 @@ export function DateRangePicker({
         <Button
           variant="outline"
           className={cn(
-            "justify-start text-left font-normal",
+            "w-full sm:w-auto justify-start text-left font-normal h-10 text-sm",
             !value && "text-muted-foreground",
             className
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
+          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
           {value?.from ? (
             value.to ? (
-              <>
-                {format(value.from, "LLL dd, y")} - {format(value.to, "LLL dd, y")}
-              </>
+              <span className="truncate">
+                <span className="hidden sm:inline">
+                  {format(value.from, "LLL dd, y")} - {format(value.to, "LLL dd, y")}
+                </span>
+                <span className="sm:hidden">
+                  {format(value.from, "MMM d")} - {format(value.to, "MMM d")}
+                </span>
+              </span>
             ) : (
               format(value.from, "LLL dd, y")
             )
@@ -84,15 +89,21 @@ export function DateRangePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <div className="flex">
-          <div className="border-r p-2 space-y-1">
+      <PopoverContent
+        className="w-auto p-0 max-w-[calc(100vw-2rem)]"
+        align="end"
+        sideOffset={8}
+      >
+        {/* Mobile: Stacked layout, Desktop: Side by side */}
+        <div className="flex flex-col sm:flex-row max-h-[80vh] overflow-auto">
+          {/* Presets - horizontal scroll on mobile, vertical list on desktop */}
+          <div className="flex sm:flex-col gap-1 p-2 border-b sm:border-b-0 sm:border-r overflow-x-auto sm:overflow-x-visible">
             {presets.map((preset) => (
               <Button
                 key={preset.label}
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start"
+                className="shrink-0 sm:w-full justify-start text-xs sm:text-sm whitespace-nowrap"
                 onClick={() => {
                   onChange(preset.range)
                   setIsOpen(false)
@@ -111,6 +122,7 @@ export function DateRangePicker({
                   onChange({ from: range.from, to: range.to })
                 }
               }}
+              className="rounded-md"
             />
           </div>
         </div>
