@@ -27,15 +27,15 @@ interface ImpressionsClicksChartProps {
 const chartConfig = {
   impressions: {
     label: "Impressions",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
   clicks: {
     label: "Clicks",
-    color: "hsl(var(--chart-3))",
+    color: "var(--chart-3)",
   },
   ctr: {
     label: "CTR",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
 } satisfies ChartConfig
 
@@ -43,7 +43,7 @@ export function ImpressionsClicksChart({ data }: ImpressionsClicksChartProps) {
   return (
     <ChartCard title="Impressions, Clicks & CTR" className="h-full">
       <ChartContainer config={chartConfig} className="h-[300px] w-full">
-        <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ComposedChart accessibilityLayer data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="weekLabel"

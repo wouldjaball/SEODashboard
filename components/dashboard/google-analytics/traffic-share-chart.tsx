@@ -23,14 +23,14 @@ interface TrafficShareChartProps {
 }
 
 const channelColors: Record<string, string> = {
-  "Organic Search": "hsl(var(--chart-1))",
-  "Direct": "hsl(var(--chart-2))",
-  "Paid Search": "hsl(var(--chart-3))",
-  "Referral": "hsl(var(--chart-4))",
-  "Organic Social": "hsl(var(--chart-5))",
-  "Paid Other": "hsl(217 91% 60%)",
-  "Cross-network": "hsl(280 65% 60%)",
-  "Unassigned": "hsl(220 9% 46%)",
+  "Organic Search": "var(--chart-1)",
+  "Direct": "var(--chart-2)",
+  "Paid Search": "var(--chart-3)",
+  "Referral": "var(--chart-4)",
+  "Organic Social": "var(--chart-5)",
+  "Paid Other": "#3b82f6",
+  "Cross-network": "#8b5cf6",
+  "Unassigned": "#71717a",
 }
 
 export function TrafficShareChart({ data }: TrafficShareChartProps) {
@@ -42,7 +42,7 @@ export function TrafficShareChart({ data }: TrafficShareChartProps) {
       item.channel,
       {
         label: item.channel,
-        color: channelColors[item.channel] || "hsl(var(--chart-1))",
+        color: channelColors[item.channel] || "var(--chart-1)",
       },
     ])
   ) satisfies ChartConfig
@@ -50,7 +50,7 @@ export function TrafficShareChart({ data }: TrafficShareChartProps) {
   return (
     <ChartCard title="Traffic Share by Users" className="h-full">
       <ChartContainer config={chartConfig} className="h-[300px] w-full">
-        <PieChart>
+        <PieChart accessibilityLayer>
           <ChartTooltip
             content={
               <ChartTooltipContent
@@ -76,7 +76,7 @@ export function TrafficShareChart({ data }: TrafficShareChartProps) {
             {chartData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={channelColors[entry.channel] || "hsl(var(--chart-1))"}
+                fill={channelColors[entry.channel] || "var(--chart-1)"}
               />
             ))}
             <Label

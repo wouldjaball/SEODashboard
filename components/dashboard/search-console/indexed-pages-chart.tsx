@@ -28,11 +28,11 @@ interface IndexedPagesChartProps {
 const chartConfig = {
   indexedPages: {
     label: "Indexed Pages",
-    color: "hsl(var(--chart-4))",
+    color: "var(--chart-4)",
   },
   rankingKeywords: {
     label: "Ranking Keywords",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
 } satisfies ChartConfig
 
@@ -45,7 +45,7 @@ export function IndexedPagesChart({ data }: IndexedPagesChartProps) {
   return (
     <ChartCard title="Indexed Pages and Ranking Keywords">
       <ChartContainer config={chartConfig} className="h-[300px] w-full">
-        <ComposedChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ComposedChart accessibilityLayer data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="formattedDate"

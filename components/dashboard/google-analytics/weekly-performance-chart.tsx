@@ -27,11 +27,11 @@ interface WeeklyPerformanceChartProps {
 const chartConfig = {
   views: {
     label: "Views",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
   sessions: {
     label: "Sessions",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
 } satisfies ChartConfig
 
@@ -39,7 +39,7 @@ export function WeeklyPerformanceChart({ data }: WeeklyPerformanceChartProps) {
   return (
     <ChartCard title="Weekly User & Conversion Performance" className="h-full">
       <ChartContainer config={chartConfig} className="h-[300px] w-full">
-        <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ComposedChart accessibilityLayer data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="weekLabel"

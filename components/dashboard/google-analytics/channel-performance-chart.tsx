@@ -27,35 +27,35 @@ interface ChannelPerformanceChartProps {
 const chartConfig = {
   direct: {
     label: "Direct",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
   organicSearch: {
     label: "Organic Search",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
   paidSearch: {
     label: "Paid Search",
-    color: "hsl(var(--chart-3))",
+    color: "var(--chart-3)",
   },
   referral: {
     label: "Referral",
-    color: "hsl(var(--chart-4))",
+    color: "var(--chart-4)",
   },
   organicSocial: {
     label: "Organic Social",
-    color: "hsl(var(--chart-5))",
+    color: "var(--chart-5)",
   },
   paidOther: {
     label: "Paid Other",
-    color: "hsl(217 91% 60%)",
+    color: "#3b82f6",
   },
   crossNetwork: {
     label: "Cross-network",
-    color: "hsl(280 65% 60%)",
+    color: "#8b5cf6",
   },
   unassigned: {
     label: "Unassigned",
-    color: "hsl(220 9% 46%)",
+    color: "#71717a",
   },
 } satisfies ChartConfig
 
@@ -68,7 +68,7 @@ export function ChannelPerformanceChart({ data }: ChannelPerformanceChartProps) 
   return (
     <ChartCard title="Weekly Channel Performance by Users" className="w-full">
       <ChartContainer config={chartConfig} className="h-[350px] w-full">
-        <AreaChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <AreaChart accessibilityLayer data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="formattedDate"
