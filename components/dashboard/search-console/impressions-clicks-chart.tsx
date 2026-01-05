@@ -6,13 +6,17 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
   ComposedChart,
 } from "recharts"
 import { ChartCard } from "@/components/dashboard/shared"
-import { chartColors } from "@/lib/chart-config"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
 import { formatNumber, formatPercent } from "@/lib/utils"
 import type { GSCWeeklyData } from "@/lib/types"
 
@@ -20,77 +24,83 @@ interface ImpressionsClicksChartProps {
   data: GSCWeeklyData[]
 }
 
+const chartConfig = {
+  impressions: {
+    label: "Impressions",
+    color: "hsl(var(--chart-2))",
+  },
+  clicks: {
+    label: "Clicks",
+    color: "hsl(var(--chart-3))",
+  },
+  ctr: {
+    label: "CTR",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
+
 export function ImpressionsClicksChart({ data }: ImpressionsClicksChartProps) {
   return (
     <ChartCard title="Impressions, Clicks & CTR" className="h-full">
-      <div className="h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis
-              dataKey="weekLabel"
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              className="text-muted-foreground"
-            />
-            <YAxis
-              yAxisId="left"
-              orientation="left"
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => formatNumber(value)}
-              className="text-muted-foreground"
-            />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => `${(value * 100).toFixed(1)}%`}
-              className="text-muted-foreground"
-              domain={[0, 0.1]}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: "8px",
-              }}
-              formatter={(value, name) => {
-                if (name === "ctr") return [formatPercent(Number(value)), "CTR"]
-                return [formatNumber(Number(value), { suffix: false }), name === "impressions" ? "Impressions" : "Clicks"]
-              }}
-            />
-            <Legend />
-            <Bar
-              yAxisId="left"
-              dataKey="impressions"
-              fill={chartColors.secondary}
-              name="Impressions"
-              radius={[4, 4, 0, 0]}
-            />
-            <Bar
-              yAxisId="left"
-              dataKey="clicks"
-              fill={chartColors.tertiary}
-              name="Clicks"
-              radius={[4, 4, 0, 0]}
-            />
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="ctr"
-              stroke={chartColors.primary}
-              strokeWidth={2}
-              dot={{ fill: chartColors.primary, strokeWidth: 2 }}
-              name="CTR"
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
+      <ChartContainer config={chartConfig} className="h-[300px] w-full">
+        <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="weekLabel"
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            yAxisId="left"
+            orientation="left"
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => formatNumber(value)}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => `${(value * 100).toFixed(1)}%`}
+            domain={[0, 0.01]}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(value, name) => {
+                  if (name === "ctr") return <span>{formatPercent(Number(value))}</span>
+                  return <span>{formatNumber(Number(value))}</span>
+                }}
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar
+            yAxisId="left"
+            dataKey="impressions"
+            fill="var(--color-impressions)"
+            radius={[4, 4, 0, 0]}
+          />
+          <Bar
+            yAxisId="left"
+            dataKey="clicks"
+            fill="var(--color-clicks)"
+            radius={[4, 4, 0, 0]}
+          />
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="ctr"
+            stroke="var(--color-ctr)"
+            strokeWidth={2}
+            dot={{ fill: "var(--color-ctr)", strokeWidth: 2 }}
+          />
+        </ComposedChart>
+      </ChartContainer>
     </ChartCard>
   )
 }

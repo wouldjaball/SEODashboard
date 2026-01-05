@@ -5,12 +5,15 @@ import {
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { chartColors } from "@/lib/chart-config"
-import { formatNumber, formatPercent } from "@/lib/utils"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
+import { formatNumber } from "@/lib/utils"
 import type { LIDemographic } from "@/lib/types"
 
 interface VisitorDemographicsProps {
@@ -19,6 +22,22 @@ interface VisitorDemographicsProps {
   jobFunction: LIDemographic[]
   companySize: LIDemographic[]
 }
+
+const industryConfig = {
+  value: { label: "Visitors", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig
+
+const seniorityConfig = {
+  value: { label: "Visitors", color: "hsl(var(--chart-1))" },
+} satisfies ChartConfig
+
+const jobFunctionConfig = {
+  value: { label: "Visitors", color: "hsl(var(--chart-3))" },
+} satisfies ChartConfig
+
+const companySizeConfig = {
+  value: { label: "Visitors", color: "hsl(var(--chart-4))" },
+} satisfies ChartConfig
 
 export function VisitorDemographics({
   industry,
@@ -37,31 +56,27 @@ export function VisitorDemographics({
             <CardTitle className="text-base font-semibold">Industry</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={industry.slice(0, 6)}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
-                >
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => formatNumber(value)}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="segment"
-                    tick={{ fontSize: 10 }}
-                    width={80}
-                  />
-                  <Tooltip
-                    formatter={(value) => [formatNumber(Number(value)), "Visitors"]}
-                  />
-                  <Bar dataKey="value" fill={chartColors.secondary} radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartContainer config={industryConfig} className="h-[200px] w-full">
+              <BarChart
+                data={industry.slice(0, 6)}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+              >
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) => formatNumber(value)}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="segment"
+                  tick={{ fontSize: 10 }}
+                  width={80}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="var(--color-value)" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
 
@@ -71,31 +86,27 @@ export function VisitorDemographics({
             <CardTitle className="text-base font-semibold">Seniority</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={seniority.slice(0, 6)}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
-                >
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => formatNumber(value)}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="segment"
-                    tick={{ fontSize: 10 }}
-                    width={60}
-                  />
-                  <Tooltip
-                    formatter={(value) => [formatNumber(Number(value)), "Visitors"]}
-                  />
-                  <Bar dataKey="value" fill={chartColors.primary} radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartContainer config={seniorityConfig} className="h-[200px] w-full">
+              <BarChart
+                data={seniority.slice(0, 6)}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+              >
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) => formatNumber(value)}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="segment"
+                  tick={{ fontSize: 10 }}
+                  width={60}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="var(--color-value)" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
 
@@ -105,31 +116,27 @@ export function VisitorDemographics({
             <CardTitle className="text-base font-semibold">Job Function</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={jobFunction.slice(0, 6)}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
-                >
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => formatNumber(value)}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="segment"
-                    tick={{ fontSize: 10 }}
-                    width={100}
-                  />
-                  <Tooltip
-                    formatter={(value) => [formatNumber(Number(value)), "Visitors"]}
-                  />
-                  <Bar dataKey="value" fill={chartColors.tertiary} radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartContainer config={jobFunctionConfig} className="h-[200px] w-full">
+              <BarChart
+                data={jobFunction.slice(0, 6)}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+              >
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) => formatNumber(value)}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="segment"
+                  tick={{ fontSize: 10 }}
+                  width={100}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="var(--color-value)" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
 
@@ -139,31 +146,27 @@ export function VisitorDemographics({
             <CardTitle className="text-base font-semibold">Company Size</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={companySize.slice(0, 6)}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
-                >
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => formatNumber(value)}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="segment"
-                    tick={{ fontSize: 10 }}
-                    width={60}
-                  />
-                  <Tooltip
-                    formatter={(value) => [formatNumber(Number(value)), "Visitors"]}
-                  />
-                  <Bar dataKey="value" fill={chartColors.quaternary} radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartContainer config={companySizeConfig} className="h-[200px] w-full">
+              <BarChart
+                data={companySize.slice(0, 6)}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+              >
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) => formatNumber(value)}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="segment"
+                  tick={{ fontSize: 10 }}
+                  width={60}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="var(--color-value)" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </div>

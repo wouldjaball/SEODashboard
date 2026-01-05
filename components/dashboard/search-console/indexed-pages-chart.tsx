@@ -6,13 +6,17 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
   ComposedChart,
 } from "recharts"
 import { ChartCard } from "@/components/dashboard/shared"
-import { chartColors } from "@/lib/chart-config"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
 import { formatNumber } from "@/lib/utils"
 import type { GSCIndexData } from "@/lib/types"
 import { format, parseISO } from "date-fns"
@@ -20,6 +24,17 @@ import { format, parseISO } from "date-fns"
 interface IndexedPagesChartProps {
   data: GSCIndexData[]
 }
+
+const chartConfig = {
+  indexedPages: {
+    label: "Indexed Pages",
+    color: "hsl(var(--chart-4))",
+  },
+  rankingKeywords: {
+    label: "Ranking Keywords",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
 
 export function IndexedPagesChart({ data }: IndexedPagesChartProps) {
   const formattedData = data.map((d) => ({
@@ -29,66 +44,49 @@ export function IndexedPagesChart({ data }: IndexedPagesChartProps) {
 
   return (
     <ChartCard title="Indexed Pages and Ranking Keywords">
-      <div className="h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis
-              dataKey="formattedDate"
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              className="text-muted-foreground"
-            />
-            <YAxis
-              yAxisId="left"
-              orientation="left"
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => formatNumber(value)}
-              className="text-muted-foreground"
-            />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => formatNumber(value)}
-              className="text-muted-foreground"
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: "8px",
-              }}
-              formatter={(value, name) => [
-                formatNumber(Number(value), { suffix: false }),
-                name === "indexedPages" ? "Indexed Pages" : "Ranking Keywords",
-              ]}
-            />
-            <Legend />
-            <Bar
-              yAxisId="left"
-              dataKey="indexedPages"
-              fill={chartColors.quaternary}
-              name="Indexed Pages"
-              radius={[4, 4, 0, 0]}
-            />
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="rankingKeywords"
-              stroke={chartColors.primary}
-              strokeWidth={2}
-              dot={{ fill: chartColors.primary, strokeWidth: 2 }}
-              name="Ranking Keywords"
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
+      <ChartContainer config={chartConfig} className="h-[300px] w-full">
+        <ComposedChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="formattedDate"
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            yAxisId="left"
+            orientation="left"
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => formatNumber(value)}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => formatNumber(value)}
+          />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar
+            yAxisId="left"
+            dataKey="indexedPages"
+            fill="var(--color-indexedPages)"
+            radius={[4, 4, 0, 0]}
+          />
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="rankingKeywords"
+            stroke="var(--color-rankingKeywords)"
+            strokeWidth={2}
+            dot={{ fill: "var(--color-rankingKeywords)", strokeWidth: 2 }}
+          />
+        </ComposedChart>
+      </ChartContainer>
     </ChartCard>
   )
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { LucideIcon } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { MetricBadge } from "./metric-badge"
@@ -7,8 +8,11 @@ import { cn, formatNumber, formatPercent, formatDuration, formatCurrency } from 
 import {
   Area,
   AreaChart,
-  ResponsiveContainer,
 } from "recharts"
+import {
+  ChartContainer,
+  type ChartConfig,
+} from "@/components/ui/chart"
 
 interface KPICardProps {
   title: string
@@ -20,6 +24,13 @@ interface KPICardProps {
   sparklineData?: number[]
   className?: string
 }
+
+const sparklineConfig = {
+  value: {
+    label: "Value",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
 
 export function KPICard({
   title,
@@ -46,6 +57,8 @@ export function KPICard({
     }
   })()
 
+  const sparklineId = React.useId()
+
   return (
     <Card className={cn("relative overflow-hidden", className)}>
       <CardContent className="p-4">
@@ -66,25 +79,23 @@ export function KPICard({
             )}
           </div>
           {sparklineData && sparklineData.length > 0 && (
-            <div className="h-12 w-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={sparklineData.map((v, i) => ({ value: v, index: i }))}>
-                  <defs>
-                    <linearGradient id="sparklineGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="var(--primary)"
-                    strokeWidth={1.5}
-                    fill="url(#sparklineGradient)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartContainer config={sparklineConfig} className="h-12 w-20">
+              <AreaChart data={sparklineData.map((v, i) => ({ value: v, index: i }))}>
+                <defs>
+                  <linearGradient id={`sparklineGradient-${sparklineId}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-value)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--color-value)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="var(--color-value)"
+                  strokeWidth={1.5}
+                  fill={`url(#sparklineGradient-${sparklineId})`}
+                />
+              </AreaChart>
+            </ChartContainer>
           )}
         </div>
       </CardContent>

@@ -4,8 +4,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -16,7 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { chartColorArray } from "@/lib/chart-config"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
 import { formatNumber, formatPercent } from "@/lib/utils"
 import type { GSCDeviceData } from "@/lib/types"
 
@@ -24,13 +27,19 @@ interface DevicePerformanceProps {
   data: GSCDeviceData[]
 }
 
+const chartConfig = {
+  desktop: { label: "Desktop", color: "hsl(var(--chart-1))" },
+  mobile: { label: "Mobile", color: "hsl(var(--chart-2))" },
+  tablet: { label: "Tablet", color: "hsl(var(--chart-3))" },
+} satisfies ChartConfig
+
+const deviceColors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))"]
+
 export function DevicePerformance({ data }: DevicePerformanceProps) {
   const pieData = data.map((d) => ({
     name: d.device.charAt(0).toUpperCase() + d.device.slice(1),
     value: d.impressions,
   }))
-
-  const totalImpressions = data.reduce((sum, d) => sum + d.impressions, 0)
 
   return (
     <Card className="h-full">
@@ -38,28 +47,24 @@ export function DevicePerformance({ data }: DevicePerformanceProps) {
         <CardTitle className="text-base font-semibold">Device Performance</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[150px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                innerRadius={35}
-                outerRadius={55}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {pieData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={chartColorArray[index]} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value) => [formatNumber(Number(value)), "Impressions"]}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer config={chartConfig} className="h-[150px] w-full">
+          <PieChart>
+            <Pie
+              data={pieData}
+              cx="50%"
+              cy="50%"
+              innerRadius={35}
+              outerRadius={55}
+              paddingAngle={2}
+              dataKey="value"
+            >
+              {pieData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={deviceColors[index]} />
+              ))}
+            </Pie>
+            <ChartTooltip content={<ChartTooltipContent />} />
+          </PieChart>
+        </ChartContainer>
         <Table>
           <TableHeader>
             <TableRow>
@@ -76,7 +81,7 @@ export function DevicePerformance({ data }: DevicePerformanceProps) {
                   <div className="flex items-center gap-2">
                     <div
                       className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: chartColorArray[index] }}
+                      style={{ backgroundColor: deviceColors[index] }}
                     />
                     {device.device.charAt(0).toUpperCase() + device.device.slice(1)}
                   </div>

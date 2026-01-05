@@ -7,12 +7,16 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from "recharts"
 import { KPICard, ChartCard } from "@/components/dashboard/shared"
-import { chartColors } from "@/lib/chart-config"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
 import { formatNumber } from "@/lib/utils"
 import type { LIVisitorMetrics, LIVisitorDaily } from "@/lib/types"
 import { format, parseISO } from "date-fns"
@@ -21,6 +25,17 @@ interface VisitorAnalyticsProps {
   metrics: LIVisitorMetrics
   dailyData: LIVisitorDaily[]
 }
+
+const chartConfig = {
+  desktopVisitors: {
+    label: "Desktop",
+    color: "hsl(var(--chart-2))",
+  },
+  mobileVisitors: {
+    label: "Mobile",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
 
 export function VisitorAnalytics({ metrics, dailyData }: VisitorAnalyticsProps) {
   const getChange = (current: number, previous?: number) => {
@@ -66,52 +81,39 @@ export function VisitorAnalytics({ metrics, dailyData }: VisitorAnalyticsProps) 
 
       {/* Visitors Chart */}
       <ChartCard title="Desktop vs Mobile Unique Visitors">
-        <div className="h-[250px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="formattedDate"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                className="text-muted-foreground"
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => formatNumber(value)}
-                className="text-muted-foreground"
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                }}
-                formatter={(value) => [formatNumber(Number(value), { suffix: false }), ""]}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="desktopVisitors"
-                stroke={chartColors.secondary}
-                strokeWidth={2}
-                dot={{ fill: chartColors.secondary, strokeWidth: 2, r: 3 }}
-                name="Desktop"
-              />
-              <Line
-                type="monotone"
-                dataKey="mobileVisitors"
-                stroke={chartColors.primary}
-                strokeWidth={2}
-                dot={{ fill: chartColors.primary, strokeWidth: 2, r: 3 }}
-                name="Mobile"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer config={chartConfig} className="h-[250px] w-full">
+          <LineChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="formattedDate"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => formatNumber(value)}
+            />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Line
+              type="monotone"
+              dataKey="desktopVisitors"
+              stroke="var(--color-desktopVisitors)"
+              strokeWidth={2}
+              dot={{ fill: "var(--color-desktopVisitors)", strokeWidth: 2, r: 3 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="mobileVisitors"
+              stroke="var(--color-mobileVisitors)"
+              strokeWidth={2}
+              dot={{ fill: "var(--color-mobileVisitors)", strokeWidth: 2, r: 3 }}
+            />
+          </LineChart>
+        </ChartContainer>
       </ChartCard>
     </div>
   )

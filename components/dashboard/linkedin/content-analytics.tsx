@@ -7,11 +7,14 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts"
 import { KPICard, ChartCard } from "@/components/dashboard/shared"
-import { chartColors } from "@/lib/chart-config"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
 import { formatNumber } from "@/lib/utils"
 import type { LIContentMetrics, LIImpressionDaily } from "@/lib/types"
 import { format, parseISO } from "date-fns"
@@ -20,6 +23,13 @@ interface ContentAnalyticsProps {
   metrics: LIContentMetrics
   dailyData: LIImpressionDaily[]
 }
+
+const chartConfig = {
+  impressions: {
+    label: "Impressions",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
 
 export function ContentAnalytics({ metrics, dailyData }: ContentAnalyticsProps) {
   const getChange = (current: number, previous?: number) => {
@@ -65,42 +75,31 @@ export function ContentAnalytics({ metrics, dailyData }: ContentAnalyticsProps) 
 
       {/* Impressions Chart */}
       <ChartCard title="Impressions Over Time">
-        <div className="h-[250px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="formattedDate"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                className="text-muted-foreground"
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => formatNumber(value)}
-                className="text-muted-foreground"
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                }}
-                formatter={(value) => [formatNumber(Number(value), { suffix: false }), "Impressions"]}
-              />
-              <Line
-                type="monotone"
-                dataKey="impressions"
-                stroke={chartColors.primary}
-                strokeWidth={2}
-                dot={{ fill: chartColors.primary, strokeWidth: 2, r: 3 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer config={chartConfig} className="h-[250px] w-full">
+          <LineChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="formattedDate"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => formatNumber(value)}
+            />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <Line
+              type="monotone"
+              dataKey="impressions"
+              stroke="var(--color-impressions)"
+              strokeWidth={2}
+              dot={{ fill: "var(--color-impressions)", strokeWidth: 2, r: 3 }}
+            />
+          </LineChart>
+        </ChartContainer>
       </ChartCard>
     </div>
   )

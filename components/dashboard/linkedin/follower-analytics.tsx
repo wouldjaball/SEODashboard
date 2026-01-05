@@ -7,12 +7,16 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from "recharts"
 import { KPICard, ChartCard } from "@/components/dashboard/shared"
-import { chartColors } from "@/lib/chart-config"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
 import { formatNumber } from "@/lib/utils"
 import type { LIFollowerMetrics, LIFollowerDaily } from "@/lib/types"
 import { format, parseISO } from "date-fns"
@@ -21,6 +25,17 @@ interface FollowerAnalyticsProps {
   metrics: LIFollowerMetrics
   dailyData: LIFollowerDaily[]
 }
+
+const chartConfig = {
+  sponsored: {
+    label: "Sponsored",
+    color: "hsl(var(--chart-2))",
+  },
+  organic: {
+    label: "Organic",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
 
 export function FollowerAnalytics({ metrics, dailyData }: FollowerAnalyticsProps) {
   const getChange = (current: number, previous?: number) => {
@@ -59,54 +74,41 @@ export function FollowerAnalytics({ metrics, dailyData }: FollowerAnalyticsProps
 
       {/* Followers Chart */}
       <ChartCard title="Sponsored vs Organic Followers">
-        <div className="h-[250px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="formattedDate"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                className="text-muted-foreground"
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => formatNumber(value)}
-                className="text-muted-foreground"
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                }}
-                formatter={(value) => [formatNumber(Number(value), { suffix: false }), ""]}
-              />
-              <Legend />
-              <Area
-                type="monotone"
-                dataKey="sponsored"
-                stackId="1"
-                stroke={chartColors.secondary}
-                fill={chartColors.secondary}
-                fillOpacity={0.6}
-                name="Sponsored"
-              />
-              <Area
-                type="monotone"
-                dataKey="organic"
-                stackId="1"
-                stroke={chartColors.primary}
-                fill={chartColors.primary}
-                fillOpacity={0.6}
-                name="Organic"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer config={chartConfig} className="h-[250px] w-full">
+          <AreaChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="formattedDate"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => formatNumber(value)}
+            />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Area
+              type="monotone"
+              dataKey="sponsored"
+              stackId="1"
+              stroke="var(--color-sponsored)"
+              fill="var(--color-sponsored)"
+              fillOpacity={0.6}
+            />
+            <Area
+              type="monotone"
+              dataKey="organic"
+              stackId="1"
+              stroke="var(--color-organic)"
+              fill="var(--color-organic)"
+              fillOpacity={0.6}
+            />
+          </AreaChart>
+        </ChartContainer>
       </ChartCard>
     </div>
   )

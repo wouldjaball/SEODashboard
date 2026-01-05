@@ -8,8 +8,6 @@ import {
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -20,7 +18,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { chartColorArray } from "@/lib/chart-config"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
 import { formatNumber, formatPercent } from "@/lib/utils"
 import type { GADevice, GADemographic } from "@/lib/types"
 
@@ -29,6 +32,22 @@ interface DemographicsChartsProps {
   gender: GADemographic[]
   age: GADemographic[]
 }
+
+const deviceChartConfig = {
+  desktop: { label: "Desktop", color: "hsl(var(--chart-1))" },
+  mobile: { label: "Mobile", color: "hsl(var(--chart-2))" },
+  tablet: { label: "Tablet", color: "hsl(var(--chart-3))" },
+} satisfies ChartConfig
+
+const genderChartConfig = {
+  male: { label: "Male", color: "hsl(var(--chart-4))" },
+  female: { label: "Female", color: "hsl(var(--chart-5))" },
+  unknown: { label: "Unknown", color: "hsl(220 9% 46%)" },
+} satisfies ChartConfig
+
+const ageChartConfig = {
+  totalUsers: { label: "Users", color: "hsl(var(--chart-1))" },
+} satisfies ChartConfig
 
 export function DemographicsCharts({ devices, gender, age }: DemographicsChartsProps) {
   const deviceData = devices.map((d) => ({
@@ -44,6 +63,9 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
   const totalDeviceUsers = devices.reduce((sum, d) => sum + d.totalUsers, 0)
   const totalGenderUsers = gender.reduce((sum, g) => sum + g.totalUsers, 0)
 
+  const deviceColors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))"]
+  const genderColors = ["hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(220 9% 46%)"]
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* Device Breakdown */}
@@ -52,28 +74,24 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
           <CardTitle className="text-base font-semibold">Device</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[150px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={deviceData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={35}
-                  outerRadius={55}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {deviceData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={chartColorArray[index]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => [formatNumber(Number(value)), "Users"]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          <ChartContainer config={deviceChartConfig} className="h-[150px] w-full">
+            <PieChart>
+              <Pie
+                data={deviceData}
+                cx="50%"
+                cy="50%"
+                innerRadius={35}
+                outerRadius={55}
+                paddingAngle={2}
+                dataKey="value"
+              >
+                {deviceData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={deviceColors[index]} />
+                ))}
+              </Pie>
+              <ChartTooltip content={<ChartTooltipContent />} />
+            </PieChart>
+          </ChartContainer>
           <Table>
             <TableHeader>
               <TableRow>
@@ -89,7 +107,7 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
                     <div className="flex items-center gap-2">
                       <div
                         className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: chartColorArray[index] }}
+                        style={{ backgroundColor: deviceColors[index] }}
                       />
                       {device.category.charAt(0).toUpperCase() + device.category.slice(1)}
                     </div>
@@ -113,28 +131,24 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
           <CardTitle className="text-base font-semibold">Gender</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[150px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={genderData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={35}
-                  outerRadius={55}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {genderData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={chartColorArray[index + 3]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => [formatNumber(Number(value)), "Users"]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          <ChartContainer config={genderChartConfig} className="h-[150px] w-full">
+            <PieChart>
+              <Pie
+                data={genderData}
+                cx="50%"
+                cy="50%"
+                innerRadius={35}
+                outerRadius={55}
+                paddingAngle={2}
+                dataKey="value"
+              >
+                {genderData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={genderColors[index]} />
+                ))}
+              </Pie>
+              <ChartTooltip content={<ChartTooltipContent />} />
+            </PieChart>
+          </ChartContainer>
           <Table>
             <TableHeader>
               <TableRow>
@@ -150,7 +164,7 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
                     <div className="flex items-center gap-2">
                       <div
                         className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: chartColorArray[index + 3] }}
+                        style={{ backgroundColor: genderColors[index] }}
                       />
                       {g.segment}
                     </div>
@@ -174,31 +188,27 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
           <CardTitle className="text-base font-semibold">Age</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={age}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 10 }}
-                  tickFormatter={(value) => formatNumber(value)}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="segment"
-                  tick={{ fontSize: 10 }}
-                  width={40}
-                />
-                <Tooltip
-                  formatter={(value) => [formatNumber(Number(value)), "Users"]}
-                />
-                <Bar dataKey="totalUsers" fill={chartColorArray[0]} radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ChartContainer config={ageChartConfig} className="h-[250px] w-full">
+            <BarChart
+              data={age}
+              layout="vertical"
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <XAxis
+                type="number"
+                tick={{ fontSize: 10 }}
+                tickFormatter={(value) => formatNumber(value)}
+              />
+              <YAxis
+                type="category"
+                dataKey="segment"
+                tick={{ fontSize: 10 }}
+                width={40}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="totalUsers" fill="var(--color-totalUsers)" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ChartContainer>
         </CardContent>
       </Card>
     </div>
