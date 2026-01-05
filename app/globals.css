@@ -70,12 +70,12 @@
 
   --radius: 0.5rem;
 
-  /* Chart colors */
-  --chart-1: #22c55e;
-  --chart-2: #3b82f6;
-  --chart-3: #f59e0b;
-  --chart-4: #8b5cf6;
-  --chart-5: #ec4899;
+  /* Chart colors - HSL values for shadcn chart compatibility */
+  --chart-1: 142 71% 45%;
+  --chart-2: 217 91% 60%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 258 90% 66%;
+  --chart-5: 330 81% 60%;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -107,6 +107,13 @@
     --border: #27272a;
     --input: #27272a;
     --ring: #22c55e;
+
+    /* Chart colors for dark mode */
+    --chart-1: 142 71% 45%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 258 90% 66%;
+    --chart-5: 330 81% 60%;
   }
 }
 
