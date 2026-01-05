@@ -8,7 +8,12 @@ import { GAReport } from "@/components/dashboard/google-analytics"
 import { GSCReport } from "@/components/dashboard/search-console"
 import { YTReport } from "@/components/dashboard/youtube"
 import { LIReport } from "@/components/dashboard/linkedin"
-import { BarChart3, Search, Youtube, Linkedin } from "lucide-react"
+import {
+  GoogleAnalyticsIcon,
+  SearchConsoleIcon,
+  YouTubeIcon,
+  LinkedInIcon,
+} from "@/components/icons"
 import { useCompany } from "@/lib/company-context"
 
 export default function DashboardPage() {
@@ -40,28 +45,28 @@ export default function DashboardPage() {
             value="google-analytics"
             className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2 text-[10px] sm:text-sm min-h-[52px] sm:min-h-[40px]"
           >
-            <BarChart3 className="h-4 w-4 shrink-0" />
+            <GoogleAnalyticsIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             <span className="truncate leading-tight">Analytics</span>
           </TabsTrigger>
           <TabsTrigger
             value="search-console"
             className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2 text-[10px] sm:text-sm min-h-[52px] sm:min-h-[40px]"
           >
-            <Search className="h-4 w-4 shrink-0" />
+            <SearchConsoleIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             <span className="truncate leading-tight">Search</span>
           </TabsTrigger>
           <TabsTrigger
             value="youtube"
             className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2 text-[10px] sm:text-sm min-h-[52px] sm:min-h-[40px]"
           >
-            <Youtube className="h-4 w-4 shrink-0" />
+            <YouTubeIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             <span className="truncate leading-tight">YouTube</span>
           </TabsTrigger>
           <TabsTrigger
             value="linkedin"
             className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2 text-[10px] sm:text-sm min-h-[52px] sm:min-h-[40px]"
           >
-            <Linkedin className="h-4 w-4 shrink-0" />
+            <LinkedInIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             <span className="truncate leading-tight">LinkedIn</span>
           </TabsTrigger>
         </TabsList>
