@@ -10,121 +10,123 @@ import type {
   GATrafficShare,
 } from "@/lib/types"
 
+// KPI values from PDF specification
 export const gaMetrics: GAMetrics = {
-  totalUsers: 45234,
-  newUsers: 38567,
-  sessions: 62890,
-  views: 187456,
-  avgSessionDuration: 245, // 4:05
-  bounceRate: 0.423,
-  keyEvents: 3245,
-  userKeyEventRate: 0.0718,
+  totalUsers: 9100,
+  newUsers: 8881,
+  sessions: 10000,
+  views: 11955,
+  avgSessionDuration: 235, // 3:55 in seconds
+  bounceRate: 0.515, // 51.50%
+  keyEvents: 128,
+  userKeyEventRate: 0.0085, // 0.85%
   previousPeriod: {
-    totalUsers: 41200,
-    newUsers: 35120,
-    sessions: 58340,
-    views: 172300,
-    avgSessionDuration: 232,
-    bounceRate: 0.451,
-    keyEvents: 2890,
-    userKeyEventRate: 0.0702,
+    totalUsers: 10000, // -9.0% change
+    newUsers: 9880, // -10.1% change
+    sessions: 10906, // -8.3% change
+    views: 12665, // -5.6% change
+    avgSessionDuration: 98, // +138.3% change
+    bounceRate: 0.4828, // +6.7% change (inverted - higher bounce is worse)
+    keyEvents: 164, // -22.0% change
+    userKeyEventRate: 0.0125, // -31.8% change
   },
 }
 
+// Weekly data from PDF
 export const gaWeeklyData: GAWeeklyData[] = [
-  { weekLabel: "Dec 1 - Dec 7 (Week 49)", weekNumber: 49, startDate: "2025-12-01", endDate: "2025-12-07", views: 24567, sessions: 8234 },
-  { weekLabel: "Dec 8 - Dec 14 (Week 50)", weekNumber: 50, startDate: "2025-12-08", endDate: "2025-12-14", views: 28934, sessions: 9567 },
-  { weekLabel: "Dec 15 - Dec 21 (Week 51)", weekNumber: 51, startDate: "2025-12-15", endDate: "2025-12-21", views: 32456, sessions: 10234 },
-  { weekLabel: "Dec 22 - Dec 28 (Week 52)", weekNumber: 52, startDate: "2025-12-22", endDate: "2025-12-28", views: 26789, sessions: 8456 },
-  { weekLabel: "Dec 29 - Jan 4 (Week 1)", weekNumber: 1, startDate: "2025-12-29", endDate: "2026-01-04", views: 31234, sessions: 9876 },
-  { weekLabel: "Jan 5 - Jan 11 (Week 2)", weekNumber: 2, startDate: "2026-01-05", endDate: "2026-01-11", views: 28456, sessions: 9123 },
-  { weekLabel: "Jan 12 - Jan 18 (Week 3)", weekNumber: 3, startDate: "2026-01-12", endDate: "2026-01-18", views: 35020, sessions: 11400 },
+  { weekLabel: "Dec 1-7, 2025 (Week 49)", weekNumber: 49, startDate: "2025-12-01", endDate: "2025-12-07", views: 2000, sessions: 1669 },
+  { weekLabel: "Dec 8-14, 2025 (Week 50)", weekNumber: 50, startDate: "2025-12-08", endDate: "2025-12-14", views: 4200, sessions: 3491 },
+  { weekLabel: "Dec 15-21, 2025 (Week 51)", weekNumber: 51, startDate: "2025-12-15", endDate: "2025-12-21", views: 2800, sessions: 2242 },
+  { weekLabel: "Dec 22-28, 2025 (Week 52)", weekNumber: 52, startDate: "2025-12-22", endDate: "2025-12-28", views: 2100, sessions: 1775 },
+  { weekLabel: "Dec 29-Jan 4, 2026 (Week 1)", weekNumber: 1, startDate: "2025-12-29", endDate: "2026-01-04", views: 912, sessions: 740 },
 ]
 
+// Channel data for stacked area chart
 export const gaChannelData: GAChannelData[] = [
-  { date: "2025-12-01", direct: 1234, paidSearch: 890, organicSearch: 2345, paidOther: 456, referral: 678, crossNetwork: 234, unassigned: 123, organicSocial: 345 },
-  { date: "2025-12-02", direct: 1456, paidSearch: 923, organicSearch: 2567, paidOther: 489, referral: 712, crossNetwork: 267, unassigned: 145, organicSocial: 378 },
-  { date: "2025-12-03", direct: 1678, paidSearch: 1045, organicSearch: 2789, paidOther: 512, referral: 756, crossNetwork: 289, unassigned: 167, organicSocial: 412 },
-  { date: "2025-12-04", direct: 1534, paidSearch: 978, organicSearch: 2654, paidOther: 478, referral: 723, crossNetwork: 256, unassigned: 156, organicSocial: 389 },
-  { date: "2025-12-05", direct: 1789, paidSearch: 1123, organicSearch: 2890, paidOther: 534, referral: 789, crossNetwork: 312, unassigned: 178, organicSocial: 423 },
-  { date: "2025-12-06", direct: 1345, paidSearch: 856, organicSearch: 2234, paidOther: 423, referral: 645, crossNetwork: 223, unassigned: 134, organicSocial: 356 },
-  { date: "2025-12-07", direct: 1123, paidSearch: 734, organicSearch: 1987, paidOther: 389, referral: 589, crossNetwork: 198, unassigned: 112, organicSocial: 312 },
-  { date: "2025-12-08", direct: 1567, paidSearch: 945, organicSearch: 2456, paidOther: 467, referral: 701, crossNetwork: 256, unassigned: 145, organicSocial: 367 },
-  { date: "2025-12-09", direct: 1678, paidSearch: 1012, organicSearch: 2678, paidOther: 498, referral: 734, crossNetwork: 278, unassigned: 156, organicSocial: 389 },
-  { date: "2025-12-10", direct: 1789, paidSearch: 1089, organicSearch: 2890, paidOther: 523, referral: 767, crossNetwork: 301, unassigned: 167, organicSocial: 412 },
-  { date: "2025-12-11", direct: 1890, paidSearch: 1156, organicSearch: 3012, paidOther: 556, referral: 801, crossNetwork: 323, unassigned: 178, organicSocial: 434 },
-  { date: "2025-12-12", direct: 1756, paidSearch: 1078, organicSearch: 2867, paidOther: 512, referral: 756, crossNetwork: 289, unassigned: 162, organicSocial: 401 },
-  { date: "2025-12-13", direct: 1423, paidSearch: 901, organicSearch: 2345, paidOther: 445, referral: 667, crossNetwork: 234, unassigned: 139, organicSocial: 356 },
-  { date: "2025-12-14", direct: 1234, paidSearch: 789, organicSearch: 2123, paidOther: 401, referral: 612, crossNetwork: 212, unassigned: 123, organicSocial: 323 },
+  { date: "2025-12-01", direct: 800, paidSearch: 150, organicSearch: 400, paidOther: 50, referral: 100, crossNetwork: 30, unassigned: 20, organicSocial: 50 },
+  { date: "2025-12-02", direct: 850, paidSearch: 180, organicSearch: 450, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
+  { date: "2025-12-03", direct: 900, paidSearch: 200, organicSearch: 480, paidOther: 70, referral: 130, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
+  { date: "2025-12-04", direct: 820, paidSearch: 170, organicSearch: 420, paidOther: 55, referral: 110, crossNetwork: 32, unassigned: 22, organicSocial: 55 },
+  { date: "2025-12-05", direct: 780, paidSearch: 160, organicSearch: 400, paidOther: 48, referral: 105, crossNetwork: 28, unassigned: 18, organicSocial: 48 },
+  { date: "2025-12-06", direct: 600, paidSearch: 120, organicSearch: 320, paidOther: 35, referral: 80, crossNetwork: 20, unassigned: 12, organicSocial: 35 },
+  { date: "2025-12-07", direct: 550, paidSearch: 100, organicSearch: 280, paidOther: 30, referral: 70, crossNetwork: 18, unassigned: 10, organicSocial: 30 },
+  { date: "2025-12-08", direct: 1200, paidSearch: 250, organicSearch: 600, paidOther: 80, referral: 150, crossNetwork: 45, unassigned: 35, organicSocial: 80 },
+  { date: "2025-12-09", direct: 1100, paidSearch: 230, organicSearch: 550, paidOther: 75, referral: 140, crossNetwork: 42, unassigned: 32, organicSocial: 75 },
+  { date: "2025-12-10", direct: 1050, paidSearch: 220, organicSearch: 520, paidOther: 70, referral: 135, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
+  { date: "2025-12-11", direct: 980, paidSearch: 200, organicSearch: 480, paidOther: 65, referral: 125, crossNetwork: 38, unassigned: 28, organicSocial: 65 },
+  { date: "2025-12-12", direct: 920, paidSearch: 190, organicSearch: 460, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
+  { date: "2025-12-13", direct: 700, paidSearch: 140, organicSearch: 350, paidOther: 45, referral: 90, crossNetwork: 25, unassigned: 18, organicSocial: 45 },
+  { date: "2025-12-14", direct: 650, paidSearch: 130, organicSearch: 320, paidOther: 40, referral: 85, crossNetwork: 22, unassigned: 15, organicSocial: 40 },
 ]
 
+// Traffic share by channel
 export const gaTrafficShare: GATrafficShare[] = [
-  { channel: "Direct", users: 12456, percentage: 0.275 },
-  { channel: "Organic Search", users: 15678, percentage: 0.347 },
-  { channel: "Paid Search", users: 6789, percentage: 0.150 },
-  { channel: "Referral", users: 4567, percentage: 0.101 },
-  { channel: "Organic Social", users: 2890, percentage: 0.064 },
-  { channel: "Paid Other", users: 1567, percentage: 0.035 },
-  { channel: "Cross-network", users: 890, percentage: 0.020 },
-  { channel: "Unassigned", users: 397, percentage: 0.009 },
+  { channel: "Direct", users: 5921, percentage: 0.651 },
+  { channel: "Organic Search", users: 2259, percentage: 0.248 },
+  { channel: "Paid Search", users: 658, percentage: 0.072 },
+  { channel: "Referral", users: 127, percentage: 0.014 },
+  { channel: "Organic Social", users: 50, percentage: 0.006 },
+  { channel: "Unassigned", users: 45, percentage: 0.005 },
+  { channel: "Cross-network", users: 25, percentage: 0.003 },
+  { channel: "Paid Other", users: 15, percentage: 0.002 },
 ]
 
+// Source performance from PDF
 export const gaSourcePerformance: GASourcePerformance[] = [
-  { source: "google", totalUsers: 18567, newUsers: 16234, sessions: 24567, views: 78934, avgSessionDuration: 287, bounceRate: 0.398, keyEvents: 1234, conversionRate: 0.0665 },
-  { source: "(direct)", totalUsers: 12456, newUsers: 10234, sessions: 15678, views: 45678, avgSessionDuration: 312, bounceRate: 0.356, keyEvents: 890, conversionRate: 0.0714 },
-  { source: "bing", totalUsers: 4567, newUsers: 4123, sessions: 5678, views: 16789, avgSessionDuration: 198, bounceRate: 0.456, keyEvents: 345, conversionRate: 0.0755 },
-  { source: "facebook", totalUsers: 2890, newUsers: 2567, sessions: 3456, views: 9876, avgSessionDuration: 167, bounceRate: 0.512, keyEvents: 178, conversionRate: 0.0616 },
-  { source: "linkedin", totalUsers: 2345, newUsers: 2012, sessions: 2890, views: 8234, avgSessionDuration: 234, bounceRate: 0.423, keyEvents: 156, conversionRate: 0.0665 },
-  { source: "twitter", totalUsers: 1567, newUsers: 1345, sessions: 1890, views: 5234, avgSessionDuration: 145, bounceRate: 0.534, keyEvents: 89, conversionRate: 0.0568 },
-  { source: "youtube", totalUsers: 1234, newUsers: 1012, sessions: 1456, views: 4123, avgSessionDuration: 189, bounceRate: 0.478, keyEvents: 67, conversionRate: 0.0543 },
-  { source: "reddit", totalUsers: 890, newUsers: 789, sessions: 1023, views: 2890, avgSessionDuration: 156, bounceRate: 0.501, keyEvents: 45, conversionRate: 0.0506 },
-  { source: "newsletter", totalUsers: 456, newUsers: 234, sessions: 567, views: 1567, avgSessionDuration: 345, bounceRate: 0.312, keyEvents: 78, conversionRate: 0.171 },
-  { source: "partner_site", totalUsers: 229, newUsers: 178, sessions: 285, views: 857, avgSessionDuration: 267, bounceRate: 0.389, keyEvents: 34, conversionRate: 0.148 },
+  { source: "(direct)", totalUsers: 5921, newUsers: 5822, sessions: 6352, views: 6859, avgSessionDuration: 60, bounceRate: 0.6368, keyEvents: 19, conversionRate: 0 },
+  { source: "google", totalUsers: 2259, newUsers: 2200, sessions: 2610, views: 3453, avgSessionDuration: 606, bounceRate: 0.3387, keyEvents: 63, conversionRate: 0 },
+  { source: "localiq", totalUsers: 658, newUsers: 658, sessions: 700, views: 881, avgSessionDuration: 131, bounceRate: 0.3014, keyEvents: 19, conversionRate: 0 },
+  { source: "bing", totalUsers: 127, newUsers: 103, sessions: 221, views: 387, avgSessionDuration: 1116, bounceRate: 0.3891, keyEvents: 1, conversionRate: 0 },
+  { source: "(data not available)", totalUsers: 21, newUsers: 19, sessions: 21, views: 50, avgSessionDuration: 104, bounceRate: 0.3333, keyEvents: 4, conversionRate: 0 },
+  { source: "yahoo", totalUsers: 19, newUsers: 18, sessions: 21, views: 43, avgSessionDuration: 105, bounceRate: 0.0952, keyEvents: 1, conversionRate: 0 },
+  { source: "chatgpt.com", totalUsers: 13, newUsers: 13, sessions: 17, views: 15, avgSessionDuration: 188, bounceRate: 0.2941, keyEvents: 0, conversionRate: 0 },
+  { source: "(not set)", totalUsers: 8, newUsers: 8, sessions: 16, views: 40, avgSessionDuration: 426, bounceRate: 0.125, keyEvents: 0, conversionRate: 0 },
+  { source: "transit-technologies.com", totalUsers: 8, newUsers: 7, sessions: 8, views: 13, avgSessionDuration: 157, bounceRate: 0, keyEvents: 0, conversionRate: 0 },
+  { source: "duckduckgo", totalUsers: 7, newUsers: 7, sessions: 8, views: 19, avgSessionDuration: 625, bounceRate: 0, keyEvents: 0, conversionRate: 0 },
 ]
 
+// Landing pages from PDF
 export const gaLandingPages: GALandingPage[] = [
-  { pageTitle: "Home | Vestige Digital", pagePath: "/", totalUsers: 15678, newUsers: 13456, sessions: 18934, views: 23456, avgSessionDuration: 45, bounceRate: 0.523, keyEvents: 234, conversionRate: 0.0149 },
-  { pageTitle: "Services | Vestige Digital", pagePath: "/services", totalUsers: 8934, newUsers: 7654, sessions: 10234, views: 15678, avgSessionDuration: 178, bounceRate: 0.412, keyEvents: 456, conversionRate: 0.051 },
-  { pageTitle: "About Us | Vestige Digital", pagePath: "/about", totalUsers: 5678, newUsers: 4890, sessions: 6789, views: 9234, avgSessionDuration: 234, bounceRate: 0.378, keyEvents: 123, conversionRate: 0.0217 },
-  { pageTitle: "Blog | Vestige Digital", pagePath: "/blog", totalUsers: 4567, newUsers: 3890, sessions: 5678, views: 12345, avgSessionDuration: 312, bounceRate: 0.289, keyEvents: 189, conversionRate: 0.0414 },
-  { pageTitle: "Contact | Vestige Digital", pagePath: "/contact", totalUsers: 3456, newUsers: 2890, sessions: 4123, views: 5678, avgSessionDuration: 156, bounceRate: 0.234, keyEvents: 567, conversionRate: 0.164 },
-  { pageTitle: "SEO Services | Vestige Digital", pagePath: "/services/seo", totalUsers: 2890, newUsers: 2456, sessions: 3456, views: 6789, avgSessionDuration: 267, bounceRate: 0.356, keyEvents: 234, conversionRate: 0.081 },
-  { pageTitle: "PPC Management | Vestige Digital", pagePath: "/services/ppc", totalUsers: 2345, newUsers: 1987, sessions: 2789, views: 5234, avgSessionDuration: 245, bounceRate: 0.389, keyEvents: 189, conversionRate: 0.0806 },
-  { pageTitle: "Case Studies | Vestige Digital", pagePath: "/case-studies", totalUsers: 1890, newUsers: 1567, sessions: 2234, views: 4567, avgSessionDuration: 345, bounceRate: 0.312, keyEvents: 145, conversionRate: 0.0767 },
-  { pageTitle: "Web Design | Vestige Digital", pagePath: "/services/web-design", totalUsers: 1567, newUsers: 1345, sessions: 1890, views: 3456, avgSessionDuration: 223, bounceRate: 0.401, keyEvents: 112, conversionRate: 0.0715 },
-  { pageTitle: "Resources | Vestige Digital", pagePath: "/resources", totalUsers: 1234, newUsers: 1012, sessions: 1456, views: 3890, avgSessionDuration: 289, bounceRate: 0.334, keyEvents: 89, conversionRate: 0.0721 },
+  { pageTitle: "Home - Vestige View", pagePath: "/", totalUsers: 4500, newUsers: 4200, sessions: 5000, views: 5500, avgSessionDuration: 45, bounceRate: 0.55, keyEvents: 45, conversionRate: 0.01 },
+  { pageTitle: "Products - Vestige View", pagePath: "/products", totalUsers: 1800, newUsers: 1650, sessions: 2000, views: 2800, avgSessionDuration: 120, bounceRate: 0.42, keyEvents: 28, conversionRate: 0.016 },
+  { pageTitle: "Body Cameras - Vestige View", pagePath: "/products/body-cameras", totalUsers: 1200, newUsers: 1100, sessions: 1400, views: 1900, avgSessionDuration: 180, bounceRate: 0.38, keyEvents: 22, conversionRate: 0.018 },
+  { pageTitle: "Fleet Cameras - Vestige View", pagePath: "/products/fleet-cameras", totalUsers: 800, newUsers: 750, sessions: 900, views: 1200, avgSessionDuration: 150, bounceRate: 0.40, keyEvents: 15, conversionRate: 0.019 },
+  { pageTitle: "About Us - Vestige View", pagePath: "/about", totalUsers: 500, newUsers: 450, sessions: 550, views: 700, avgSessionDuration: 90, bounceRate: 0.45, keyEvents: 8, conversionRate: 0.016 },
+  { pageTitle: "Contact - Vestige View", pagePath: "/contact", totalUsers: 300, newUsers: 280, sessions: 350, views: 400, avgSessionDuration: 60, bounceRate: 0.35, keyEvents: 10, conversionRate: 0.033 },
 ]
 
+// Region data from PDF
 export const gaRegions: GARegion[] = [
-  { country: "United States", countryCode: "US", totalUsers: 28567, keyEvents: 2134 },
-  { country: "United Kingdom", countryCode: "GB", totalUsers: 5678, keyEvents: 423 },
-  { country: "Canada", countryCode: "CA", totalUsers: 3456, keyEvents: 267 },
-  { country: "Australia", countryCode: "AU", totalUsers: 2890, keyEvents: 198 },
-  { country: "Germany", countryCode: "DE", totalUsers: 1567, keyEvents: 89 },
-  { country: "France", countryCode: "FR", totalUsers: 1234, keyEvents: 67 },
-  { country: "India", countryCode: "IN", totalUsers: 890, keyEvents: 34 },
-  { country: "Netherlands", countryCode: "NL", totalUsers: 567, keyEvents: 23 },
-  { country: "Spain", countryCode: "ES", totalUsers: 234, keyEvents: 8 },
-  { country: "Brazil", countryCode: "BR", totalUsers: 151, keyEvents: 2 },
+  { country: "United States", countryCode: "US", totalUsers: 5280, keyEvents: 0 },
+  { country: "China", countryCode: "CN", totalUsers: 2333, keyEvents: 0 },
+  { country: "Singapore", countryCode: "SG", totalUsers: 1399, keyEvents: 0 },
+  { country: "India", countryCode: "IN", totalUsers: 133, keyEvents: 0 },
+  { country: "Indonesia", countryCode: "ID", totalUsers: 88, keyEvents: 0 },
+  { country: "Vietnam", countryCode: "VN", totalUsers: 59, keyEvents: 0 },
+  { country: "Germany", countryCode: "DE", totalUsers: 49, keyEvents: 0 },
+  { country: "United Arab Emirates", countryCode: "AE", totalUsers: 45, keyEvents: 0 },
+  { country: "Ghana", countryCode: "GH", totalUsers: 43, keyEvents: 0 },
+  { country: "Japan", countryCode: "JP", totalUsers: 43, keyEvents: 0 },
 ]
 
+// Device data from PDF
 export const gaDevices: GADevice[] = [
-  { category: "desktop", totalUsers: 27890, keyEvents: 2156 },
-  { category: "mobile", totalUsers: 15234, keyEvents: 978 },
-  { category: "tablet", totalUsers: 2110, keyEvents: 111 },
+  { category: "desktop", totalUsers: 6990, keyEvents: 100 },
+  { category: "mobile", totalUsers: 2035, keyEvents: 24 },
+  { category: "tablet", totalUsers: 74, keyEvents: 4 },
 ]
 
+// Gender data from PDF
 export const gaGender: GADemographic[] = [
-  { segment: "Male", totalUsers: 24567, keyEvents: 1789 },
-  { segment: "Female", totalUsers: 18234, keyEvents: 1345 },
-  { segment: "Unknown", totalUsers: 2433, keyEvents: 111 },
+  { segment: "Male", totalUsers: 555, keyEvents: 33 },
+  { segment: "Female", totalUsers: 364, keyEvents: 19 },
 ]
 
+// Age data from PDF
 export const gaAge: GADemographic[] = [
-  { segment: "18-24", totalUsers: 6789, keyEvents: 456 },
-  { segment: "25-34", totalUsers: 14567, keyEvents: 1123 },
-  { segment: "35-44", totalUsers: 11234, keyEvents: 867 },
-  { segment: "45-54", totalUsers: 7890, keyEvents: 534 },
-  { segment: "55-64", totalUsers: 3456, keyEvents: 198 },
-  { segment: "65+", totalUsers: 1298, keyEvents: 67 },
+  { segment: "18-24", totalUsers: 131, keyEvents: 9 },
+  { segment: "25-34", totalUsers: 191, keyEvents: 9 },
+  { segment: "35-44", totalUsers: 176, keyEvents: 8 },
+  { segment: "45-54", totalUsers: 172, keyEvents: 14 },
+  { segment: "55-64", totalUsers: 93, keyEvents: 1 },
 ]
