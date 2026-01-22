@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { subDays } from "date-fns"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
 import { DateRangePicker } from "@/components/dashboard/shared"
 import { GAReport } from "@/components/dashboard/google-analytics"
 import { GSCReport } from "@/components/dashboard/search-console"
@@ -17,11 +19,24 @@ import {
 import { useCompany } from "@/lib/company-context"
 
 export default function DashboardPage() {
-  const { company } = useCompany()
+  const { company, isLoading, error, refetchData } = useCompany()
   const [dateRange, setDateRange] = useState({
     from: subDays(new Date(), 30),
     to: new Date(),
   })
+
+  // Fetch data when date range changes
+  useEffect(() => {
+    refetchData(dateRange)
+  }, [dateRange])
+
+  if (isLoading && !company.gaMetrics) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -37,6 +52,13 @@ export default function DashboardPage() {
           <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="google-analytics" className="space-y-4 sm:space-y-6">
