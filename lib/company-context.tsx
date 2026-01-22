@@ -32,8 +32,18 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   async function fetchCompanies() {
     try {
       setIsLoading(true)
+      setError(null)
       const response = await fetch('/api/companies')
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch companies: ${response.status}`)
+      }
+
       const data = await response.json()
+
+      if (data.error) {
+        throw new Error(data.error)
+      }
 
       if (data.companies && data.companies.length > 0) {
         // Convert database companies to Company type with mock data for now
@@ -48,10 +58,20 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
         setCompanies(companiesWithData)
         setCompanyState(companiesWithData[0])
+        setError(null)
+      } else {
+        // No companies found - use mock data as fallback
+        console.log('No companies found, using mock data')
+        setCompanies(mockCompanies)
+        setCompanyState(defaultCompany)
+        setError(null)
       }
     } catch (err) {
       console.error('Failed to fetch companies:', err)
-      setError('Failed to load companies')
+      setError('Failed to load companies. Please sign in or contact support.')
+      // Fallback to mock data on error
+      setCompanies(mockCompanies)
+      setCompanyState(defaultCompany)
     } finally {
       setIsLoading(false)
     }
