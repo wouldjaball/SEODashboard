@@ -22,14 +22,22 @@ export default function IntegrationsPage() {
     setIsLoading(true)
     try {
       const response = await fetch('/api/integrations/status')
+
+      if (!response.ok) {
+        console.error('Failed to check connection:', response.status)
+        setIsConnected(false)
+        return
+      }
+
       const data = await response.json()
-      setIsConnected(data.connected)
+      setIsConnected(data.connected || false)
 
       if (data.connected) {
         await fetchAccountData()
       }
     } catch (error) {
       console.error('Failed to check connection:', error)
+      setIsConnected(false)
     } finally {
       setIsLoading(false)
     }
