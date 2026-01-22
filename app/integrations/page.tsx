@@ -53,8 +53,16 @@ export default function IntegrationsPage() {
   }
 
   async function handleConnect() {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+
+    if (!clientId) {
+      console.error('NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured')
+      alert('Google OAuth is not configured. Please contact support.')
+      return
+    }
+
     const params = new URLSearchParams({
-      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+      client_id: clientId,
       redirect_uri: `${window.location.origin}/api/auth/google/callback`,
       response_type: 'code',
       scope: OAUTH_SCOPES_STRING,
