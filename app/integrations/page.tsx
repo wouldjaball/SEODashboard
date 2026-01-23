@@ -11,6 +11,7 @@ import { OAUTH_SCOPES_STRING } from '@/lib/constants/oauth-scopes'
 export default function IntegrationsPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [properties, setProperties] = useState([])
   const [sites, setSites] = useState([])
 
@@ -44,6 +45,7 @@ export default function IntegrationsPage() {
   }
 
   async function fetchAccountData() {
+    setIsRefreshing(true)
     try {
       console.log('Fetching GA properties and GSC sites...')
       const [propertiesRes, sitesRes] = await Promise.all([
@@ -62,9 +64,13 @@ export default function IntegrationsPage() {
 
       setProperties(propertiesData.properties || [])
       setSites(sitesData.sites || [])
+
+      alert(`Refreshed successfully!\n\nGA Properties: ${propertiesData.properties?.length || 0}\nGSC Sites: ${sitesData.sites?.length || 0}`)
     } catch (error) {
       console.error('Failed to fetch account data:', error)
       alert('Failed to fetch account data. Check console for details.')
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -183,8 +189,15 @@ export default function IntegrationsPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={fetchAccountData} variant="outline">
-                  Refresh Properties & Sites
+                <Button onClick={fetchAccountData} variant="outline" disabled={isRefreshing}>
+                  {isRefreshing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    'Refresh Properties & Sites'
+                  )}
                 </Button>
                 <Button variant="destructive" onClick={handleDisconnect}>
                   Disconnect
