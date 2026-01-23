@@ -26,11 +26,11 @@ export async function GET(
     const previousStartDate = format(subDays(new Date(startDate), daysDiff), 'yyyy-MM-dd')
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
 
-    // Skip cache temporarily for debugging
-    // const cached = await checkCache(supabase, companyId, startDate, endDate)
-    // if (cached) {
-    //   return NextResponse.json(cached)
-    // }
+    // Check cache first
+    const cached = await checkCache(supabase, companyId, startDate, endDate)
+    if (cached) {
+      return NextResponse.json(cached)
+    }
 
     // Get company mappings
     console.log(`Fetching mappings for company ${companyId}`)

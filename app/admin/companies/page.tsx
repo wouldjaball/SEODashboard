@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Plus, Building2 } from 'lucide-react'
+import { Loader2, Plus, Building2, Trash2 } from 'lucide-react'
 
 interface Company {
   id: string
@@ -28,6 +28,7 @@ export default function AdminCompaniesPage() {
     color: '#3b82f6',
     logo_url: ''
   })
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCompanies()
@@ -76,6 +77,31 @@ export default function AdminCompaniesPage() {
       alert('Failed to create company. Please try again.')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  async function handleDelete(companyId: string, companyName: string) {
+    if (!confirm(`Are you sure you want to delete "${companyName}"? This will also delete all property mappings and cached data for this company.`)) {
+      return
+    }
+
+    setDeletingId(companyId)
+    try {
+      const response = await fetch(`/api/admin/companies/${companyId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setCompanies(companies.filter(c => c.id !== companyId))
+      } else {
+        const error = await response.json()
+        alert(`Failed to delete company: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Failed to delete company:', error)
+      alert('Failed to delete company. Please try again.')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -226,6 +252,19 @@ export default function AdminCompaniesPage() {
                       <p className="text-sm text-muted-foreground">{company.industry}</p>
                     </div>
                     <Badge variant="outline">{company.color}</Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDelete(company.id, company.name)}
+                      disabled={deletingId === company.id}
+                    >
+                      {deletingId === company.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
                 </div>
               ))}

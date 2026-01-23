@@ -46,14 +46,13 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    // Redirect unauthenticated users to login for protected routes
     if (
       !user &&
       !request.nextUrl.pathname.startsWith("/auth") &&
-      request.nextUrl.pathname !== "/" &&
-      request.nextUrl.pathname !== "/dashboard" &&
-      request.nextUrl.pathname !== "/integrations"
+      request.nextUrl.pathname !== "/"
     ) {
-      // no user, potentially respond by redirecting the user to the login page
+      // no user, redirect to login page
       const url = request.nextUrl.clone()
       url.pathname = "/auth/login"
       return NextResponse.redirect(url)

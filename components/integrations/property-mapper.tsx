@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, Save, Loader2 } from 'lucide-react'
+import { CheckCircle, Save, Loader2, X } from 'lucide-react'
 
 interface PropertyMapperProps {
   properties: any[]
@@ -123,50 +123,86 @@ export function PropertyMapper({ properties, sites }: PropertyMapperProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Analytics Property</label>
-                  <Select
-                    value={mapping.gaPropertyId}
-                    onValueChange={(value) =>
-                      setMappings(prev => ({
-                        ...prev,
-                        [company.id]: { ...mapping, gaPropertyId: value }
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select property" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {properties.map((prop: any) => (
-                        <SelectItem key={prop.id} value={prop.id}>
-                          {prop.displayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={mapping.gaPropertyId || 'none'}
+                      onValueChange={(value) =>
+                        setMappings(prev => ({
+                          ...prev,
+                          [company.id]: { ...mapping, gaPropertyId: value === 'none' ? '' : value }
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select property" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">-- None --</SelectItem>
+                        {properties.map((prop: any) => (
+                          <SelectItem key={prop.id} value={prop.id}>
+                            {prop.displayName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {mapping.gaPropertyId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() =>
+                          setMappings(prev => ({
+                            ...prev,
+                            [company.id]: { ...mapping, gaPropertyId: '' }
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Search Console Site</label>
-                  <Select
-                    value={mapping.gscSiteId}
-                    onValueChange={(value) =>
-                      setMappings(prev => ({
-                        ...prev,
-                        [company.id]: { ...mapping, gscSiteId: value }
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select site" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sites.map((site: any) => (
-                        <SelectItem key={site.id} value={site.id}>
-                          {site.siteUrl}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={mapping.gscSiteId || 'none'}
+                      onValueChange={(value) =>
+                        setMappings(prev => ({
+                          ...prev,
+                          [company.id]: { ...mapping, gscSiteId: value === 'none' ? '' : value }
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select site" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">-- None --</SelectItem>
+                        {sites.map((site: any) => (
+                          <SelectItem key={site.id} value={site.id}>
+                            {site.siteUrl}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {mapping.gscSiteId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() =>
+                          setMappings(prev => ({
+                            ...prev,
+                            [company.id]: { ...mapping, gscSiteId: '' }
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
