@@ -1,4 +1,5 @@
 import { OAuthTokenService } from './oauth-token-service'
+import { parseISO, format, getISOWeek, startOfWeek, endOfWeek } from 'date-fns'
 import type {
   GAMetrics,
   GAWeeklyData,
@@ -113,34 +114,51 @@ export class GoogleAnalyticsService {
       orderBys: [{ dimension: { dimensionName: 'date' } }]
     })
 
-    // Group by week
-    const weekMap = new Map<string, { views: number; sessions: number; dates: string[] }>()
+    // Group by actual calendar week
+    const weekMap = new Map<string, { views: number; sessions: number; dates: string[]; weekNum: number; weekStart: Date; weekEnd: Date }>()
 
-    data.rows?.forEach((row: any, index: number) => {
-      const weekNum = Math.floor(index / 7)
-      const week = `Week ${weekNum + 1}`
+    data.rows?.forEach((row: any) => {
+      const dateStr = row.dimensionValues[0].value
+      // GA returns dates as YYYYMMDD format
+      const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
+      const date = parseISO(formattedDate)
+      const weekNum = getISOWeek(date)
+      const year = date.getFullYear()
+      const weekKey = `${year}-W${weekNum}`
+
       const views = parseInt(row.metricValues[0].value)
       const sessions = parseInt(row.metricValues[1].value)
-      const date = row.dimensionValues[0].value
 
-      if (!weekMap.has(week)) {
-        weekMap.set(week, { views: 0, sessions: 0, dates: [] })
+      if (!weekMap.has(weekKey)) {
+        const weekStart = startOfWeek(date, { weekStartsOn: 1 })
+        const weekEnd = endOfWeek(date, { weekStartsOn: 1 })
+        weekMap.set(weekKey, {
+          views: 0,
+          sessions: 0,
+          dates: [],
+          weekNum,
+          weekStart,
+          weekEnd
+        })
       }
 
-      const weekData = weekMap.get(week)!
+      const weekData = weekMap.get(weekKey)!
       weekData.views += views
       weekData.sessions += sessions
-      weekData.dates.push(date)
+      weekData.dates.push(formattedDate)
     })
 
-    return Array.from(weekMap.entries()).map(([week, data], index) => ({
-      weekLabel: week,
-      weekNumber: index + 1,
-      startDate: data.dates[0],
-      endDate: data.dates[data.dates.length - 1],
-      views: data.views,
-      sessions: data.sessions
-    }))
+    return Array.from(weekMap.entries()).map(([weekKey, weekData]) => {
+      const weekLabel = `${format(weekData.weekStart, 'MMM d')}-${format(weekData.weekEnd, 'd')}`
+      return {
+        weekLabel,
+        weekNumber: weekData.weekNum,
+        startDate: weekData.dates[0],
+        endDate: weekData.dates[weekData.dates.length - 1],
+        views: weekData.views,
+        sessions: weekData.sessions
+      }
+    })
   }
 
   static async fetchChannelData(

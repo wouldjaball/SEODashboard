@@ -120,7 +120,11 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         gaAge: data.gaAge || [],
         gscMetrics: data.gscMetrics || null,
         gscWeeklyData: data.gscWeeklyData || [],
-        gscKeywords: data.gscKeywords || []
+        gscKeywords: data.gscKeywords || [],
+        gscCountries: data.gscCountries || [],
+        gscDevices: data.gscDevices || [],
+        gscIndexData: data.gscIndexData || [],
+        gscLandingPages: data.gscLandingPages || []
       }))
     } catch (err) {
       console.error('[CompanyContext] Failed to fetch analytics:', err)

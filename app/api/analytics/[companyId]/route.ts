@@ -171,7 +171,15 @@ export async function GET(
     if (gscMappings && gscMappings.gsc_sites) {
       try {
         const gscSite = gscMappings.gsc_sites as any
-        const [gscMetrics, gscWeeklyData, gscKeywords] = await Promise.all([
+        const [
+          gscMetrics,
+          gscWeeklyData,
+          gscKeywords,
+          gscCountries,
+          gscDevices,
+          gscIndexData,
+          gscLandingPages
+        ] = await Promise.all([
           GoogleSearchConsoleService.fetchMetrics(
             user.id,
             gscSite.site_url,
@@ -192,12 +200,42 @@ export async function GET(
             startDate,
             endDate,
             10
+          ),
+          GoogleSearchConsoleService.fetchCountries(
+            user.id,
+            gscSite.site_url,
+            startDate,
+            endDate,
+            10
+          ),
+          GoogleSearchConsoleService.fetchDevices(
+            user.id,
+            gscSite.site_url,
+            startDate,
+            endDate
+          ),
+          GoogleSearchConsoleService.fetchIndexData(
+            user.id,
+            gscSite.site_url,
+            startDate,
+            endDate
+          ),
+          GoogleSearchConsoleService.fetchLandingPages(
+            user.id,
+            gscSite.site_url,
+            startDate,
+            endDate,
+            20
           )
         ])
 
         results.gscMetrics = gscMetrics
         results.gscWeeklyData = gscWeeklyData
         results.gscKeywords = gscKeywords
+        results.gscCountries = gscCountries
+        results.gscDevices = gscDevices
+        results.gscIndexData = gscIndexData
+        results.gscLandingPages = gscLandingPages
       } catch (error) {
         console.error('GSC fetch error:', error)
         results.gscError = 'Failed to fetch GSC data'

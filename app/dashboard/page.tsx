@@ -73,6 +73,14 @@ export default function DashboardPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+        {/* Loading overlay for data refresh */}
+        {isLoading && company.gaMetrics && (
+          <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg border">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading analytics data...</span>
+          </div>
+        )}
+
         <TabsList className="grid grid-cols-4 h-auto p-1 gap-0.5 sm:gap-1">
           <TabsTrigger
             value="google-analytics"

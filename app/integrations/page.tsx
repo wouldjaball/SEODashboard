@@ -34,13 +34,32 @@ export default function IntegrationsPage() {
       setIsConnected(data.connected || false)
 
       if (data.connected) {
-        await fetchAccountData()
+        // Load cached properties/sites from database instead of calling Google APIs
+        await loadCachedData()
       }
     } catch (error) {
       console.error('Failed to check connection:', error)
       setIsConnected(false)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Load cached properties and sites from database (fast, no API calls to Google)
+  async function loadCachedData() {
+    try {
+      const [propertiesRes, sitesRes] = await Promise.all([
+        fetch('/api/integrations/ga/properties/cached'),
+        fetch('/api/integrations/gsc/sites/cached')
+      ])
+
+      const propertiesData = await propertiesRes.json()
+      const sitesData = await sitesRes.json()
+
+      setProperties(propertiesData.properties || [])
+      setSites(sitesData.sites || [])
+    } catch (error) {
+      console.error('Failed to load cached data:', error)
     }
   }
 
