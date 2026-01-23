@@ -45,18 +45,26 @@ export default function IntegrationsPage() {
 
   async function fetchAccountData() {
     try {
+      console.log('Fetching GA properties and GSC sites...')
       const [propertiesRes, sitesRes] = await Promise.all([
         fetch('/api/integrations/ga/properties'),
         fetch('/api/integrations/gsc/sites')
       ])
 
+      console.log('GA properties response status:', propertiesRes.status)
+      console.log('GSC sites response status:', sitesRes.status)
+
       const propertiesData = await propertiesRes.json()
       const sitesData = await sitesRes.json()
+
+      console.log('Fetched properties:', propertiesData.properties?.length || 0)
+      console.log('Fetched sites:', sitesData.sites?.length || 0)
 
       setProperties(propertiesData.properties || [])
       setSites(sitesData.sites || [])
     } catch (error) {
       console.error('Failed to fetch account data:', error)
+      alert('Failed to fetch account data. Check console for details.')
     }
   }
 
@@ -174,9 +182,14 @@ export default function IntegrationsPage() {
                   <p className="text-2xl font-bold">{sites.length}</p>
                 </div>
               </div>
-              <Button variant="destructive" onClick={handleDisconnect}>
-                Disconnect
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={fetchAccountData} variant="outline">
+                  Refresh Properties & Sites
+                </Button>
+                <Button variant="destructive" onClick={handleDisconnect}>
+                  Disconnect
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

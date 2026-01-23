@@ -116,17 +116,21 @@ export async function POST(request: Request) {
 
       if (gaPropertyId) {
         // Look up the UUID for this GA property
+        console.log(`Looking up GA property with property_id: ${gaPropertyId}`)
         const { data: gaProperty, error: gaLookupError } = await supabase
           .from('ga_properties')
           .select('id')
           .eq('property_id', gaPropertyId)
           .single()
 
+        console.log(`GA property lookup result:`, { gaProperty, gaLookupError })
+
         if (gaLookupError || !gaProperty) {
           console.error(`GA property not found for property_id ${gaPropertyId}:`, gaLookupError)
-          throw new Error(`GA property ${gaPropertyId} not found. Please refresh the properties list.`)
+          throw new Error(`GA property ${gaPropertyId} not found. Please refresh the properties list on the Integrations page.`)
         }
 
+        console.log(`Inserting GA mapping: company_id=${companyId}, ga_property_id=${gaProperty.id}`)
         const { error: gaError } = await supabase.from('company_ga_mappings').insert({
           company_id: companyId,
           ga_property_id: gaProperty.id
@@ -135,6 +139,7 @@ export async function POST(request: Request) {
           console.error(`Failed to save GA mapping for company ${companyId}:`, gaError)
           throw gaError
         }
+        console.log(`Successfully saved GA mapping for company ${companyId}`)
       }
 
       if (gscSiteId) {

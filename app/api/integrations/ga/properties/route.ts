@@ -46,7 +46,8 @@ export async function GET() {
         properties.push(property)
 
         // Save to database
-        await supabase.from('ga_properties').upsert({
+        console.log(`Saving GA property ${propertyId} to database for user ${user.id}`)
+        const { data: savedProperty, error: saveError } = await supabase.from('ga_properties').upsert({
           user_id: user.id,
           property_id: propertyId,
           property_name: propertySummary.displayName,
@@ -55,10 +56,17 @@ export async function GET() {
           account_name: property.accountName
         }, {
           onConflict: 'user_id,property_id'
-        })
+        }).select()
+
+        if (saveError) {
+          console.error(`Failed to save GA property ${propertyId}:`, saveError)
+        } else {
+          console.log(`Successfully saved GA property ${propertyId}:`, savedProperty)
+        }
       }
     }
 
+    console.log(`Returning ${properties.length} GA properties`)
     return NextResponse.json({ properties })
   } catch (error) {
     console.error('Fetch properties error:', error)
