@@ -105,25 +105,49 @@ export async function GET(
     if (gaMappings && gaMappings.ga_properties) {
       try {
         const gaProperty = gaMappings.ga_properties as any
-        const [gaMetrics, gaWeeklyData] = await Promise.all([
+        const propertyId = gaProperty.property_id
+
+        const [
+          gaMetrics,
+          gaWeeklyData,
+          gaChannelData,
+          gaTrafficShare,
+          gaSourcePerformance,
+          gaLandingPages,
+          gaRegions,
+          gaDevices,
+          gaGender,
+          gaAge
+        ] = await Promise.all([
           GoogleAnalyticsService.fetchMetrics(
             user.id,
-            gaProperty.property_id,
+            propertyId,
             startDate,
             endDate,
             previousStartDate,
             previousEndDate
           ),
-          GoogleAnalyticsService.fetchWeeklyData(
-            user.id,
-            gaProperty.property_id,
-            startDate,
-            endDate
-          )
+          GoogleAnalyticsService.fetchWeeklyData(user.id, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchChannelData(user.id, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchTrafficShare(user.id, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchSourcePerformance(user.id, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchLandingPages(user.id, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchRegions(user.id, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchDevices(user.id, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchGender(user.id, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchAge(user.id, propertyId, startDate, endDate)
         ])
 
         results.gaMetrics = gaMetrics
         results.gaWeeklyData = gaWeeklyData
+        results.gaChannelData = gaChannelData
+        results.gaTrafficShare = gaTrafficShare
+        results.gaSourcePerformance = gaSourcePerformance
+        results.gaLandingPages = gaLandingPages
+        results.gaRegions = gaRegions
+        results.gaDevices = gaDevices
+        results.gaGender = gaGender
+        results.gaAge = gaAge
       } catch (error) {
         console.error('GA fetch error:', error)
         results.gaError = 'Failed to fetch GA data'

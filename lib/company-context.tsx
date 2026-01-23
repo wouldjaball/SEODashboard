@@ -155,8 +155,18 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       // Update company with real data (use null for missing data)
       setCompanyState(prev => ({
         ...prev,
+        // Google Analytics data
         gaMetrics: data.gaMetrics || null,
         gaWeeklyData: data.gaWeeklyData || [],
+        gaChannelData: data.gaChannelData || [],
+        gaTrafficShare: data.gaTrafficShare || [],
+        gaSourcePerformance: data.gaSourcePerformance || [],
+        gaLandingPages: data.gaLandingPages || [],
+        gaRegions: data.gaRegions || [],
+        gaDevices: data.gaDevices || [],
+        gaGender: data.gaGender || [],
+        gaAge: data.gaAge || [],
+        // Google Search Console data
         gscMetrics: data.gscMetrics || null,
         gscWeeklyData: data.gscWeeklyData || [],
         gscKeywords: data.gscKeywords || []
