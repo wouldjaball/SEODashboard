@@ -18,14 +18,57 @@ interface CompanyContextType {
 
 const CompanyContext = React.createContext<CompanyContextType | undefined>(undefined)
 
+// Empty company placeholder for loading state
+const emptyCompany: Company = {
+  id: '',
+  name: 'Loading...',
+  industry: '',
+  color: '#888888',
+  gaMetrics: null as any,
+  gaWeeklyData: [],
+  gaChannelData: [],
+  gaTrafficShare: [],
+  gaSourcePerformance: [],
+  gaLandingPages: [],
+  gaRegions: [],
+  gaDevices: [],
+  gaGender: [],
+  gaAge: [],
+  gscMetrics: null as any,
+  gscWeeklyData: [],
+  gscIndexData: [],
+  gscKeywords: [],
+  gscLandingPages: [],
+  gscCountries: [],
+  gscDevices: [],
+  ytMetrics: null as any,
+  ytVideos: [],
+  ytViewsSparkline: [],
+  ytWatchTimeSparkline: [],
+  ytSharesSparkline: [],
+  ytLikesSparkline: [],
+  liVisitorMetrics: null as any,
+  liFollowerMetrics: null as any,
+  liContentMetrics: null as any,
+  liVisitorDaily: [],
+  liFollowerDaily: [],
+  liImpressionDaily: [],
+  liIndustryDemographics: [],
+  liSeniorityDemographics: [],
+  liJobFunctionDemographics: [],
+  liCompanySizeDemographics: [],
+  liUpdates: []
+}
+
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
-  const [company, setCompanyState] = React.useState<Company>(defaultCompany)
-  const [companies, setCompanies] = React.useState<Company[]>(mockCompanies)
-  const [isLoading, setIsLoading] = React.useState(false)
+  const useRealData = process.env.NEXT_PUBLIC_USE_REAL_DATA === 'true'
+
+  // Use empty placeholder when using real data (to avoid flash of mock data)
+  const [company, setCompanyState] = React.useState<Company>(useRealData ? emptyCompany : defaultCompany)
+  const [companies, setCompanies] = React.useState<Company[]>(useRealData ? [] : mockCompanies)
+  const [isLoading, setIsLoading] = React.useState(useRealData) // Start loading if using real data
   const [error, setError] = React.useState<string | null>(null)
   const [comparisonEnabled, setComparisonEnabled] = React.useState(false)
-
-  const useRealData = process.env.NEXT_PUBLIC_USE_REAL_DATA === 'true'
 
   // Helper function to fetch analytics data for a specific company
   async function fetchAnalyticsForCompany(companyId: string, dateRange: { from: Date; to: Date }) {

@@ -148,9 +148,10 @@ export async function GET(
         results.gaDevices = gaDevices
         results.gaGender = gaGender
         results.gaAge = gaAge
-      } catch (error) {
-        console.error('GA fetch error:', error)
-        results.gaError = 'Failed to fetch GA data'
+      } catch (error: any) {
+        console.error('GA fetch error:', error?.message || error)
+        console.error('GA fetch error stack:', error?.stack)
+        results.gaError = error?.message || 'Failed to fetch GA data'
       }
     }
 
