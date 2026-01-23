@@ -69,6 +69,10 @@ export default function IntegrationsPage() {
       return
     }
 
+    // Debug: Show what client ID we're using
+    console.log('Using client ID:', clientId)
+    console.log('Redirect URI:', `${window.location.origin}/api/auth/google/callback`)
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: `${window.location.origin}/api/auth/google/callback`,
@@ -78,7 +82,10 @@ export default function IntegrationsPage() {
       prompt: 'consent'
     })
 
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+    console.log('OAuth URL:', authUrl)
+
+    window.location.href = authUrl
   }
 
   async function handleDisconnect() {
