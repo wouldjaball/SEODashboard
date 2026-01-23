@@ -33,19 +33,26 @@ export async function GET(
     }
 
     // Get company mappings
-    const { data: gaMappings } = await supabase
+    console.log(`Fetching mappings for company ${companyId}`)
+
+    const { data: gaMappings, error: gaError } = await supabase
       .from('company_ga_mappings')
       .select('ga_property_id, ga_properties!inner(*)')
       .eq('company_id', companyId)
       .maybeSingle()
 
-    const { data: gscMappings } = await supabase
+    console.log('GA mappings result:', { gaMappings, gaError })
+
+    const { data: gscMappings, error: gscError } = await supabase
       .from('company_gsc_mappings')
       .select('gsc_site_id, gsc_sites!inner(*)')
       .eq('company_id', companyId)
       .maybeSingle()
 
+    console.log('GSC mappings result:', { gscMappings, gscError })
+
     if (!gaMappings && !gscMappings) {
+      console.log('No mappings found - returning 404')
       return NextResponse.json({
         error: 'No analytics or search console accounts mapped to this company',
         message: 'Please configure your integrations in the Accounts page'
