@@ -18,7 +18,7 @@ import type {
 } from "@/lib/types"
 
 interface GSCReportProps {
-  metrics: GSCMetrics
+  metrics: GSCMetrics | null
   weeklyData: GSCWeeklyData[]
   indexData: GSCIndexData[]
   keywords: GSCKeyword[]
