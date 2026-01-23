@@ -21,7 +21,7 @@ import type {
 } from "@/lib/types"
 
 interface GAReportProps {
-  metrics: GAMetrics
+  metrics: GAMetrics | null
   weeklyData: GAWeeklyData[]
   channelData: GAChannelData[]
   trafficShare: GATrafficShare[]

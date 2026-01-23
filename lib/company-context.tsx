@@ -49,14 +49,48 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.companies && data.companies.length > 0) {
-        // Convert database companies to Company type with mock data for now
+        // Convert database companies to Company type without mock data
         const companiesWithData = data.companies.map((c: any) => ({
-          ...defaultCompany,
           id: c.id,
           name: c.name,
           industry: c.industry,
           color: c.color,
-          logo: c.logo_url
+          logo: c.logo_url,
+          // No data initially - will be loaded on demand
+          gaMetrics: null,
+          gaWeeklyData: [],
+          gaChannelData: [],
+          gaTrafficShare: [],
+          gaSourcePerformance: [],
+          gaLandingPages: [],
+          gaRegions: [],
+          gaDevices: [],
+          gaGender: [],
+          gaAge: [],
+          gscMetrics: null,
+          gscWeeklyData: [],
+          gscIndexData: [],
+          gscKeywords: [],
+          gscLandingPages: [],
+          gscCountries: [],
+          gscDevices: [],
+          ytMetrics: null,
+          ytVideos: [],
+          ytViewsSparkline: [],
+          ytWatchTimeSparkline: [],
+          ytSharesSparkline: [],
+          ytLikesSparkline: [],
+          liVisitorMetrics: null,
+          liFollowerMetrics: null,
+          liContentMetrics: null,
+          liVisitorDaily: [],
+          liFollowerDaily: [],
+          liImpressionDaily: [],
+          liIndustryDemographics: [],
+          liSeniorityDemographics: [],
+          liJobFunctionDemographics: [],
+          liCompanySizeDemographics: [],
+          liUpdates: []
         }))
 
         setCompanies(companiesWithData)
@@ -93,18 +127,27 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       })
 
       const response = await fetch(`/api/analytics/${company.id}?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch data')
 
       const data = await response.json()
 
-      // Update company with real data
+      // If response is 404 (no mappings), show a more helpful error
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError(data.message || 'No analytics accounts mapped to this company')
+        } else {
+          setError('Failed to load analytics data')
+        }
+        return
+      }
+
+      // Update company with real data (use null for missing data)
       setCompanyState(prev => ({
         ...prev,
-        gaMetrics: data.gaMetrics || prev.gaMetrics,
-        gaWeeklyData: data.gaWeeklyData || prev.gaWeeklyData,
-        gscMetrics: data.gscMetrics || prev.gscMetrics,
-        gscWeeklyData: data.gscWeeklyData || prev.gscWeeklyData,
-        gscKeywords: data.gscKeywords || prev.gscKeywords
+        gaMetrics: data.gaMetrics || null,
+        gaWeeklyData: data.gaWeeklyData || [],
+        gscMetrics: data.gscMetrics || null,
+        gscWeeklyData: data.gscWeeklyData || [],
+        gscKeywords: data.gscKeywords || []
       }))
     } catch (err) {
       console.error('Failed to fetch analytics:', err)

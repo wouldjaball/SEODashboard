@@ -16,7 +16,7 @@ import {
 
 interface KPICardProps {
   title: string
-  value: string | number
+  value: string | number | null | undefined
   change?: number // Percentage change as decimal
   changeLabel?: string
   format?: "number" | "currency" | "percent" | "duration"
@@ -43,6 +43,7 @@ export function KPICard({
   className,
 }: KPICardProps) {
   const formattedValue = (() => {
+    if (value === null || value === undefined) return "N/A"
     if (typeof value === "string") return value
     switch (format) {
       case "currency":
