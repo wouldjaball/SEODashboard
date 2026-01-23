@@ -8,7 +8,7 @@ import { isUserOwner } from '@/lib/auth/check-admin'
  */
 export async function GET(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -18,7 +18,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { userId } = params
+    const { userId } = await params
 
     // Get user's company assignments
     const { data, error } = await supabase
@@ -61,7 +61,7 @@ export async function GET(
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -71,7 +71,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { userId } = params
+    const { userId } = await params
     const body = await request.json()
     const { companyId, role } = body
 
@@ -130,7 +130,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -140,7 +140,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { userId } = params
+    const { userId } = await params
     const { searchParams } = new URL(request.url)
     const companyId = searchParams.get('companyId')
 
