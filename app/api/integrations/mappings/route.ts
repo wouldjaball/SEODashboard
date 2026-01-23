@@ -71,10 +71,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { mappings } = await request.json()
+    const body = await request.json()
+    console.log('Received mappings request:', JSON.stringify(body, null, 2))
+
+    const { mappings } = body
+
+    if (!mappings || typeof mappings !== 'object') {
+      return NextResponse.json({ error: 'Invalid mappings format' }, { status: 400 })
+    }
 
     // Save mappings for each company
     for (const [companyId, mapping] of Object.entries(mappings)) {
+      console.log(`Processing company ${companyId}:`, mapping)
+
       const { gaPropertyId, gscSiteId, youtubeChannelId, linkedinPageId } = mapping as {
         gaPropertyId: string;
         gscSiteId: string;
@@ -83,6 +92,7 @@ export async function POST(request: Request) {
       }
 
       // Delete existing mappings first
+      console.log(`Deleting existing mappings for company ${companyId}`)
       await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
       await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
       await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
@@ -134,9 +144,17 @@ export async function POST(request: Request) {
       }
     }
 
+    console.log('All mappings saved successfully')
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Save mappings error:', error)
-    return NextResponse.json({ error: 'Failed to save mappings' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorDetails = error instanceof Error ? error.stack : String(error)
+    console.error('Error details:', errorDetails)
+    return NextResponse.json({
+      error: 'Failed to save mappings',
+      details: errorMessage,
+      message: errorMessage
+    }, { status: 500 })
   }
 }

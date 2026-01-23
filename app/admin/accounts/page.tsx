@@ -99,7 +99,8 @@ export default function AdminAccountsPage() {
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
         console.error('Save failed with status:', response.status, errorData)
-        throw new Error(errorData.error || `Save failed with status ${response.status}`)
+        const errorMsg = errorData.details || errorData.message || errorData.error || `Save failed with status ${response.status}`
+        throw new Error(errorMsg)
       }
     } catch (error) {
       console.error('Failed to save mappings:', error)
