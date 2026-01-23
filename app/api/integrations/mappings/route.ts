@@ -63,9 +63,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  console.log('=== POST /api/integrations/mappings called ===')
   try {
     const supabase = await createClient()
+    console.log('Supabase client created')
+
     const { data: { user } } = await supabase.auth.getUser()
+    console.log('User auth check:', user ? `User ID: ${user.id}` : 'No user')
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -93,10 +97,17 @@ export async function POST(request: Request) {
 
       // Delete existing mappings first
       console.log(`Deleting existing mappings for company ${companyId}`)
-      await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
-      await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
-      await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
-      await supabase.from('company_linkedin_mappings').delete().eq('company_id', companyId)
+      const { error: deleteGaError } = await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
+      if (deleteGaError) console.error(`Delete GA mapping error:`, deleteGaError)
+
+      const { error: deleteGscError } = await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
+      if (deleteGscError) console.error(`Delete GSC mapping error:`, deleteGscError)
+
+      const { error: deleteYtError } = await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
+      if (deleteYtError) console.error(`Delete YouTube mapping error:`, deleteYtError)
+
+      const { error: deleteLiError } = await supabase.from('company_linkedin_mappings').delete().eq('company_id', companyId)
+      if (deleteLiError) console.error(`Delete LinkedIn mapping error:`, deleteLiError)
 
       // Insert new mappings if provided
       if (gaPropertyId) {
@@ -147,14 +158,19 @@ export async function POST(request: Request) {
     console.log('All mappings saved successfully')
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Save mappings error:', error)
+    console.error('=== Save mappings error ===')
+    console.error('Error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
+    console.error('Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     const errorDetails = error instanceof Error ? error.stack : String(error)
-    console.error('Error details:', errorDetails)
+    console.error('Error message:', errorMessage)
+    console.error('Error stack:', errorDetails)
+
     return NextResponse.json({
       error: 'Failed to save mappings',
       details: errorMessage,
-      message: errorMessage
+      message: errorMessage,
+      fullError: String(error)
     }, { status: 500 })
   }
 }
