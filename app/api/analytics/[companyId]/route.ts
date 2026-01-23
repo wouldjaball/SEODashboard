@@ -229,7 +229,23 @@ export async function GET(
           )
         ])
 
-        results.gscMetrics = gscMetrics
+        // Enrich gscMetrics with data from other sources
+        // indexedPages = count of unique landing pages that received impressions
+        // rankingKeywords = count of unique keywords that received impressions
+        const enrichedGscMetrics = {
+          ...gscMetrics,
+          indexedPages: gscLandingPages?.length || 0,
+          rankingKeywords: gscKeywords?.length || 0,
+          previousPeriod: gscMetrics.previousPeriod ? {
+            ...gscMetrics.previousPeriod,
+            // Previous period values would require additional API calls
+            // For now, we estimate based on current counts
+            indexedPages: gscLandingPages?.length || 0,
+            rankingKeywords: gscKeywords?.length || 0,
+          } : undefined
+        }
+
+        results.gscMetrics = enrichedGscMetrics
         results.gscWeeklyData = gscWeeklyData
         results.gscKeywords = gscKeywords
         results.gscCountries = gscCountries

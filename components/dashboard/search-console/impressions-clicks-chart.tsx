@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import {
   Bar,
   Line,
@@ -8,6 +9,7 @@ import {
   CartesianGrid,
   ComposedChart,
 } from "recharts"
+import { format, parseISO } from "date-fns"
 import { ChartCard } from "@/components/dashboard/shared"
 import {
   ChartContainer,
@@ -40,16 +42,25 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function ImpressionsClicksChart({ data }: ImpressionsClicksChartProps) {
+  // Format dates for display
+  const chartData = useMemo(() => {
+    return data.map((item) => ({
+      ...item,
+      formattedDate: item.date ? format(parseISO(item.date), "MMM d") : item.weekLabel,
+    }))
+  }, [data])
+
   return (
     <ChartCard title="Impressions, Clicks & CTR" className="h-full">
       <ChartContainer config={chartConfig} className="h-[300px] w-full">
-        <ComposedChart accessibilityLayer data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ComposedChart accessibilityLayer data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
-            dataKey="weekLabel"
+            dataKey="formattedDate"
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
+            interval="preserveStartEnd"
           />
           <YAxis
             yAxisId="left"
