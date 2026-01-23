@@ -36,7 +36,7 @@ export default function AdminCompaniesPage() {
   async function fetchCompanies() {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/companies')
+      const response = await fetch('/api/admin/companies')
       const data = await response.json()
       setCompanies(data.companies || [])
     } catch (error) {

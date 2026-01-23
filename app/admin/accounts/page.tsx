@@ -55,7 +55,7 @@ export default function AdminAccountsPage() {
     setIsLoading(true)
     try {
       const [companiesRes, gaRes, gscRes, ytRes, liRes, mappingsRes] = await Promise.all([
-        fetch('/api/companies'),
+        fetch('/api/admin/companies'),
         fetch('/api/integrations/ga/properties'),
         fetch('/api/integrations/gsc/sites'),
         fetch('/api/integrations/youtube/channels'),
