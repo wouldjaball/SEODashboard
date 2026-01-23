@@ -97,11 +97,14 @@ export default function AdminAccountsPage() {
       if (response.ok) {
         alert('Account assignments saved successfully!')
       } else {
-        throw new Error('Failed to save')
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('Save failed with status:', response.status, errorData)
+        throw new Error(errorData.error || `Save failed with status ${response.status}`)
       }
     } catch (error) {
       console.error('Failed to save mappings:', error)
-      alert('Failed to save assignments. Please try again.')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to save assignments: ${errorMessage}\n\nCheck the browser console for details.`)
     } finally {
       setIsSaving(false)
     }
