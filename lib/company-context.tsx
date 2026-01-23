@@ -11,6 +11,8 @@ interface CompanyContextType {
   isLoading: boolean
   error: string | null
   refetchData: (dateRange: { from: Date; to: Date }) => Promise<void>
+  comparisonEnabled: boolean
+  setComparisonEnabled: (enabled: boolean) => void
 }
 
 const CompanyContext = React.createContext<CompanyContextType | undefined>(undefined)
@@ -20,6 +22,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [companies, setCompanies] = React.useState<Company[]>(mockCompanies)
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [comparisonEnabled, setComparisonEnabled] = React.useState(false)
 
   const useRealData = process.env.NEXT_PUBLIC_USE_REAL_DATA === 'true'
 
@@ -123,7 +126,9 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         companies,
         isLoading,
         error,
-        refetchData
+        refetchData,
+        comparisonEnabled,
+        setComparisonEnabled
       }}
     >
       {children}

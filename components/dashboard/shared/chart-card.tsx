@@ -20,6 +20,7 @@ interface ChartAction {
 interface ChartCardProps {
   title: string
   subtitle?: string
+  dateRange?: string
   children: React.ReactNode
   actions?: ChartAction[]
   filters?: React.ReactNode
@@ -30,6 +31,7 @@ interface ChartCardProps {
 export function ChartCard({
   title,
   subtitle,
+  dateRange,
   children,
   actions,
   filters,
@@ -41,8 +43,12 @@ export function ChartCard({
       <CardHeader className="flex flex-row items-start sm:items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6 gap-2">
         <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
           <CardTitle className="text-sm sm:text-base font-semibold truncate">{title}</CardTitle>
-          {subtitle && (
-            <CardDescription className="text-xs sm:text-sm truncate">{subtitle}</CardDescription>
+          {(subtitle || dateRange) && (
+            <CardDescription className="text-xs sm:text-sm truncate">
+              {subtitle}
+              {subtitle && dateRange && " • "}
+              {dateRange && <span className="text-muted-foreground/80">{dateRange}</span>}
+            </CardDescription>
           )}
         </div>
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">

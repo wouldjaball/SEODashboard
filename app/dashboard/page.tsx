@@ -19,7 +19,7 @@ import {
 import { useCompany } from "@/lib/company-context"
 
 export default function DashboardPage() {
-  const { company, isLoading, error, refetchData } = useCompany()
+  const { company, isLoading, error, refetchData, comparisonEnabled, setComparisonEnabled } = useCompany()
   const [dateRange, setDateRange] = useState({
     from: subDays(new Date(), 30),
     to: new Date(),
@@ -49,7 +49,13 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="shrink-0">
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            showComparison={true}
+            comparisonEnabled={comparisonEnabled}
+            onComparisonToggle={setComparisonEnabled}
+          />
         </div>
       </div>
 

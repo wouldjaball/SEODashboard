@@ -23,6 +23,9 @@ interface DateRangePickerProps {
   onChange: (range: DateRange) => void
   presets?: { label: string; range: DateRange }[]
   className?: string
+  showComparison?: boolean
+  comparisonEnabled?: boolean
+  onComparisonToggle?: (enabled: boolean) => void
 }
 
 const defaultPresets: { label: string; range: DateRange }[] = [
@@ -44,11 +47,21 @@ const defaultPresets: { label: string; range: DateRange }[] = [
   },
 ]
 
+function formatPreviousPeriod(range: DateRange): string {
+  const daysDiff = Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24))
+  const prevFrom = subDays(range.from, daysDiff)
+  const prevTo = subDays(range.to, daysDiff)
+  return `${format(prevFrom, "MMM d")} - ${format(prevTo, "MMM d, yyyy")}`
+}
+
 export function DateRangePicker({
   value,
   onChange,
   presets = defaultPresets,
   className,
+  showComparison = false,
+  comparisonEnabled = false,
+  onComparisonToggle,
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
 
@@ -119,6 +132,24 @@ export function DateRangePicker({
             />
           </div>
         </div>
+        {showComparison && (
+          <div className="border-t p-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={comparisonEnabled}
+                onChange={(e) => onComparisonToggle?.(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <span className="text-sm">Compare to previous period</span>
+            </label>
+            {comparisonEnabled && value && (
+              <p className="text-xs text-muted-foreground mt-2 ml-6">
+                Previous: {formatPreviousPeriod(value)}
+              </p>
+            )}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )
