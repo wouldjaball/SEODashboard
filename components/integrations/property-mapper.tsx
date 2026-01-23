@@ -5,7 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, Save, Loader2, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { CheckCircle, Save, Loader2, X, Plus, Trash2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 
 interface PropertyMapperProps {
   properties: any[]
@@ -13,11 +24,26 @@ interface PropertyMapperProps {
   youtubeChannels?: any[]
 }
 
+const PRESET_COLORS = [
+  '#3b82f6', // blue
+  '#22c55e', // green
+  '#f97316', // orange
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#f59e0b', // amber
+  '#ef4444', // red
+]
+
 export function PropertyMapper({ properties, sites, youtubeChannels = [] }: PropertyMapperProps) {
   const [companies, setCompanies] = useState<any[]>([])
   const [mappings, setMappings] = useState<Record<string, { gaPropertyId: string; gscSiteId: string; youtubeChannelId: string }>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAddingCompany, setIsAddingCompany] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [newCompany, setNewCompany] = useState({ name: '', industry: '', color: '#3b82f6' })
+  const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCompaniesAndMappings()
@@ -65,6 +91,66 @@ export function PropertyMapper({ properties, sites, youtubeChannels = [] }: Prop
     }
   }
 
+  async function handleAddCompany() {
+    if (!newCompany.name.trim() || !newCompany.industry.trim()) {
+      alert('Please fill in both name and industry')
+      return
+    }
+
+    setIsAddingCompany(true)
+    try {
+      const response = await fetch('/api/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCompany)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create company')
+      }
+
+      const data = await response.json()
+      setCompanies(prev => [...prev, data.company])
+      setNewCompany({ name: '', industry: '', color: '#3b82f6' })
+      setIsDialogOpen(false)
+    } catch (error) {
+      console.error('Failed to create company:', error)
+      alert('Failed to create company. Please try again.')
+    } finally {
+      setIsAddingCompany(false)
+    }
+  }
+
+  async function handleDeleteCompany(companyId: string) {
+    if (!confirm('Are you sure you want to delete this company? This cannot be undone.')) {
+      return
+    }
+
+    setDeletingCompanyId(companyId)
+    try {
+      const response = await fetch(`/api/admin/companies/${companyId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete company')
+      }
+
+      setCompanies(prev => prev.filter(c => c.id !== companyId))
+      // Remove mappings for deleted company
+      setMappings(prev => {
+        const newMappings = { ...prev }
+        delete newMappings[companyId]
+        return newMappings
+      })
+    } catch (error) {
+      console.error('Failed to delete company:', error)
+      alert('Failed to delete company. Please try again.')
+    } finally {
+      setDeletingCompanyId(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <Card>
@@ -75,14 +161,89 @@ export function PropertyMapper({ properties, sites, youtubeChannels = [] }: Prop
     )
   }
 
+  const addCompanyDialog = (
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Company
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Company</DialogTitle>
+          <DialogDescription>
+            Create a new company to map analytics properties to.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Company Name</Label>
+            <Input
+              id="name"
+              placeholder="e.g., Acme Corp"
+              value={newCompany.name}
+              onChange={(e) => setNewCompany(prev => ({ ...prev, name: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="industry">Industry</Label>
+            <Input
+              id="industry"
+              placeholder="e.g., Technology"
+              value={newCompany.industry}
+              onChange={(e) => setNewCompany(prev => ({ ...prev, industry: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Brand Color</Label>
+            <div className="flex gap-2 flex-wrap">
+              {PRESET_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  className={`h-8 w-8 rounded-full border-2 transition-all ${
+                    newCompany.color === color ? 'border-foreground scale-110' : 'border-transparent'
+                  }`}
+                  style={{ backgroundColor: color }}
+                  onClick={() => setNewCompany(prev => ({ ...prev, color }))}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddCompany} disabled={isAddingCompany}>
+            {isAddingCompany ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Create Company'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   if (companies.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Property Mappings</CardTitle>
-          <CardDescription>
-            No companies found. Please create a company first.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Property Mappings</CardTitle>
+              <CardDescription>
+                No companies found. Create a company to get started.
+              </CardDescription>
+            </div>
+            {addCompanyDialog}
+          </div>
         </CardHeader>
       </Card>
     )
@@ -91,10 +252,15 @@ export function PropertyMapper({ properties, sites, youtubeChannels = [] }: Prop
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Property Mappings</CardTitle>
-        <CardDescription>
-          Assign Google Analytics properties, Search Console sites, and YouTube channels to your companies
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Property Mappings</CardTitle>
+            <CardDescription>
+              Assign Google Analytics properties, Search Console sites, and YouTube channels to your companies
+            </CardDescription>
+          </div>
+          {addCompanyDialog}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {companies.map((company: any) => {
@@ -119,6 +285,19 @@ export function PropertyMapper({ properties, sites, youtubeChannels = [] }: Prop
                     <CheckCircle className="h-3 w-3 mr-1" /> Configured
                   </Badge>
                 )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => handleDeleteCompany(company.id)}
+                  disabled={deletingCompanyId === company.id}
+                >
+                  {deletingCompanyId === company.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
 
               <div className="grid grid-cols-3 gap-4">

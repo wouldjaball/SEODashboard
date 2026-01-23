@@ -12,7 +12,9 @@ export default function IntegrationsLayout({
     <CompanyProvider>
       <div className="min-h-screen bg-background">
         <DashboardHeader />
-        {children}
+        <main className="container px-3 sm:px-4 py-4 sm:py-6 pb-safe">
+          {children}
+        </main>
       </div>
     </CompanyProvider>
   )

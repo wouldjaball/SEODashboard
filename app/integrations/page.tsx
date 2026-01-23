@@ -155,7 +155,7 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="container max-w-6xl py-8 space-y-8">
+    <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Integrations</h1>
         <p className="text-muted-foreground mt-2">
