@@ -38,7 +38,7 @@ export async function GET() {
 
       const { data: youtubeMapping } = await supabase
         .from('company_youtube_mappings')
-        .select('youtube_channels(channel_id)')
+        .select('youtube_channel_id')
         .eq('company_id', company_id)
         .maybeSingle()
 
@@ -51,7 +51,7 @@ export async function GET() {
       mappings[company_id] = {
         gaPropertyId: (gaMapping?.ga_properties as any)?.property_id || '',
         gscSiteId: (gscMapping?.gsc_sites as any)?.site_url || '',
-        youtubeChannelId: (youtubeMapping?.youtube_channels as any)?.channel_id || '',
+        youtubeChannelId: youtubeMapping?.youtube_channel_id || '',
         linkedinPageId: (linkedinMapping?.linkedin_pages as any)?.page_id || ''
       }
     }
@@ -166,26 +166,17 @@ export async function POST(request: Request) {
       }
 
       if (youtubeChannelId) {
-        // Look up the UUID for this YouTube channel
-        const { data: ytChannel, error: ytLookupError } = await supabase
-          .from('youtube_channels')
-          .select('id')
-          .eq('channel_id', youtubeChannelId)
-          .single()
-
-        if (ytLookupError || !ytChannel) {
-          console.error(`YouTube channel not found for channel_id ${youtubeChannelId}:`, ytLookupError)
-          throw new Error(`YouTube channel ${youtubeChannelId} not found. Please add it first.`)
-        }
-
+        // youtubeChannelId is now the database UUID directly
+        console.log(`Inserting YouTube mapping: company_id=${companyId}, youtube_channel_id=${youtubeChannelId}`)
         const { error: ytError } = await supabase.from('company_youtube_mappings').insert({
           company_id: companyId,
-          youtube_channel_id: ytChannel.id
+          youtube_channel_id: youtubeChannelId
         })
         if (ytError) {
           console.error(`Failed to save YouTube mapping for company ${companyId}:`, ytError)
           throw ytError
         }
+        console.log(`Successfully saved YouTube mapping for company ${companyId}`)
       }
 
       if (linkedinPageId) {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { GoogleAnalyticsService } from '@/lib/services/google-analytics-service'
 import { GoogleSearchConsoleService } from '@/lib/services/google-search-console-service'
+import { YouTubeAnalyticsService } from '@/lib/services/youtube-analytics-service'
 import { NextResponse } from 'next/server'
 import { subDays, format } from 'date-fns'
 
@@ -89,12 +90,39 @@ export async function GET(
       }
     }
 
-    console.log('Final mappings:', { gaMappings, gscMappings })
+    // Get YouTube mapping
+    const { data: ytMapping, error: ytMappingError } = await supabase
+      .from('company_youtube_mappings')
+      .select('youtube_channel_id')
+      .eq('company_id', companyId)
+      .maybeSingle()
 
-    if (!gaMappings && !gscMappings) {
+    console.log('YouTube mapping lookup:', { ytMapping, ytMappingError })
+
+    let ytMappings = null
+    if (ytMapping?.youtube_channel_id) {
+      const { data: ytChannel, error: ytChannelError } = await supabase
+        .from('youtube_channels')
+        .select('*')
+        .eq('id', ytMapping.youtube_channel_id)
+        .single()
+
+      console.log('YouTube channel lookup:', { ytChannel, ytChannelError })
+
+      if (ytChannel) {
+        ytMappings = {
+          youtube_channel_id: ytMapping.youtube_channel_id,
+          youtube_channels: ytChannel
+        }
+      }
+    }
+
+    console.log('Final mappings:', { gaMappings, gscMappings, ytMappings })
+
+    if (!gaMappings && !gscMappings && !ytMappings) {
       console.log('No mappings found - returning 404')
       return NextResponse.json({
-        error: 'No analytics or search console accounts mapped to this company',
+        error: 'No analytics, search console, or YouTube accounts mapped to this company',
         message: 'Please configure your integrations in the Accounts page'
       }, { status: 404 })
     }
@@ -178,7 +206,11 @@ export async function GET(
           gscCountries,
           gscDevices,
           gscIndexData,
-          gscLandingPages
+          gscLandingPages,
+          totalKeywords,
+          totalIndexedPages,
+          prevKeywords,
+          prevIndexedPages
         ] = await Promise.all([
           GoogleSearchConsoleService.fetchMetrics(
             user.id,
@@ -226,22 +258,44 @@ export async function GET(
             startDate,
             endDate,
             20
+          ),
+          // Fetch total counts for KPI cards
+          GoogleSearchConsoleService.fetchKeywordCount(
+            user.id,
+            gscSite.site_url,
+            startDate,
+            endDate
+          ),
+          GoogleSearchConsoleService.fetchIndexedPageCount(
+            user.id,
+            gscSite.site_url,
+            startDate,
+            endDate
+          ),
+          // Fetch previous period counts for comparison
+          GoogleSearchConsoleService.fetchKeywordCount(
+            user.id,
+            gscSite.site_url,
+            previousStartDate,
+            previousEndDate
+          ),
+          GoogleSearchConsoleService.fetchIndexedPageCount(
+            user.id,
+            gscSite.site_url,
+            previousStartDate,
+            previousEndDate
           )
         ])
 
-        // Enrich gscMetrics with data from other sources
-        // indexedPages = count of unique landing pages that received impressions
-        // rankingKeywords = count of unique keywords that received impressions
+        // Enrich gscMetrics with actual total counts
         const enrichedGscMetrics = {
           ...gscMetrics,
-          indexedPages: gscLandingPages?.length || 0,
-          rankingKeywords: gscKeywords?.length || 0,
+          indexedPages: totalIndexedPages,
+          rankingKeywords: totalKeywords,
           previousPeriod: gscMetrics.previousPeriod ? {
             ...gscMetrics.previousPeriod,
-            // Previous period values would require additional API calls
-            // For now, we estimate based on current counts
-            indexedPages: gscLandingPages?.length || 0,
-            rankingKeywords: gscKeywords?.length || 0,
+            indexedPages: prevIndexedPages,
+            rankingKeywords: prevKeywords,
           } : undefined
         }
 
@@ -255,6 +309,56 @@ export async function GET(
       } catch (error) {
         console.error('GSC fetch error:', error)
         results.gscError = 'Failed to fetch GSC data'
+      }
+    }
+
+    // Fetch YouTube data if mapped
+    if (ytMappings && ytMappings.youtube_channels) {
+      try {
+        const ytChannel = ytMappings.youtube_channels as any
+        const channelId = ytChannel.channel_id
+
+        console.log('=== YouTube FETCH DEBUG ===')
+        console.log('User ID:', user.id)
+        console.log('YouTube Channel from DB:', JSON.stringify(ytChannel))
+        console.log('Channel ID being used:', channelId)
+
+        const [ytMetrics, ytVideos, ytDailyData] = await Promise.all([
+          YouTubeAnalyticsService.fetchMetrics(
+            user.id,
+            channelId,
+            startDate,
+            endDate,
+            previousStartDate,
+            previousEndDate
+          ),
+          YouTubeAnalyticsService.fetchTopVideos(
+            user.id,
+            channelId,
+            startDate,
+            endDate,
+            10
+          ),
+          YouTubeAnalyticsService.fetchDailyData(
+            user.id,
+            channelId,
+            startDate,
+            endDate
+          )
+        ])
+
+        results.ytMetrics = ytMetrics
+        results.ytVideos = ytVideos
+
+        // Extract sparkline data from daily data
+        results.ytViewsSparkline = ytDailyData.map(d => d.views)
+        results.ytWatchTimeSparkline = ytDailyData.map(d => d.watchTime)
+        results.ytSharesSparkline = ytDailyData.map(d => d.shares)
+        results.ytLikesSparkline = ytDailyData.map(d => d.likes)
+      } catch (error: any) {
+        const errorMessage = error?.message || String(error) || 'Unknown error'
+        console.error('YouTube fetch error:', errorMessage)
+        results.ytError = errorMessage
       }
     }
 

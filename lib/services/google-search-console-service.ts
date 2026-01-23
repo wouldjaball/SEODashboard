@@ -159,6 +159,40 @@ export class GoogleSearchConsoleService {
     }))
   }
 
+  // Get total count of ranking keywords (unique queries with impressions)
+  static async fetchKeywordCount(
+    userId: string,
+    siteUrl: string,
+    startDate: string,
+    endDate: string
+  ): Promise<number> {
+    const data = await this.makeRequest(userId, siteUrl, {
+      startDate,
+      endDate,
+      dimensions: ['query'],
+      rowLimit: 25000 // Max allowed by API
+    })
+
+    return (data.rows || []).length
+  }
+
+  // Get total count of indexed pages (unique pages with impressions)
+  static async fetchIndexedPageCount(
+    userId: string,
+    siteUrl: string,
+    startDate: string,
+    endDate: string
+  ): Promise<number> {
+    const data = await this.makeRequest(userId, siteUrl, {
+      startDate,
+      endDate,
+      dimensions: ['page'],
+      rowLimit: 25000 // Max allowed by API
+    })
+
+    return (data.rows || []).length
+  }
+
   static async fetchCountries(
     userId: string,
     siteUrl: string,

@@ -14,6 +14,7 @@ export default function IntegrationsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [properties, setProperties] = useState([])
   const [sites, setSites] = useState([])
+  const [youtubeChannels, setYoutubeChannels] = useState([])
 
   useEffect(() => {
     checkConnection()
@@ -45,19 +46,22 @@ export default function IntegrationsPage() {
     }
   }
 
-  // Load cached properties and sites from database (fast, no API calls to Google)
+  // Load cached properties, sites, and channels from database (fast, no API calls to Google)
   async function loadCachedData() {
     try {
-      const [propertiesRes, sitesRes] = await Promise.all([
+      const [propertiesRes, sitesRes, channelsRes] = await Promise.all([
         fetch('/api/integrations/ga/properties/cached'),
-        fetch('/api/integrations/gsc/sites/cached')
+        fetch('/api/integrations/gsc/sites/cached'),
+        fetch('/api/integrations/youtube/channels/cached')
       ])
 
       const propertiesData = await propertiesRes.json()
       const sitesData = await sitesRes.json()
+      const channelsData = await channelsRes.json()
 
       setProperties(propertiesData.properties || [])
       setSites(sitesData.sites || [])
+      setYoutubeChannels(channelsData.channels || [])
     } catch (error) {
       console.error('Failed to load cached data:', error)
     }
@@ -66,25 +70,30 @@ export default function IntegrationsPage() {
   async function fetchAccountData() {
     setIsRefreshing(true)
     try {
-      console.log('Fetching GA properties and GSC sites...')
-      const [propertiesRes, sitesRes] = await Promise.all([
+      console.log('Fetching GA properties, GSC sites, and YouTube channels...')
+      const [propertiesRes, sitesRes, channelsRes] = await Promise.all([
         fetch('/api/integrations/ga/properties'),
-        fetch('/api/integrations/gsc/sites')
+        fetch('/api/integrations/gsc/sites'),
+        fetch('/api/integrations/youtube/channels?refresh=true')
       ])
 
       console.log('GA properties response status:', propertiesRes.status)
       console.log('GSC sites response status:', sitesRes.status)
+      console.log('YouTube channels response status:', channelsRes.status)
 
       const propertiesData = await propertiesRes.json()
       const sitesData = await sitesRes.json()
+      const channelsData = await channelsRes.json()
 
       console.log('Fetched properties:', propertiesData.properties?.length || 0)
       console.log('Fetched sites:', sitesData.sites?.length || 0)
+      console.log('Fetched YouTube channels:', channelsData.channels?.length || 0)
 
       setProperties(propertiesData.properties || [])
       setSites(sitesData.sites || [])
+      setYoutubeChannels(channelsData.channels || [])
 
-      alert(`Refreshed successfully!\n\nGA Properties: ${propertiesData.properties?.length || 0}\nGSC Sites: ${sitesData.sites?.length || 0}`)
+      alert(`Refreshed successfully!\n\nGA Properties: ${propertiesData.properties?.length || 0}\nGSC Sites: ${sitesData.sites?.length || 0}\nYouTube Channels: ${channelsData.channels?.length || 0}`)
     } catch (error) {
       console.error('Failed to fetch account data:', error)
       alert('Failed to fetch account data. Check console for details.')
@@ -122,7 +131,7 @@ export default function IntegrationsPage() {
   }
 
   async function handleDisconnect() {
-    if (!confirm('Are you sure you want to disconnect Google Analytics and Search Console?')) {
+    if (!confirm('Are you sure you want to disconnect Google Analytics, Search Console, and YouTube?')) {
       return
     }
 
@@ -131,6 +140,7 @@ export default function IntegrationsPage() {
       setIsConnected(false)
       setProperties([])
       setSites([])
+      setYoutubeChannels([])
     } catch (error) {
       console.error('Failed to disconnect:', error)
     }
@@ -193,7 +203,7 @@ export default function IntegrationsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="font-medium text-sm">Analytics Properties</span>
@@ -205,6 +215,12 @@ export default function IntegrationsPage() {
                     <span className="font-medium text-sm">Search Console Sites</span>
                   </div>
                   <p className="text-2xl font-bold">{sites.length}</p>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-medium text-sm">YouTube Channels</span>
+                  </div>
+                  <p className="text-2xl font-bold">{youtubeChannels.length}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -229,7 +245,7 @@ export default function IntegrationsPage() {
 
       {/* Property Mapper */}
       {isConnected && (
-        <PropertyMapper properties={properties} sites={sites} />
+        <PropertyMapper properties={properties} sites={sites} youtubeChannels={youtubeChannels} />
       )}
     </div>
   )

@@ -2,7 +2,15 @@
 
 import * as React from "react"
 import { CalendarIcon } from "lucide-react"
-import { format, subDays } from "date-fns"
+import {
+  format,
+  subDays,
+  subMonths,
+  subYears,
+  startOfQuarter,
+  subQuarters,
+  endOfQuarter,
+} from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -21,29 +29,49 @@ interface DateRange {
 interface DateRangePickerProps {
   value: DateRange
   onChange: (range: DateRange) => void
-  presets?: { label: string; range: DateRange }[]
+  presets?: { label: string; range: DateRange | null }[]
   className?: string
   showComparison?: boolean
   comparisonEnabled?: boolean
   onComparisonToggle?: (enabled: boolean) => void
+  /** Earliest date allowed for "All Time" option */
+  allTimeStartDate?: Date
 }
 
-const defaultPresets: { label: string; range: DateRange }[] = [
+// Helper to get last quarter date range
+function getLastQuarter(): DateRange {
+  const lastQuarterEnd = endOfQuarter(subQuarters(new Date(), 1))
+  const lastQuarterStart = startOfQuarter(subQuarters(new Date(), 1))
+  return { from: lastQuarterStart, to: lastQuarterEnd }
+}
+
+// Default "all time" start date (can be overridden via props)
+const DEFAULT_ALL_TIME_START = new Date(2020, 0, 1)
+
+const createDefaultPresets = (allTimeStart: Date): { label: string; range: DateRange | null }[] => [
   {
     label: "Last 7 days",
     range: { from: subDays(new Date(), 7), to: new Date() },
-  },
-  {
-    label: "Last 14 days",
-    range: { from: subDays(new Date(), 14), to: new Date() },
   },
   {
     label: "Last 30 days",
     range: { from: subDays(new Date(), 30), to: new Date() },
   },
   {
-    label: "Last 60 days",
-    range: { from: subDays(new Date(), 60), to: new Date() },
+    label: "Last quarter",
+    range: getLastQuarter(),
+  },
+  {
+    label: "Last year",
+    range: { from: subYears(new Date(), 1), to: new Date() },
+  },
+  {
+    label: "All time",
+    range: { from: allTimeStart, to: new Date() },
+  },
+  {
+    label: "Custom",
+    range: null, // null indicates custom mode
   },
 ]
 
@@ -57,16 +85,69 @@ function formatPreviousPeriod(range: DateRange): string {
 export function DateRangePicker({
   value,
   onChange,
-  presets = defaultPresets,
+  presets,
   className,
   showComparison = false,
   comparisonEnabled = false,
   onComparisonToggle,
+  allTimeStartDate = DEFAULT_ALL_TIME_START,
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
+  const [isCustomMode, setIsCustomMode] = React.useState(false)
+  const [pendingRange, setPendingRange] = React.useState<{ from?: Date; to?: Date } | undefined>(undefined)
+
+  const defaultPresets = React.useMemo(
+    () => createDefaultPresets(allTimeStartDate),
+    [allTimeStartDate]
+  )
+  const activePresets = presets || defaultPresets
+
+  const handlePresetClick = (preset: { label: string; range: DateRange | null }) => {
+    if (preset.range === null) {
+      // Custom mode - show calendar and wait for selection
+      setIsCustomMode(true)
+      setPendingRange(value)
+    } else {
+      onChange(preset.range)
+      setIsCustomMode(false)
+      setIsOpen(false)
+    }
+  }
+
+  const handleCalendarSelect = (range: { from?: Date; to?: Date } | undefined) => {
+    if (range) {
+      setPendingRange(range)
+      // Only apply when both dates are selected
+      if (range.from && range.to) {
+        onChange({ from: range.from, to: range.to })
+        if (!isCustomMode) {
+          setIsOpen(false)
+        }
+      }
+    }
+  }
+
+  const handleApplyCustom = () => {
+    if (pendingRange?.from && pendingRange?.to) {
+      onChange({ from: pendingRange.from, to: pendingRange.to })
+      setIsOpen(false)
+      setIsCustomMode(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setIsCustomMode(false)
+    setPendingRange(undefined)
+  }
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open)
+      if (!open) {
+        setIsCustomMode(false)
+        setPendingRange(undefined)
+      }
+    }}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -104,16 +185,13 @@ export function DateRangePicker({
         <div className="flex flex-col sm:flex-row max-h-[80vh] overflow-auto">
           {/* Presets - horizontal scroll on mobile, vertical list on desktop */}
           <div className="flex sm:flex-col gap-1 p-2 border-b sm:border-b-0 sm:border-r overflow-x-auto sm:overflow-x-visible">
-            {presets.map((preset) => (
+            {activePresets.map((preset) => (
               <Button
                 key={preset.label}
-                variant="ghost"
+                variant={isCustomMode && preset.range === null ? "secondary" : "ghost"}
                 size="sm"
                 className="shrink-0 sm:w-full justify-start text-xs sm:text-sm whitespace-nowrap"
-                onClick={() => {
-                  onChange(preset.range)
-                  setIsOpen(false)
-                }}
+                onClick={() => handlePresetClick(preset)}
               >
                 {preset.label}
               </Button>
@@ -122,14 +200,31 @@ export function DateRangePicker({
           <div className="p-2">
             <Calendar
               mode="range"
-              selected={value}
-              onSelect={(range) => {
-                if (range && "from" in range && range.from && range.to) {
-                  onChange({ from: range.from, to: range.to })
-                }
-              }}
+              selected={isCustomMode && pendingRange ? { from: pendingRange.from, to: pendingRange.to } : value}
+              onSelect={handleCalendarSelect}
               className="rounded-md"
+              numberOfMonths={1}
             />
+            {isCustomMode && (
+              <div className="flex gap-2 mt-2 pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleApplyCustom}
+                  disabled={!pendingRange?.from || !pendingRange?.to}
+                >
+                  Apply
+                </Button>
+              </div>
+            )}
           </div>
         </div>
         {showComparison && (

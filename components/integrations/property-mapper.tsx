@@ -10,11 +10,12 @@ import { CheckCircle, Save, Loader2, X } from 'lucide-react'
 interface PropertyMapperProps {
   properties: any[]
   sites: any[]
+  youtubeChannels?: any[]
 }
 
-export function PropertyMapper({ properties, sites }: PropertyMapperProps) {
+export function PropertyMapper({ properties, sites, youtubeChannels = [] }: PropertyMapperProps) {
   const [companies, setCompanies] = useState<any[]>([])
-  const [mappings, setMappings] = useState<Record<string, { gaPropertyId: string; gscSiteId: string }>>({})
+  const [mappings, setMappings] = useState<Record<string, { gaPropertyId: string; gscSiteId: string; youtubeChannelId: string }>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -92,13 +93,13 @@ export function PropertyMapper({ properties, sites }: PropertyMapperProps) {
       <CardHeader>
         <CardTitle>Property Mappings</CardTitle>
         <CardDescription>
-          Assign Google Analytics properties and Search Console sites to your companies
+          Assign Google Analytics properties, Search Console sites, and YouTube channels to your companies
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {companies.map((company: any) => {
-          const mapping = mappings[company.id] || { gaPropertyId: '', gscSiteId: '' }
-          const isConfigured = mapping.gaPropertyId && mapping.gscSiteId
+          const mapping = mappings[company.id] || { gaPropertyId: '', gscSiteId: '', youtubeChannelId: '' }
+          const isConfigured = mapping.gaPropertyId || mapping.gscSiteId || mapping.youtubeChannelId
 
           return (
             <div key={company.id} className="border rounded-lg p-4 space-y-4">
@@ -120,7 +121,7 @@ export function PropertyMapper({ properties, sites }: PropertyMapperProps) {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Analytics Property</label>
                   <div className="flex gap-2">
@@ -196,6 +197,48 @@ export function PropertyMapper({ properties, sites }: PropertyMapperProps) {
                           setMappings(prev => ({
                             ...prev,
                             [company.id]: { ...mapping, gscSiteId: '' }
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">YouTube Channel</label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={mapping.youtubeChannelId || 'none'}
+                      onValueChange={(value) =>
+                        setMappings(prev => ({
+                          ...prev,
+                          [company.id]: { ...mapping, youtubeChannelId: value === 'none' ? '' : value }
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select channel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">-- None --</SelectItem>
+                        {youtubeChannels.map((channel: any) => (
+                          <SelectItem key={channel.id} value={channel.id}>
+                            {channel.channelName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {mapping.youtubeChannelId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() =>
+                          setMappings(prev => ({
+                            ...prev,
+                            [company.id]: { ...mapping, youtubeChannelId: '' }
                           }))
                         }
                       >

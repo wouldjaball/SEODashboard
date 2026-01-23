@@ -124,7 +124,13 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         gscCountries: data.gscCountries || [],
         gscDevices: data.gscDevices || [],
         gscIndexData: data.gscIndexData || [],
-        gscLandingPages: data.gscLandingPages || []
+        gscLandingPages: data.gscLandingPages || [],
+        ytMetrics: data.ytMetrics || null,
+        ytVideos: data.ytVideos || [],
+        ytViewsSparkline: data.ytViewsSparkline || [],
+        ytWatchTimeSparkline: data.ytWatchTimeSparkline || [],
+        ytSharesSparkline: data.ytSharesSparkline || [],
+        ytLikesSparkline: data.ytLikesSparkline || []
       }))
     } catch (err) {
       console.error('[CompanyContext] Failed to fetch analytics:', err)
