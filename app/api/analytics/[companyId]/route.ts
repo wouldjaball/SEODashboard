@@ -35,21 +35,61 @@ export async function GET(
     // Get company mappings
     console.log(`Fetching mappings for company ${companyId}`)
 
-    const { data: gaMappings, error: gaError } = await supabase
+    // First, get the mapping IDs
+    const { data: gaMapping, error: gaMappingError } = await supabase
       .from('company_ga_mappings')
-      .select('ga_property_id, ga_properties!inner(*)')
+      .select('ga_property_id')
       .eq('company_id', companyId)
       .maybeSingle()
 
-    console.log('GA mappings result:', { gaMappings, gaError })
+    console.log('GA mapping lookup:', { gaMapping, gaMappingError })
 
-    const { data: gscMappings, error: gscError } = await supabase
+    let gaMappings = null
+    if (gaMapping?.ga_property_id) {
+      // Then fetch the property details
+      const { data: gaProperty, error: gaPropError } = await supabase
+        .from('ga_properties')
+        .select('*')
+        .eq('id', gaMapping.ga_property_id)
+        .single()
+
+      console.log('GA property lookup:', { gaProperty, gaPropError })
+
+      if (gaProperty) {
+        gaMappings = {
+          ga_property_id: gaMapping.ga_property_id,
+          ga_properties: gaProperty
+        }
+      }
+    }
+
+    const { data: gscMapping, error: gscMappingError } = await supabase
       .from('company_gsc_mappings')
-      .select('gsc_site_id, gsc_sites!inner(*)')
+      .select('gsc_site_id')
       .eq('company_id', companyId)
       .maybeSingle()
 
-    console.log('GSC mappings result:', { gscMappings, gscError })
+    console.log('GSC mapping lookup:', { gscMapping, gscMappingError })
+
+    let gscMappings = null
+    if (gscMapping?.gsc_site_id) {
+      const { data: gscSite, error: gscSiteError } = await supabase
+        .from('gsc_sites')
+        .select('*')
+        .eq('id', gscMapping.gsc_site_id)
+        .single()
+
+      console.log('GSC site lookup:', { gscSite, gscSiteError })
+
+      if (gscSite) {
+        gscMappings = {
+          gsc_site_id: gscMapping.gsc_site_id,
+          gsc_sites: gscSite
+        }
+      }
+    }
+
+    console.log('Final mappings:', { gaMappings, gscMappings })
 
     if (!gaMappings && !gscMappings) {
       console.log('No mappings found - returning 404')
