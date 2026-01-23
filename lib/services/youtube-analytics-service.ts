@@ -183,54 +183,37 @@ export class YouTubeAnalyticsService {
     }))
   }
 
-  // Fetch user's YouTube channels (both owned and managed Brand Accounts)
+  // Fetch user's YouTube channels
+  // Note: This only returns channels owned by the currently authorized Google account.
+  // For Brand Account channels, users need to either:
+  // 1. Re-authorize while selecting the Brand Account during OAuth
+  // 2. Manually add channels via Admin > Accounts page
   static async fetchChannels(userId: string): Promise<Array<{
     channelId: string
     channelName: string
     channelHandle?: string
     thumbnailUrl?: string
   }>> {
-    const results: Map<string, any> = new Map()
     console.log('[YouTube] fetchChannels called for user:', userId)
 
-    // Fetch owned channels
     try {
-      console.log('[YouTube] Fetching owned channels (mine=true)...')
-      const ownedData = await this.makeDataRequest(userId, 'channels', {
+      console.log('[YouTube] Fetching channels with mine=true...')
+      const data = await this.makeDataRequest(userId, 'channels', {
         mine: 'true',
         part: 'snippet,contentDetails'
       })
-      console.log('[YouTube] Owned channels response:', JSON.stringify(ownedData))
-      for (const item of ownedData.items || []) {
-        results.set(item.id, item)
-      }
-      console.log(`[YouTube] Found ${ownedData.items?.length || 0} owned channels`)
-    } catch (error: any) {
-      console.error('[YouTube] Failed to fetch owned channels:', error.message)
-    }
+      console.log('[YouTube] API response:', JSON.stringify(data))
+      console.log(`[YouTube] Found ${data.items?.length || 0} channels`)
 
-    // Fetch managed channels (Brand Accounts)
-    try {
-      console.log('[YouTube] Fetching managed channels (managedByMe=true)...')
-      const managedData = await this.makeDataRequest(userId, 'channels', {
-        managedByMe: 'true',
-        part: 'snippet,contentDetails'
-      })
-      console.log('[YouTube] Managed channels response:', JSON.stringify(managedData))
-      for (const item of managedData.items || []) {
-        results.set(item.id, item) // Deduplicates automatically by channel ID
-      }
-      console.log(`[YouTube] Found ${managedData.items?.length || 0} managed channels`)
+      return (data.items || []).map((item: any) => ({
+        channelId: item.id,
+        channelName: item.snippet?.title || 'Unknown Channel',
+        channelHandle: item.snippet?.customUrl,
+        thumbnailUrl: item.snippet?.thumbnails?.default?.url
+      }))
     } catch (error: any) {
-      console.error('[YouTube] Failed to fetch managed channels:', error.message)
+      console.error('[YouTube] Failed to fetch channels:', error.message)
+      return []
     }
-
-    console.log(`[YouTube] Total unique channels: ${results.size}`)
-    return Array.from(results.values()).map((item: any) => ({
-      channelId: item.id,
-      channelName: item.snippet?.title || 'Unknown Channel',
-      channelHandle: item.snippet?.customUrl,
-      thumbnailUrl: item.snippet?.thumbnails?.default?.url
-    }))
   }
 }
