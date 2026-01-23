@@ -183,19 +183,42 @@ export class YouTubeAnalyticsService {
     }))
   }
 
-  // Fetch user's YouTube channels
+  // Fetch user's YouTube channels (both owned and managed Brand Accounts)
   static async fetchChannels(userId: string): Promise<Array<{
     channelId: string
     channelName: string
     channelHandle?: string
     thumbnailUrl?: string
   }>> {
-    const data = await this.makeDataRequest(userId, 'channels', {
-      mine: 'true',
-      part: 'snippet,contentDetails'
-    })
+    const results: Map<string, any> = new Map()
 
-    return (data.items || []).map((item: any) => ({
+    // Fetch owned channels
+    try {
+      const ownedData = await this.makeDataRequest(userId, 'channels', {
+        mine: 'true',
+        part: 'snippet,contentDetails'
+      })
+      for (const item of ownedData.items || []) {
+        results.set(item.id, item)
+      }
+    } catch (error) {
+      console.error('Failed to fetch owned channels:', error)
+    }
+
+    // Fetch managed channels (Brand Accounts)
+    try {
+      const managedData = await this.makeDataRequest(userId, 'channels', {
+        managedByMe: 'true',
+        part: 'snippet,contentDetails'
+      })
+      for (const item of managedData.items || []) {
+        results.set(item.id, item) // Deduplicates automatically by channel ID
+      }
+    } catch (error) {
+      console.error('Failed to fetch managed channels:', error)
+    }
+
+    return Array.from(results.values()).map((item: any) => ({
       channelId: item.id,
       channelName: item.snippet?.title || 'Unknown Channel',
       channelHandle: item.snippet?.customUrl,

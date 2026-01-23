@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@yourdomain.com'
+const REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || 'aaron@salesmonsters.com'
 const APP_NAME = 'SEO Dashboard'
 
 interface SendEmailOptions {
@@ -22,6 +23,7 @@ export class EmailService {
     try {
       const { data, error } = await resend.emails.send({
         from: `${APP_NAME} <${FROM_EMAIL}>`,
+        replyTo: REPLY_TO_EMAIL,
         to,
         subject,
         html,
