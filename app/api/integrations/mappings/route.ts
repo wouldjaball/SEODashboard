@@ -20,7 +20,7 @@ export async function GET() {
       return NextResponse.json({ mappings: {} })
     }
 
-    const mappings: Record<string, { gaPropertyId: string; gscSiteId: string }> = {}
+    const mappings: Record<string, { gaPropertyId: string; gscSiteId: string; youtubeChannelId: string; linkedinPageId: string }> = {}
 
     for (const { company_id } of companies) {
       const { data: gaMapping } = await supabase
@@ -35,9 +35,23 @@ export async function GET() {
         .eq('company_id', company_id)
         .single()
 
+      const { data: youtubeMapping } = await supabase
+        .from('company_youtube_mappings')
+        .select('youtube_channel_id')
+        .eq('company_id', company_id)
+        .single()
+
+      const { data: linkedinMapping } = await supabase
+        .from('company_linkedin_mappings')
+        .select('linkedin_page_id')
+        .eq('company_id', company_id)
+        .single()
+
       mappings[company_id] = {
         gaPropertyId: gaMapping?.ga_property_id || '',
-        gscSiteId: gscMapping?.gsc_site_id || ''
+        gscSiteId: gscMapping?.gsc_site_id || '',
+        youtubeChannelId: youtubeMapping?.youtube_channel_id || '',
+        linkedinPageId: linkedinMapping?.linkedin_page_id || ''
       }
     }
 
@@ -61,23 +75,45 @@ export async function POST(request: Request) {
 
     // Save mappings for each company
     for (const [companyId, mapping] of Object.entries(mappings)) {
-      const { gaPropertyId, gscSiteId } = mapping as { gaPropertyId: string; gscSiteId: string }
+      const { gaPropertyId, gscSiteId, youtubeChannelId, linkedinPageId } = mapping as {
+        gaPropertyId: string;
+        gscSiteId: string;
+        youtubeChannelId: string;
+        linkedinPageId: string
+      }
 
+      // Delete existing mappings first
+      await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
+      await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
+      await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
+      await supabase.from('company_linkedin_mappings').delete().eq('company_id', companyId)
+
+      // Insert new mappings if provided
       if (gaPropertyId) {
-        await supabase.from('company_ga_mappings').upsert({
+        await supabase.from('company_ga_mappings').insert({
           company_id: companyId,
           ga_property_id: gaPropertyId
-        }, {
-          onConflict: 'company_id,ga_property_id'
         })
       }
 
       if (gscSiteId) {
-        await supabase.from('company_gsc_mappings').upsert({
+        await supabase.from('company_gsc_mappings').insert({
           company_id: companyId,
           gsc_site_id: gscSiteId
-        }, {
-          onConflict: 'company_id,gsc_site_id'
+        })
+      }
+
+      if (youtubeChannelId) {
+        await supabase.from('company_youtube_mappings').insert({
+          company_id: companyId,
+          youtube_channel_id: youtubeChannelId
+        })
+      }
+
+      if (linkedinPageId) {
+        await supabase.from('company_linkedin_mappings').insert({
+          company_id: companyId,
+          linkedin_page_id: linkedinPageId
         })
       }
     }
