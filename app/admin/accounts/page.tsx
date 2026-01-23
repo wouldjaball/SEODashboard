@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, Save, CheckCircle, Plus, X } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard } from 'lucide-react'
 
 interface Company {
   id: string
@@ -158,12 +159,20 @@ export default function AdminAccountsPage() {
   }
 
   return (
-    <div className="container max-w-6xl py-8 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Account Assignments</h1>
-        <p className="text-muted-foreground mt-2">
-          Assign analytics accounts to companies for dashboard reporting
-        </p>
+    <div className="container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Account Assignments</h1>
+          <p className="text-muted-foreground mt-2">
+            Assign analytics accounts to companies for dashboard reporting
+          </p>
+        </div>
+        <Link href="/dashboard">
+          <Button variant="outline" className="gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            View Dashboard
+          </Button>
+        </Link>
       </div>
 
       {/* Available Accounts Summary */}
