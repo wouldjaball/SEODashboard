@@ -1,5 +1,6 @@
 import { CompanyProvider } from "@/lib/company-context"
 import { DashboardHeader } from "@/components/dashboard/shared/dashboard-header"
+import { PageTitle } from "@/components/dashboard/shared/page-title"
 
 export default function DashboardLayout({
   children,
@@ -8,6 +9,7 @@ export default function DashboardLayout({
 }) {
   return (
     <CompanyProvider>
+      <PageTitle />
       <div className="min-h-screen bg-background">
         {/* Header */}
         <DashboardHeader />

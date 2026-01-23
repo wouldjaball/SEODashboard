@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { CalendarIcon } from "lucide-react"
-import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfQuarter } from "date-fns"
+import { format, subDays } from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -31,23 +31,16 @@ const defaultPresets: { label: string; range: DateRange }[] = [
     range: { from: subDays(new Date(), 7), to: new Date() },
   },
   {
+    label: "Last 14 days",
+    range: { from: subDays(new Date(), 14), to: new Date() },
+  },
+  {
     label: "Last 30 days",
     range: { from: subDays(new Date(), 30), to: new Date() },
   },
   {
-    label: "This month",
-    range: { from: startOfMonth(new Date()), to: new Date() },
-  },
-  {
-    label: "Last month",
-    range: {
-      from: startOfMonth(subMonths(new Date(), 1)),
-      to: endOfMonth(subMonths(new Date(), 1)),
-    },
-  },
-  {
-    label: "This quarter",
-    range: { from: startOfQuarter(new Date()), to: new Date() },
+    label: "Last 60 days",
+    range: { from: subDays(new Date(), 60), to: new Date() },
   },
 ]
 
