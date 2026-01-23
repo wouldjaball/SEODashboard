@@ -58,6 +58,14 @@ const createDefaultPresets = (allTimeStart: Date): { label: string; range: DateR
     range: { from: subDays(new Date(), 30), to: new Date() },
   },
   {
+    label: "Last 60 days",
+    range: { from: subDays(new Date(), 60), to: new Date() },
+  },
+  {
+    label: "Last 90 days",
+    range: { from: subDays(new Date(), 90), to: new Date() },
+  },
+  {
     label: "Last quarter",
     range: getLastQuarter(),
   },
