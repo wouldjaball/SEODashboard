@@ -15,6 +15,7 @@ export default function IntegrationsPage() {
   const [properties, setProperties] = useState([])
   const [sites, setSites] = useState([])
   const [youtubeChannels, setYoutubeChannels] = useState([])
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     checkConnection()
@@ -92,6 +93,9 @@ export default function IntegrationsPage() {
       setProperties(propertiesData.properties || [])
       setSites(sitesData.sites || [])
       setYoutubeChannels(channelsData.channels || [])
+
+      // Increment key to force PropertyMapper to remount and re-fetch mappings
+      setRefreshKey(prev => prev + 1)
 
       alert(`Refreshed successfully!\n\nGA Properties: ${propertiesData.properties?.length || 0}\nGSC Sites: ${sitesData.sites?.length || 0}\nYouTube Channels: ${channelsData.channels?.length || 0}`)
     } catch (error) {
@@ -245,7 +249,7 @@ export default function IntegrationsPage() {
 
       {/* Property Mapper */}
       {isConnected && (
-        <PropertyMapper properties={properties} sites={sites} youtubeChannels={youtubeChannels} />
+        <PropertyMapper key={refreshKey} properties={properties} sites={sites} youtubeChannels={youtubeChannels} />
       )}
     </div>
   )
