@@ -27,25 +27,25 @@ export async function GET() {
         .from('company_ga_mappings')
         .select('ga_property_id')
         .eq('company_id', company_id)
-        .single()
+        .maybeSingle()
 
       const { data: gscMapping } = await supabase
         .from('company_gsc_mappings')
         .select('gsc_site_id')
         .eq('company_id', company_id)
-        .single()
+        .maybeSingle()
 
       const { data: youtubeMapping } = await supabase
         .from('company_youtube_mappings')
         .select('youtube_channel_id')
         .eq('company_id', company_id)
-        .single()
+        .maybeSingle()
 
       const { data: linkedinMapping } = await supabase
         .from('company_linkedin_mappings')
         .select('linkedin_page_id')
         .eq('company_id', company_id)
-        .single()
+        .maybeSingle()
 
       mappings[company_id] = {
         gaPropertyId: gaMapping?.ga_property_id || '',
@@ -90,31 +90,47 @@ export async function POST(request: Request) {
 
       // Insert new mappings if provided
       if (gaPropertyId) {
-        await supabase.from('company_ga_mappings').insert({
+        const { error: gaError } = await supabase.from('company_ga_mappings').insert({
           company_id: companyId,
           ga_property_id: gaPropertyId
         })
+        if (gaError) {
+          console.error(`Failed to save GA mapping for company ${companyId}:`, gaError)
+          throw gaError
+        }
       }
 
       if (gscSiteId) {
-        await supabase.from('company_gsc_mappings').insert({
+        const { error: gscError } = await supabase.from('company_gsc_mappings').insert({
           company_id: companyId,
           gsc_site_id: gscSiteId
         })
+        if (gscError) {
+          console.error(`Failed to save GSC mapping for company ${companyId}:`, gscError)
+          throw gscError
+        }
       }
 
       if (youtubeChannelId) {
-        await supabase.from('company_youtube_mappings').insert({
+        const { error: ytError } = await supabase.from('company_youtube_mappings').insert({
           company_id: companyId,
           youtube_channel_id: youtubeChannelId
         })
+        if (ytError) {
+          console.error(`Failed to save YouTube mapping for company ${companyId}:`, ytError)
+          throw ytError
+        }
       }
 
       if (linkedinPageId) {
-        await supabase.from('company_linkedin_mappings').insert({
+        const { error: liError } = await supabase.from('company_linkedin_mappings').insert({
           company_id: companyId,
           linkedin_page_id: linkedinPageId
         })
+        if (liError) {
+          console.error(`Failed to save LinkedIn mapping for company ${companyId}:`, liError)
+          throw liError
+        }
       }
     }
 
