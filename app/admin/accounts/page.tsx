@@ -364,7 +364,7 @@ export default function AdminAccountsPage() {
                             <SelectContent>
                               {youtubeChannels.map((channel: any) => (
                                 <SelectItem key={channel.id} value={channel.id}>
-                                  {channel.channel_name}
+                                  {channel.channelName || channel.channel_name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -514,12 +514,12 @@ export default function AdminAccountsPage() {
                   {youtubeChannels.map((channel: any) => (
                     <div key={channel.id} className="flex items-center justify-between border rounded p-3">
                       <div>
-                        <p className="font-medium">{channel.channel_name}</p>
-                        {channel.channel_handle && (
-                          <p className="text-sm text-muted-foreground">{channel.channel_handle}</p>
+                        <p className="font-medium">{channel.channelName || channel.channel_name}</p>
+                        {(channel.channelHandle || channel.channel_handle) && (
+                          <p className="text-sm text-muted-foreground">{channel.channelHandle || channel.channel_handle}</p>
                         )}
                       </div>
-                      <Badge variant="outline">{channel.channel_id}</Badge>
+                      <Badge variant="outline">{channel.channelId || channel.channel_id}</Badge>
                     </div>
                   ))}
                 </div>
