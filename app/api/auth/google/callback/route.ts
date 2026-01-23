@@ -11,6 +11,8 @@ export async function GET(request: Request) {
   }
 
   try {
+    console.log('OAuth callback - exchanging code for tokens')
+
     // Exchange code for tokens (includes analytics scopes)
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -25,21 +27,29 @@ export async function GET(request: Request) {
     })
 
     if (!tokenResponse.ok) {
-      throw new Error('Failed to exchange code for tokens')
+      const errorText = await tokenResponse.text()
+      console.error('Token exchange failed:', errorText)
+      throw new Error(`Failed to exchange code for tokens: ${errorText}`)
     }
 
     const tokens = await tokenResponse.json()
+    console.log('Tokens received successfully')
 
     // Get current user
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
+      console.error('No user found in session')
       return NextResponse.redirect(`${origin}/auth/login`)
     }
 
+    console.log('Saving tokens for user:', user.id)
+
     // Save encrypted tokens
     await OAuthTokenService.saveTokens(user.id, tokens)
+
+    console.log('Tokens saved successfully')
 
     // Redirect to integrations page with success
     return NextResponse.redirect(`${origin}/integrations?success=true`)
