@@ -24,6 +24,7 @@ export default function DashboardPage() {
     from: subDays(new Date(), 30),
     to: new Date(),
   })
+  const [activeTab, setActiveTab] = useState("google-analytics")
 
   // Fetch data when date range or company changes
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function DashboardPage() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="google-analytics" className="space-y-4 sm:space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
         <TabsList className="grid grid-cols-4 h-auto p-1 gap-0.5 sm:gap-1">
           <TabsTrigger
             value="google-analytics"
