@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, Settings } from "lucide-react"
+import { BarChart3, Settings, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCompany } from "@/lib/company-context"
 import { CompanySwitcher } from "./company-switcher"
@@ -44,6 +44,11 @@ export function DashboardHeader() {
 
         {/* Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <Link href="/dashboard">
+            <Button variant="ghost" size="icon" title="Dashboard">
+              <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+          </Link>
           <Link href="/integrations">
             <Button variant="ghost" size="icon" title="Integrations">
               <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
