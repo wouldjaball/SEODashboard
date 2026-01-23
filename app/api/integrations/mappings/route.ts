@@ -23,35 +23,36 @@ export async function GET() {
     const mappings: Record<string, { gaPropertyId: string; gscSiteId: string; youtubeChannelId: string; linkedinPageId: string }> = {}
 
     for (const { company_id } of companies) {
+      // Join with the actual properties/sites/channels/pages tables to get the property_id/site_url values
       const { data: gaMapping } = await supabase
         .from('company_ga_mappings')
-        .select('ga_property_id')
+        .select('ga_properties(property_id)')
         .eq('company_id', company_id)
         .maybeSingle()
 
       const { data: gscMapping } = await supabase
         .from('company_gsc_mappings')
-        .select('gsc_site_id')
+        .select('gsc_sites(site_url)')
         .eq('company_id', company_id)
         .maybeSingle()
 
       const { data: youtubeMapping } = await supabase
         .from('company_youtube_mappings')
-        .select('youtube_channel_id')
+        .select('youtube_channels(channel_id)')
         .eq('company_id', company_id)
         .maybeSingle()
 
       const { data: linkedinMapping } = await supabase
         .from('company_linkedin_mappings')
-        .select('linkedin_page_id')
+        .select('linkedin_pages(page_id)')
         .eq('company_id', company_id)
         .maybeSingle()
 
       mappings[company_id] = {
-        gaPropertyId: gaMapping?.ga_property_id || '',
-        gscSiteId: gscMapping?.gsc_site_id || '',
-        youtubeChannelId: youtubeMapping?.youtube_channel_id || '',
-        linkedinPageId: linkedinMapping?.linkedin_page_id || ''
+        gaPropertyId: (gaMapping?.ga_properties as any)?.property_id || '',
+        gscSiteId: (gscMapping?.gsc_sites as any)?.site_url || '',
+        youtubeChannelId: (youtubeMapping?.youtube_channels as any)?.channel_id || '',
+        linkedinPageId: (linkedinMapping?.linkedin_pages as any)?.page_id || ''
       }
     }
 
@@ -110,10 +111,25 @@ export async function POST(request: Request) {
       if (deleteLiError) console.error(`Delete LinkedIn mapping error:`, deleteLiError)
 
       // Insert new mappings if provided
+      // Note: The IDs passed from the frontend are the property_id/site_url/channel_id/page_id strings,
+      // but we need to look up the UUID from the respective tables to use as foreign keys
+
       if (gaPropertyId) {
+        // Look up the UUID for this GA property
+        const { data: gaProperty, error: gaLookupError } = await supabase
+          .from('ga_properties')
+          .select('id')
+          .eq('property_id', gaPropertyId)
+          .single()
+
+        if (gaLookupError || !gaProperty) {
+          console.error(`GA property not found for property_id ${gaPropertyId}:`, gaLookupError)
+          throw new Error(`GA property ${gaPropertyId} not found. Please refresh the properties list.`)
+        }
+
         const { error: gaError } = await supabase.from('company_ga_mappings').insert({
           company_id: companyId,
-          ga_property_id: gaPropertyId
+          ga_property_id: gaProperty.id
         })
         if (gaError) {
           console.error(`Failed to save GA mapping for company ${companyId}:`, gaError)
@@ -122,9 +138,21 @@ export async function POST(request: Request) {
       }
 
       if (gscSiteId) {
+        // Look up the UUID for this GSC site
+        const { data: gscSite, error: gscLookupError } = await supabase
+          .from('gsc_sites')
+          .select('id')
+          .eq('site_url', gscSiteId)
+          .single()
+
+        if (gscLookupError || !gscSite) {
+          console.error(`GSC site not found for site_url ${gscSiteId}:`, gscLookupError)
+          throw new Error(`GSC site ${gscSiteId} not found. Please refresh the sites list.`)
+        }
+
         const { error: gscError } = await supabase.from('company_gsc_mappings').insert({
           company_id: companyId,
-          gsc_site_id: gscSiteId
+          gsc_site_id: gscSite.id
         })
         if (gscError) {
           console.error(`Failed to save GSC mapping for company ${companyId}:`, gscError)
@@ -133,9 +161,21 @@ export async function POST(request: Request) {
       }
 
       if (youtubeChannelId) {
+        // Look up the UUID for this YouTube channel
+        const { data: ytChannel, error: ytLookupError } = await supabase
+          .from('youtube_channels')
+          .select('id')
+          .eq('channel_id', youtubeChannelId)
+          .single()
+
+        if (ytLookupError || !ytChannel) {
+          console.error(`YouTube channel not found for channel_id ${youtubeChannelId}:`, ytLookupError)
+          throw new Error(`YouTube channel ${youtubeChannelId} not found. Please add it first.`)
+        }
+
         const { error: ytError } = await supabase.from('company_youtube_mappings').insert({
           company_id: companyId,
-          youtube_channel_id: youtubeChannelId
+          youtube_channel_id: ytChannel.id
         })
         if (ytError) {
           console.error(`Failed to save YouTube mapping for company ${companyId}:`, ytError)
@@ -144,9 +184,21 @@ export async function POST(request: Request) {
       }
 
       if (linkedinPageId) {
+        // Look up the UUID for this LinkedIn page
+        const { data: liPage, error: liLookupError } = await supabase
+          .from('linkedin_pages')
+          .select('id')
+          .eq('page_id', linkedinPageId)
+          .single()
+
+        if (liLookupError || !liPage) {
+          console.error(`LinkedIn page not found for page_id ${linkedinPageId}:`, liLookupError)
+          throw new Error(`LinkedIn page ${linkedinPageId} not found. Please add it first.`)
+        }
+
         const { error: liError } = await supabase.from('company_linkedin_mappings').insert({
           company_id: companyId,
-          linkedin_page_id: linkedinPageId
+          linkedin_page_id: liPage.id
         })
         if (liError) {
           console.error(`Failed to save LinkedIn mapping for company ${companyId}:`, liError)
