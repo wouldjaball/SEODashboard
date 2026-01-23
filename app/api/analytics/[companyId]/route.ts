@@ -107,6 +107,12 @@ export async function GET(
         const gaProperty = gaMappings.ga_properties as any
         const propertyId = gaProperty.property_id
 
+        console.log('=== GA FETCH DEBUG ===')
+        console.log('User ID:', user.id)
+        console.log('GA Property from DB:', JSON.stringify(gaProperty))
+        console.log('Property ID being used:', propertyId)
+        console.log('Date range:', { startDate, endDate, previousStartDate, previousEndDate })
+
         const [
           gaMetrics,
           gaWeeklyData,

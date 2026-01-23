@@ -18,23 +18,30 @@ export class GoogleAnalyticsService {
     endpoint: string,
     body: any
   ) {
-    const accessToken = await OAuthTokenService.refreshAccessToken(userId)
-    if (!accessToken) throw new Error('No valid access token')
+    console.log('[GA Service] makeRequest called:', { userId, propertyId, endpoint })
 
-    const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}${endpoint}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      }
-    )
+    const accessToken = await OAuthTokenService.refreshAccessToken(userId)
+    console.log('[GA Service] Access token obtained:', accessToken ? 'Yes (length: ' + accessToken.length + ')' : 'No')
+
+    if (!accessToken) throw new Error('No valid access token - token refresh failed')
+
+    const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}${endpoint}`
+    console.log('[GA Service] Calling GA API:', url)
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    })
+
+    console.log('[GA Service] Response status:', response.status)
 
     if (!response.ok) {
       const error = await response.text()
+      console.error('[GA Service] API Error:', error)
       throw new Error(`GA API Error: ${response.status} - ${error}`)
     }
 
