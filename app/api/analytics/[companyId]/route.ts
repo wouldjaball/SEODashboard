@@ -26,11 +26,11 @@ export async function GET(
     const previousStartDate = format(subDays(new Date(startDate), daysDiff), 'yyyy-MM-dd')
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
 
-    // Check cache first
-    const cached = await checkCache(supabase, companyId, startDate, endDate)
-    if (cached) {
-      return NextResponse.json(cached)
-    }
+    // Skip cache temporarily for debugging
+    // const cached = await checkCache(supabase, companyId, startDate, endDate)
+    // if (cached) {
+    //   return NextResponse.json(cached)
+    // }
 
     // Get company mappings
     console.log(`Fetching mappings for company ${companyId}`)
@@ -155,9 +155,15 @@ export async function GET(
         results.gaGender = gaGender
         results.gaAge = gaAge
       } catch (error: any) {
-        console.error('GA fetch error:', error?.message || error)
+        const errorMessage = error?.message || String(error) || 'Unknown error'
+        console.error('GA fetch error:', errorMessage)
         console.error('GA fetch error stack:', error?.stack)
-        results.gaError = error?.message || 'Failed to fetch GA data'
+        results.gaError = errorMessage
+        results.gaErrorDetails = {
+          message: errorMessage,
+          stack: error?.stack,
+          name: error?.name
+        }
       }
     }
 
