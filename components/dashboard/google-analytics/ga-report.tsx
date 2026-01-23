@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useMemo } from "react"
 import { GAKPIOverview } from "./ga-kpi-overview"
 import { WeeklyPerformanceChart } from "./weekly-performance-chart"
 import { TrafficShareChart } from "./traffic-share-chart"
@@ -8,6 +9,15 @@ import { PerformanceTable } from "./performance-table"
 import { LandingPageTable } from "./landing-page-table"
 import { DemographicsCharts } from "./demographics-charts"
 import { RegionMap } from "./region-map"
+import { GAFilterBar } from "./ga-filter-bar"
+import {
+  filterLandingPages,
+  filterSourcePerformance,
+  filterDevices,
+  filterChannelData,
+  filterTrafficShare,
+  calculateFilteredMetrics,
+} from "@/lib/ga-filters"
 import type {
   GAMetrics,
   GAWeeklyData,
@@ -18,6 +28,7 @@ import type {
   GADevice,
   GADemographic,
   GATrafficShare,
+  GAFilters,
 } from "@/lib/types"
 
 interface GAReportProps {
@@ -45,10 +56,36 @@ export function GAReport({
   gender,
   age,
 }: GAReportProps) {
+  // Filter state - empty arrays mean "all selected"
+  const [filters, setFilters] = useState<GAFilters>({
+    landingPages: [],
+    deviceCategories: [],
+    channels: [],
+  })
+
+  // Apply filters to all data
+  const filteredData = useMemo(() => ({
+    metrics: calculateFilteredMetrics(metrics, landingPages, devices, trafficShare, filters),
+    landingPages: filterLandingPages(landingPages, filters),
+    sourcePerformance: filterSourcePerformance(sourcePerformance, filters),
+    devices: filterDevices(devices, filters),
+    channelData: filterChannelData(channelData, filters),
+    trafficShare: filterTrafficShare(trafficShare, filters),
+  }), [metrics, landingPages, devices, trafficShare, sourcePerformance, channelData, filters])
+
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Filter Bar */}
+      <GAFilterBar
+        landingPages={landingPages}
+        devices={devices}
+        trafficShare={trafficShare}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
+
       {/* KPI Overview */}
-      <GAKPIOverview metrics={metrics} />
+      <GAKPIOverview metrics={filteredData.metrics} />
 
       {/* Charts Row - Stack on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -56,23 +93,23 @@ export function GAReport({
           <WeeklyPerformanceChart data={weeklyData} />
         </div>
         <div className="lg:col-span-2">
-          <TrafficShareChart data={trafficShare} />
+          <TrafficShareChart data={filteredData.trafficShare} />
         </div>
       </div>
 
       {/* Channel Performance */}
-      <ChannelPerformanceChart data={channelData} />
+      <ChannelPerformanceChart data={filteredData.channelData} />
 
       {/* Performance Table */}
-      <PerformanceTable data={sourcePerformance} />
+      <PerformanceTable data={filteredData.sourcePerformance} />
 
       {/* Landing Page Table */}
-      <LandingPageTable data={landingPages} />
+      <LandingPageTable data={filteredData.landingPages} />
 
       {/* Region & Demographics - Stack on mobile and tablet */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <RegionMap data={regions} />
-        <DemographicsCharts devices={devices} gender={gender} age={age} />
+        <DemographicsCharts devices={filteredData.devices} gender={gender} age={age} />
       </div>
     </div>
   )

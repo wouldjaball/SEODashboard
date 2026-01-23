@@ -275,6 +275,13 @@ export interface FilterOption {
   label: string
 }
 
+// GA Filters for client-side filtering
+export interface GAFilters {
+  landingPages: string[]      // pagePath values, empty = all
+  deviceCategories: ('desktop' | 'mobile' | 'tablet')[]  // empty = all
+  channels: string[]          // channel/source names, empty = all
+}
+
 // Company type for multi-tenant data
 export interface Company {
   id: string
