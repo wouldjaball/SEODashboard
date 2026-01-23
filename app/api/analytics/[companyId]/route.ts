@@ -37,16 +37,19 @@ export async function GET(
       .from('company_ga_mappings')
       .select('ga_property_id, ga_properties!inner(*)')
       .eq('company_id', companyId)
-      .single()
+      .maybeSingle()
 
     const { data: gscMappings } = await supabase
       .from('company_gsc_mappings')
       .select('gsc_site_id, gsc_sites!inner(*)')
       .eq('company_id', companyId)
-      .single()
+      .maybeSingle()
 
     if (!gaMappings && !gscMappings) {
-      return NextResponse.json({ error: 'No mappings configured' }, { status: 404 })
+      return NextResponse.json({
+        error: 'No analytics or search console accounts mapped to this company',
+        message: 'Please configure your integrations in the Accounts page'
+      }, { status: 404 })
     }
 
     const results: any = {}
