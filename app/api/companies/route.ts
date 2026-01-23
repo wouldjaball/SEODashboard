@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -52,8 +52,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name and industry are required' }, { status: 400 })
     }
 
+    // Use service client to bypass RLS for company creation
+    // This is needed because we need to create the company first,
+    // then link the user to it, but RLS won't let us read the company
+    // until the user is linked
+    const serviceClient = createServiceClient()
+
     // Create company
-    const { data: company, error: companyError } = await supabase
+    const { data: company, error: companyError } = await serviceClient
       .from('companies')
       .insert({
         name,
@@ -69,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     // Assign user as owner of the company
-    const { error: userCompanyError } = await supabase
+    const { error: userCompanyError } = await serviceClient
       .from('user_companies')
       .insert({
         user_id: user.id,
@@ -78,6 +84,8 @@ export async function POST(request: Request) {
       })
 
     if (userCompanyError) {
+      // Clean up the company if we couldn't assign the user
+      await serviceClient.from('companies').delete().eq('id', company.id)
       throw userCompanyError
     }
 
