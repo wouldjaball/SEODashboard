@@ -47,6 +47,8 @@ export default function AdminAccountsPage() {
   const [showLinkedInForm, setShowLinkedInForm] = useState(false)
   const [youtubeForm, setYoutubeForm] = useState({ channel_id: '', channel_name: '', channel_handle: '' })
   const [linkedinForm, setLinkedinForm] = useState({ page_id: '', page_name: '', page_url: '' })
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [isLookingUp, setIsLookingUp] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -112,6 +114,37 @@ export default function AdminAccountsPage() {
     }
   }
 
+  async function handleLookupYouTubeChannel() {
+    if (!youtubeUrl.trim()) return
+
+    setIsLookingUp(true)
+    try {
+      const response = await fetch('/api/integrations/youtube/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: youtubeUrl })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setYoutubeForm({
+          channel_id: data.channelId || '',
+          channel_name: data.channelName || '',
+          channel_handle: data.channelHandle || ''
+        })
+        setYoutubeUrl('')
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to lookup channel')
+      }
+    } catch (error) {
+      console.error('Failed to lookup YouTube channel:', error)
+      alert('Failed to lookup channel. Please enter details manually.')
+    } finally {
+      setIsLookingUp(false)
+    }
+  }
+
   async function handleAddYouTubeChannel(e: React.FormEvent) {
     e.preventDefault()
     try {
@@ -125,6 +158,9 @@ export default function AdminAccountsPage() {
         await fetchData()
         setYoutubeForm({ channel_id: '', channel_name: '', channel_handle: '' })
         setShowYouTubeForm(false)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to add channel')
       }
     } catch (error) {
       console.error('Failed to add YouTube channel:', error)
@@ -388,7 +424,7 @@ export default function AdminAccountsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>YouTube Channels</CardTitle>
-                  <CardDescription>Add YouTube channels to assign to companies</CardDescription>
+                  <CardDescription>Add YouTube channels to assign to companies. For Brand Account channels, add them manually below.</CardDescription>
                 </div>
                 <Button size="sm" onClick={() => setShowYouTubeForm(!showYouTubeForm)}>
                   {showYouTubeForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />}
@@ -398,37 +434,77 @@ export default function AdminAccountsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {showYouTubeForm && (
-                <form onSubmit={handleAddYouTubeChannel} className="border rounded-lg p-4 space-y-4">
+                <div className="border rounded-lg p-4 space-y-4">
+                  {/* URL Lookup Section */}
                   <div className="space-y-2">
-                    <Label htmlFor="yt-id">Channel ID *</Label>
-                    <Input
-                      id="yt-id"
-                      value={youtubeForm.channel_id}
-                      onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_id: e.target.value })}
-                      placeholder="UC..."
-                      required
-                    />
+                    <Label htmlFor="yt-url">Quick Add - Paste YouTube Channel URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="yt-url"
+                        value={youtubeUrl}
+                        onChange={(e) => setYoutubeUrl(e.target.value)}
+                        placeholder="https://youtube.com/@channelname or https://youtube.com/channel/UC..."
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleLookupYouTubeChannel}
+                        disabled={isLookingUp || !youtubeUrl.trim()}
+                      >
+                        {isLookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lookup'}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Paste a YouTube channel URL and click Lookup to auto-fill the details below
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yt-name">Channel Name *</Label>
-                    <Input
-                      id="yt-name"
-                      value={youtubeForm.channel_name}
-                      onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_name: e.target.value })}
-                      required
-                    />
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or enter manually</span>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yt-handle">Channel Handle</Label>
-                    <Input
-                      id="yt-handle"
-                      value={youtubeForm.channel_handle}
-                      onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_handle: e.target.value })}
-                      placeholder="@channelname"
-                    />
-                  </div>
-                  <Button type="submit">Add Channel</Button>
-                </form>
+
+                  <form onSubmit={handleAddYouTubeChannel} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="yt-id">Channel ID *</Label>
+                      <Input
+                        id="yt-id"
+                        value={youtubeForm.channel_id}
+                        onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_id: e.target.value })}
+                        placeholder="UCxxxxxxxxxxxxxxxxxxxxxxx"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Find this in the channel URL (youtube.com/channel/UCxxxxx) or channel settings
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="yt-name">Channel Name *</Label>
+                      <Input
+                        id="yt-name"
+                        value={youtubeForm.channel_name}
+                        onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_name: e.target.value })}
+                        placeholder="My Channel Name"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="yt-handle">Channel Handle</Label>
+                      <Input
+                        id="yt-handle"
+                        value={youtubeForm.channel_handle}
+                        onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_handle: e.target.value })}
+                        placeholder="@channelname"
+                      />
+                    </div>
+                    <Button type="submit">Add Channel</Button>
+                  </form>
+                </div>
               )}
 
               {youtubeChannels.length === 0 ? (

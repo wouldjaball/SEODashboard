@@ -23,6 +23,7 @@ interface KPICardProps {
   icon?: LucideIcon
   sparklineData?: number[]
   className?: string
+  onClick?: () => void
 }
 
 const sparklineConfig = {
@@ -41,6 +42,7 @@ export function KPICard({
   icon: Icon,
   sparklineData,
   className,
+  onClick,
 }: KPICardProps) {
   const formattedValue = (() => {
     if (value === null || value === undefined) return "N/A"
@@ -60,8 +62,17 @@ export function KPICard({
 
   const sparklineId = React.useId()
 
+  const isClickable = !!onClick
+
   return (
-    <Card className={cn("relative overflow-hidden touch-manipulation", className)}>
+    <Card
+      className={cn(
+        "relative overflow-hidden touch-manipulation",
+        isClickable && "cursor-pointer hover:bg-accent/50 transition-colors",
+        className
+      )}
+      onClick={onClick}
+    >
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">

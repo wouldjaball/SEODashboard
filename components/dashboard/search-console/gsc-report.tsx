@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { GSCKPIFunnel } from "./gsc-kpi-funnel"
 import { ImpressionsClicksChart } from "./impressions-clicks-chart"
 import { IndexedPagesChart } from "./indexed-pages-chart"
@@ -7,6 +8,7 @@ import { DevicePerformance } from "./device-performance"
 import { KeywordTable } from "./keyword-table"
 import { LandingPagePerformanceTable } from "./landing-page-performance-table"
 import { CountryPerformanceMap } from "./country-performance-map"
+import { GSCDetailSheet, type GSCDetailType } from "./gsc-detail-sheet"
 import type {
   GSCMetrics,
   GSCWeeklyData,
@@ -36,10 +38,18 @@ export function GSCReport({
   countries,
   devices,
 }: GSCReportProps) {
+  const [detailSheetOpen, setDetailSheetOpen] = React.useState(false)
+  const [detailType, setDetailType] = React.useState<GSCDetailType | null>(null)
+
+  const handleCardClick = (type: GSCDetailType) => {
+    setDetailType(type)
+    setDetailSheetOpen(true)
+  }
+
   return (
     <div className="space-y-6">
       {/* KPI Funnel */}
-      <GSCKPIFunnel metrics={metrics} />
+      <GSCKPIFunnel metrics={metrics} onCardClick={handleCardClick} />
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -64,6 +74,15 @@ export function GSCReport({
 
       {/* Landing Page Table */}
       <LandingPagePerformanceTable data={landingPages} />
+
+      {/* Detail Sheet */}
+      <GSCDetailSheet
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        type={detailType}
+        keywords={keywords}
+        landingPages={landingPages}
+      />
     </div>
   )
 }

@@ -5,11 +5,11 @@ import { CalendarIcon } from "lucide-react"
 import {
   format,
   subDays,
-  subMonths,
   subYears,
   startOfQuarter,
   subQuarters,
   endOfQuarter,
+  startOfMonth,
 } from "date-fns"
 
 import { cn } from "@/lib/utils"
@@ -104,6 +104,14 @@ export function DateRangePicker({
   const [isCustomMode, setIsCustomMode] = React.useState(false)
   const [pendingRange, setPendingRange] = React.useState<{ from?: Date; to?: Date } | undefined>(undefined)
 
+  // Separate month state for each calendar
+  const [startCalendarMonth, setStartCalendarMonth] = React.useState<Date>(
+    startOfMonth(value?.from || new Date())
+  )
+  const [endCalendarMonth, setEndCalendarMonth] = React.useState<Date>(
+    startOfMonth(value?.to || new Date())
+  )
+
   const defaultPresets = React.useMemo(
     () => createDefaultPresets(allTimeStartDate),
     [allTimeStartDate]
@@ -115,6 +123,9 @@ export function DateRangePicker({
       // Custom mode - show calendar and wait for selection
       setIsCustomMode(true)
       setPendingRange(value)
+      // Set calendars to show the current range's months
+      setStartCalendarMonth(startOfMonth(value?.from || new Date()))
+      setEndCalendarMonth(startOfMonth(value?.to || new Date()))
     } else {
       onChange(preset.range)
       setIsCustomMode(false)
@@ -206,13 +217,35 @@ export function DateRangePicker({
             ))}
           </div>
           <div className="p-2">
-            <Calendar
-              mode="range"
-              selected={isCustomMode && pendingRange ? { from: pendingRange.from, to: pendingRange.to } : value}
-              onSelect={handleCalendarSelect}
-              className="rounded-md"
-              numberOfMonths={1}
-            />
+            {/* Dual calendar layout - side by side on desktop, stacked on mobile */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Start date calendar */}
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground mb-1 text-center">Start Date</span>
+                <Calendar
+                  mode="range"
+                  selected={isCustomMode && pendingRange ? { from: pendingRange.from, to: pendingRange.to } : value}
+                  onSelect={handleCalendarSelect}
+                  month={startCalendarMonth}
+                  onMonthChange={setStartCalendarMonth}
+                  className="rounded-md"
+                  numberOfMonths={1}
+                />
+              </div>
+              {/* End date calendar */}
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground mb-1 text-center">End Date</span>
+                <Calendar
+                  mode="range"
+                  selected={isCustomMode && pendingRange ? { from: pendingRange.from, to: pendingRange.to } : value}
+                  onSelect={handleCalendarSelect}
+                  month={endCalendarMonth}
+                  onMonthChange={setEndCalendarMonth}
+                  className="rounded-md"
+                  numberOfMonths={1}
+                />
+              </div>
+            </div>
             {isCustomMode && (
               <div className="flex gap-2 mt-2 pt-2 border-t">
                 <Button

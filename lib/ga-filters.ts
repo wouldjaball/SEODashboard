@@ -234,10 +234,16 @@ export function calculateFilteredMetrics(
 }
 
 // Extract unique landing page paths with user counts
+// Filters out root path "/" and empty paths - only shows actual pages
 export function extractLandingPageOptions(
   landingPages: GALandingPage[]
 ): { value: string; label: string; count: number }[] {
   return landingPages
+    .filter((page) => {
+      const path = page.pagePath?.trim()
+      // Exclude root path, empty paths, and paths that are just "/"
+      return path && path !== '/' && path.length > 1
+    })
     .map((page) => ({
       value: page.pagePath,
       label: page.pagePath,
