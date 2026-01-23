@@ -25,10 +25,13 @@ export default function DashboardPage() {
     to: new Date(),
   })
 
-  // Fetch data when date range changes
+  // Fetch data when date range or company changes
   useEffect(() => {
-    refetchData(dateRange)
-  }, [dateRange])
+    // Only fetch if we have a real company (UUID format, not mock slug)
+    if (company.id && company.id.includes('-') && company.id.length > 20) {
+      refetchData(dateRange)
+    }
+  }, [dateRange, company.id])
 
   if (isLoading && !company.gaMetrics) {
     return (

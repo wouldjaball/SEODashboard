@@ -120,7 +120,14 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function refetchData(dateRange: { from: Date; to: Date }) {
+    // Only fetch if using real data and we have a real UUID (not a mock company slug)
     if (!useRealData || !company.id) return
+
+    // Check if company ID is a UUID format (contains hyphens and is long enough)
+    if (!company.id.includes('-') || company.id.length < 20) {
+      console.log('[CompanyContext] Skipping refetch - mock company detected:', company.id)
+      return
+    }
 
     try {
       setIsLoading(true)
