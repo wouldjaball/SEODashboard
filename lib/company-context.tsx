@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { subDays } from "date-fns"
 import type { Company } from "@/lib/types"
 import { companies as mockCompanies, defaultCompany } from "@/lib/mock-data/companies"
 
@@ -10,7 +11,7 @@ interface CompanyContextType {
   companies: Company[]
   isLoading: boolean
   error: string | null
-  refetchData: (dateRange: { from: Date; to: Date }) => Promise<void>
+  refetchData: (companyId: string, dateRange: { from: Date; to: Date }) => Promise<void>
   comparisonEnabled: boolean
   setComparisonEnabled: (enabled: boolean) => void
 }
@@ -25,6 +26,66 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [comparisonEnabled, setComparisonEnabled] = React.useState(false)
 
   const useRealData = process.env.NEXT_PUBLIC_USE_REAL_DATA === 'true'
+
+  // Helper function to fetch analytics data for a specific company
+  async function fetchAnalyticsForCompany(companyId: string, dateRange: { from: Date; to: Date }) {
+    console.log('[CompanyContext] fetchAnalyticsForCompany called with:', { companyId, dateRange })
+
+    if (!companyId || !companyId.includes('-') || companyId.length < 20) {
+      console.log('[CompanyContext] Skipping - invalid companyId:', companyId)
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const params = new URLSearchParams({
+        startDate: dateRange.from.toISOString().split('T')[0],
+        endDate: dateRange.to.toISOString().split('T')[0]
+      })
+
+      console.log('[CompanyContext] Fetching from:', `/api/analytics/${companyId}?${params}`)
+      const response = await fetch(`/api/analytics/${companyId}?${params}`)
+
+      const data = await response.json()
+
+      console.log('[CompanyContext] API response status:', response.status)
+      console.log('[CompanyContext] API response data:', data)
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError(data.message || 'No analytics accounts mapped to this company')
+        } else {
+          setError('Failed to load analytics data')
+        }
+        return
+      }
+
+      // Update company with real data
+      setCompanyState(prev => ({
+        ...prev,
+        gaMetrics: data.gaMetrics || null,
+        gaWeeklyData: data.gaWeeklyData || [],
+        gaChannelData: data.gaChannelData || [],
+        gaTrafficShare: data.gaTrafficShare || [],
+        gaSourcePerformance: data.gaSourcePerformance || [],
+        gaLandingPages: data.gaLandingPages || [],
+        gaRegions: data.gaRegions || [],
+        gaDevices: data.gaDevices || [],
+        gaGender: data.gaGender || [],
+        gaAge: data.gaAge || [],
+        gscMetrics: data.gscMetrics || null,
+        gscWeeklyData: data.gscWeeklyData || [],
+        gscKeywords: data.gscKeywords || []
+      }))
+    } catch (err) {
+      console.error('[CompanyContext] Failed to fetch analytics:', err)
+      setError('Failed to load analytics data')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   React.useEffect(() => {
     if (useRealData) {
@@ -100,6 +161,18 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         setCompanies(companiesWithData)
         setCompanyState(companiesWithData[0])
         setError(null)
+
+        // Auto-fetch analytics for the first company immediately
+        const firstCompany = companiesWithData[0]
+        if (firstCompany.id && firstCompany.id.includes('-') && firstCompany.id.length > 20) {
+          console.log('[CompanyContext] Auto-fetching analytics for first company:', firstCompany.id)
+          const defaultDateRange = {
+            from: subDays(new Date(), 30),
+            to: new Date()
+          }
+          // Fetch analytics immediately (don't await to avoid blocking)
+          fetchAnalyticsForCompany(firstCompany.id, defaultDateRange)
+        }
       } else {
         // No companies found - use mock data as fallback
         console.log('[CompanyContext] No companies found in database, using mock data')
@@ -119,64 +192,17 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function refetchData(dateRange: { from: Date; to: Date }) {
-    // Only fetch if using real data and we have a real UUID (not a mock company slug)
-    if (!useRealData || !company.id) return
+  async function refetchData(companyId: string, dateRange: { from: Date; to: Date }) {
+    console.log('[CompanyContext] refetchData called with:', { companyId, dateRange })
 
-    // Check if company ID is a UUID format (contains hyphens and is long enough)
-    if (!company.id.includes('-') || company.id.length < 20) {
-      console.log('[CompanyContext] Skipping refetch - mock company detected:', company.id)
+    // Only fetch if using real data
+    if (!useRealData) {
+      console.log('[CompanyContext] Skipping - useRealData is false')
       return
     }
 
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const params = new URLSearchParams({
-        startDate: dateRange.from.toISOString().split('T')[0],
-        endDate: dateRange.to.toISOString().split('T')[0]
-      })
-
-      const response = await fetch(`/api/analytics/${company.id}?${params}`)
-
-      const data = await response.json()
-
-      // If response is 404 (no mappings), show a more helpful error
-      if (!response.ok) {
-        if (response.status === 404) {
-          setError(data.message || 'No analytics accounts mapped to this company')
-        } else {
-          setError('Failed to load analytics data')
-        }
-        return
-      }
-
-      // Update company with real data (use null for missing data)
-      setCompanyState(prev => ({
-        ...prev,
-        // Google Analytics data
-        gaMetrics: data.gaMetrics || null,
-        gaWeeklyData: data.gaWeeklyData || [],
-        gaChannelData: data.gaChannelData || [],
-        gaTrafficShare: data.gaTrafficShare || [],
-        gaSourcePerformance: data.gaSourcePerformance || [],
-        gaLandingPages: data.gaLandingPages || [],
-        gaRegions: data.gaRegions || [],
-        gaDevices: data.gaDevices || [],
-        gaGender: data.gaGender || [],
-        gaAge: data.gaAge || [],
-        // Google Search Console data
-        gscMetrics: data.gscMetrics || null,
-        gscWeeklyData: data.gscWeeklyData || [],
-        gscKeywords: data.gscKeywords || []
-      }))
-    } catch (err) {
-      console.error('Failed to fetch analytics:', err)
-      setError('Failed to load analytics data')
-    } finally {
-      setIsLoading(false)
-    }
+    // Delegate to the helper function
+    await fetchAnalyticsForCompany(companyId, dateRange)
   }
 
   const setCompany = (newCompany: Company) => {

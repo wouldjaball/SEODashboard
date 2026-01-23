@@ -30,7 +30,8 @@ export default function DashboardPage() {
   useEffect(() => {
     // Only fetch if we have a real company (UUID format, not mock slug)
     if (company.id && company.id.includes('-') && company.id.length > 20) {
-      refetchData(dateRange)
+      console.log('[Dashboard] Triggering refetchData for company:', company.id)
+      refetchData(company.id, dateRange)
     }
   }, [dateRange, company.id])
 
