@@ -9,8 +9,26 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard, Trash2, Youtube } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard, Trash2, Youtube, RefreshCw, XCircle, Info } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { OAUTH_SCOPES_STRING } from '@/lib/constants/oauth-scopes'
+
+interface GoogleConnection {
+  id: string
+  googleIdentity: string
+  googleIdentityName?: string
+  youtubeChannelId?: string
+  youtubeChannelName?: string
+  createdAt: string
+}
 
 interface Company {
   id: string
@@ -52,6 +70,13 @@ export default function AdminAccountsPage() {
   const [isLookingUp, setIsLookingUp] = useState(false)
   const [isClearingCache, setIsClearingCache] = useState(false)
 
+  // Google connection state
+  const [isConnected, setIsConnected] = useState(false)
+  const [connections, setConnections] = useState<GoogleConnection[]>([])
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showOAuthGuide, setShowOAuthGuide] = useState(false)
+  const [deletingConnectionId, setDeletingConnectionId] = useState<string | null>(null)
+
   useEffect(() => {
     fetchData()
 
@@ -79,22 +104,26 @@ export default function AdminAccountsPage() {
   async function fetchData() {
     setIsLoading(true)
     try {
-      const [companiesRes, gaRes, gscRes, ytRes, liRes, mappingsRes] = await Promise.all([
+      const [companiesRes, gaRes, gscRes, ytRes, liRes, mappingsRes, statusRes, connectionsRes] = await Promise.all([
         fetch('/api/admin/companies'),
         fetch('/api/integrations/ga/properties'),
         fetch('/api/integrations/gsc/sites'),
         fetch('/api/integrations/youtube/channels'),
         fetch('/api/integrations/linkedin/pages'),
-        fetch('/api/integrations/mappings')
+        fetch('/api/integrations/mappings'),
+        fetch('/api/integrations/status'),
+        fetch('/api/integrations/connections')
       ])
 
-      const [companiesData, gaData, gscData, ytData, liData, mappingsData] = await Promise.all([
+      const [companiesData, gaData, gscData, ytData, liData, mappingsData, statusData, connectionsData] = await Promise.all([
         companiesRes.json(),
         gaRes.json(),
         gscRes.json(),
         ytRes.json(),
         liRes.json(),
-        mappingsRes.json()
+        mappingsRes.json(),
+        statusRes.json(),
+        connectionsRes.json()
       ])
 
       setCompanies(companiesData.companies || [])
@@ -103,6 +132,8 @@ export default function AdminAccountsPage() {
       setYoutubeChannels(ytData.channels || [])
       setLinkedinPages(liData.pages || [])
       setMappings(mappingsData.mappings || {})
+      setIsConnected(statusData.connected || false)
+      setConnections(connectionsData.connections || [])
     } catch (error) {
       console.error('Failed to fetch data:', error)
     } finally {
@@ -235,6 +266,11 @@ export default function AdminAccountsPage() {
 
   // Connect YouTube for a specific company - triggers OAuth with Brand Account picker
   function connectYouTubeForCompany(companyId: string, companyName: string) {
+    triggerOAuth({ companyId, companyName })
+  }
+
+  // General OAuth trigger - can optionally target a specific company
+  function triggerOAuth(options?: { companyId?: string; companyName?: string }) {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
     if (!clientId) {
@@ -242,10 +278,9 @@ export default function AdminAccountsPage() {
       return
     }
 
-    // Store the target company in OAuth state parameter
     const state = JSON.stringify({
-      companyId,
-      companyName,
+      companyId: options?.companyId,
+      companyName: options?.companyName,
       returnTo: '/admin/accounts'
     })
 
@@ -255,12 +290,93 @@ export default function AdminAccountsPage() {
       response_type: 'code',
       scope: OAUTH_SCOPES_STRING,
       access_type: 'offline',
-      // Force account picker + consent to ensure Brand Account selection appears
       prompt: 'select_account consent',
       state
     })
 
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+  }
+
+  function handleConnectClick() {
+    setShowOAuthGuide(true)
+  }
+
+  function proceedWithOAuth() {
+    setShowOAuthGuide(false)
+    triggerOAuth()
+  }
+
+  async function handleDeleteConnection(connectionId: string) {
+    if (!confirm('Are you sure you want to remove this Google connection?')) {
+      return
+    }
+
+    setDeletingConnectionId(connectionId)
+    try {
+      const response = await fetch('/api/integrations/connections', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId })
+      })
+
+      if (response.ok) {
+        setConnections(prev => prev.filter(c => c.id !== connectionId))
+        if (connections.length <= 1) {
+          setIsConnected(false)
+        }
+        await fetchData() // Refresh all data
+      } else {
+        alert('Failed to remove connection')
+      }
+    } catch (error) {
+      console.error('Failed to delete connection:', error)
+      alert('Failed to remove connection')
+    } finally {
+      setDeletingConnectionId(null)
+    }
+  }
+
+  async function handleDisconnectAll() {
+    if (!confirm('Are you sure you want to disconnect ALL Google accounts? This will remove access to GA, GSC, and YouTube.')) {
+      return
+    }
+
+    try {
+      await fetch('/api/integrations/disconnect', { method: 'POST' })
+      setIsConnected(false)
+      setConnections([])
+      setGaProperties([])
+      setGscSites([])
+      setYoutubeChannels([])
+    } catch (error) {
+      console.error('Failed to disconnect:', error)
+    }
+  }
+
+  async function handleRefreshProperties() {
+    setIsRefreshing(true)
+    try {
+      const [propertiesRes, sitesRes, channelsRes] = await Promise.all([
+        fetch('/api/integrations/ga/properties'),
+        fetch('/api/integrations/gsc/sites'),
+        fetch('/api/integrations/youtube/channels?refresh=true')
+      ])
+
+      const propertiesData = await propertiesRes.json()
+      const sitesData = await sitesRes.json()
+      const channelsData = await channelsRes.json()
+
+      setGaProperties(propertiesData.properties || [])
+      setGscSites(sitesData.sites || [])
+      setYoutubeChannels(channelsData.channels || [])
+
+      alert(`Refreshed!\n\nGA Properties: ${propertiesData.properties?.length || 0}\nGSC Sites: ${sitesData.sites?.length || 0}\nYouTube Channels: ${channelsData.channels?.length || 0}`)
+    } catch (error) {
+      console.error('Failed to refresh:', error)
+      alert('Failed to refresh properties. Please try again.')
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   if (isLoading) {
@@ -287,6 +403,126 @@ export default function AdminAccountsPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Google Connection Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <svg className="h-5 w-5" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+                </svg>
+              </div>
+              <div>
+                <CardTitle>Google Account</CardTitle>
+                <CardDescription>
+                  Connect to access Analytics, Search Console & YouTube
+                </CardDescription>
+              </div>
+            </div>
+            <Badge variant={isConnected ? 'default' : 'secondary'}>
+              {isConnected ? (
+                <><CheckCircle className="h-3 w-3 mr-1" /> Connected</>
+              ) : (
+                <><XCircle className="h-3 w-3 mr-1" /> Not Connected</>
+              )}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!isConnected ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your Google account to access GA4 properties, Search Console sites, and YouTube channels.
+              </p>
+              <Button onClick={handleConnectClick}>
+                Connect Google Account
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Connected Accounts List */}
+              {connections.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Connected Accounts</span>
+                    <Button variant="outline" size="sm" onClick={handleConnectClick}>
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Account
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {connections.map((conn) => (
+                      <div key={conn.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                            <svg className="h-4 w-4" viewBox="0 0 24 24">
+                              <path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {conn.googleIdentityName || conn.googleIdentity}
+                            </p>
+                            {conn.youtubeChannelName && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Youtube className="h-3 w-3 text-red-500" />
+                                {conn.youtubeChannelName}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteConnection(conn.id)}
+                          disabled={deletingConnectionId === conn.id}
+                        >
+                          {deletingConnectionId === conn.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <Button onClick={handleRefreshProperties} variant="outline" disabled={isRefreshing}>
+                  {isRefreshing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh Properties & Sites
+                    </>
+                  )}
+                </Button>
+                <Button variant="destructive" onClick={handleDisconnectAll}>
+                  Disconnect All
+                </Button>
+              </div>
+
+              {/* Brand Account Tip */}
+              <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+                <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
+                  <strong>Need YouTube Analytics for a Brand Account?</strong> Click "Add Account" and select the Brand Account (not your personal account) during authorization.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Available Accounts Summary */}
       <div className="grid grid-cols-4 gap-4">
@@ -702,6 +938,55 @@ export default function AdminAccountsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Pre-OAuth Guidance Dialog */}
+      <Dialog open={showOAuthGuide} onOpenChange={setShowOAuthGuide}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Connecting Your Google Account</DialogTitle>
+            <DialogDescription>
+              Important: Read this before connecting, especially for YouTube Brand Accounts
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-blue-800 dark:text-blue-200">
+                <strong>For YouTube Analytics:</strong> If your YouTube channel is owned by a Brand Account
+                (not your personal Google account), you must select the Brand Account during authorization.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-3">
+              <p className="font-medium">You'll see a two-step process:</p>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>
+                  <strong>Select your Google Account</strong> - Choose the Google account you use to manage your properties
+                </li>
+                <li>
+                  <strong>Select the Brand Account (if applicable)</strong> - After selecting your Google account,
+                  you'll see a list of accounts you can act as. <span className="text-foreground font-medium">Select the account that OWNS the YouTube channel</span> you want analytics for.
+                </li>
+              </ol>
+            </div>
+
+            <div className="rounded-lg border p-3 bg-muted/50">
+              <p className="text-sm">
+                <strong>Tip:</strong> If you manage multiple YouTube channels with different owners,
+                you may need to connect multiple times, selecting a different Brand Account each time.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowOAuthGuide(false)}>
+              Cancel
+            </Button>
+            <Button onClick={proceedWithOAuth}>
+              Continue to Google
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
