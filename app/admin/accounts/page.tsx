@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard, Trash2 } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard, Trash2, Youtube } from 'lucide-react'
+import { OAUTH_SCOPES_STRING } from '@/lib/constants/oauth-scopes'
 
 interface Company {
   id: string
@@ -53,6 +54,26 @@ export default function AdminAccountsPage() {
 
   useEffect(() => {
     fetchData()
+
+    // Check for success message from OAuth callback
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') === 'true') {
+      const channel = params.get('channel')
+      const mapped = params.get('mapped')
+      const company = params.get('company')
+
+      if (mapped === 'true' && company && channel) {
+        alert(`Successfully connected "${channel}" to ${company}!`)
+      } else if (channel) {
+        alert(`Successfully connected YouTube account with channel "${channel}"!`)
+      }
+
+      // Clean up URL
+      window.history.replaceState({}, '', '/admin/accounts')
+    } else if (params.get('error')) {
+      alert('Failed to connect YouTube account. Please try again.')
+      window.history.replaceState({}, '', '/admin/accounts')
+    }
   }, [])
 
   async function fetchData() {
@@ -210,6 +231,36 @@ export default function AdminAccountsPage() {
     } catch (error) {
       console.error('Failed to add LinkedIn page:', error)
     }
+  }
+
+  // Connect YouTube for a specific company - triggers OAuth with Brand Account picker
+  function connectYouTubeForCompany(companyId: string, companyName: string) {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+
+    if (!clientId) {
+      alert('Google OAuth is not configured. Please contact support.')
+      return
+    }
+
+    // Store the target company in OAuth state parameter
+    const state = JSON.stringify({
+      companyId,
+      companyName,
+      returnTo: '/admin/accounts'
+    })
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: `${window.location.origin}/api/auth/google/callback`,
+      response_type: 'code',
+      scope: OAUTH_SCOPES_STRING,
+      access_type: 'offline',
+      // Force account picker + consent to ensure Brand Account selection appears
+      prompt: 'select_account consent',
+      state
+    })
+
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
   }
 
   if (isLoading) {
@@ -375,26 +426,39 @@ export default function AdminAccountsPage() {
 
                         <div className="space-y-2">
                           <Label className="text-xs">YouTube Channel</Label>
-                          <Select
-                            value={mapping.youtubeChannelId}
-                            onValueChange={(value) =>
-                              setMappings(prev => ({
-                                ...prev,
-                                [company.id]: { ...mapping, youtubeChannelId: value }
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select channel" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {youtubeChannels.map((channel: any) => (
-                                <SelectItem key={channel.id} value={channel.id}>
-                                  {channel.channelName || channel.channel_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex gap-2">
+                            <Select
+                              value={mapping.youtubeChannelId}
+                              onValueChange={(value) =>
+                                setMappings(prev => ({
+                                  ...prev,
+                                  [company.id]: { ...mapping, youtubeChannelId: value }
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Select channel" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {youtubeChannels.map((channel: any) => (
+                                  <SelectItem key={channel.id} value={channel.id}>
+                                    {channel.channelName || channel.channel_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => connectYouTubeForCompany(company.id, company.name)}
+                              title={`Connect YouTube channel for ${company.name}`}
+                            >
+                              <Youtube className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Click the YouTube icon to connect a Brand Account channel
+                          </p>
                         </div>
 
                         <div className="space-y-2">
