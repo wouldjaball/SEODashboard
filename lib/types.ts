@@ -315,6 +315,8 @@ export interface Company {
   ytWatchTimeSparkline: number[]
   ytSharesSparkline: number[]
   ytLikesSparkline: number[]
+  ytError?: string  // Error message if YouTube fetch failed
+  ytIsPublicDataOnly?: boolean  // True if using public Data API fallback (limited metrics)
   // LinkedIn
   liVisitorMetrics: LIVisitorMetrics
   liFollowerMetrics: LIFollowerMetrics

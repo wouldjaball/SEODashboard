@@ -47,6 +47,7 @@ const emptyCompany: Company = {
   ytWatchTimeSparkline: [],
   ytSharesSparkline: [],
   ytLikesSparkline: [],
+  ytError: undefined,
   liVisitorMetrics: null as any,
   liFollowerMetrics: null as any,
   liContentMetrics: null as any,
@@ -130,7 +131,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         ytViewsSparkline: data.ytViewsSparkline || [],
         ytWatchTimeSparkline: data.ytWatchTimeSparkline || [],
         ytSharesSparkline: data.ytSharesSparkline || [],
-        ytLikesSparkline: data.ytLikesSparkline || []
+        ytLikesSparkline: data.ytLikesSparkline || [],
+        ytError: data.ytError || undefined
       }))
     } catch (err) {
       console.error('[CompanyContext] Failed to fetch analytics:', err)
@@ -198,6 +200,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
           ytWatchTimeSparkline: [],
           ytSharesSparkline: [],
           ytLikesSparkline: [],
+          ytError: undefined,
           liVisitorMetrics: null,
           liFollowerMetrics: null,
           liContentMetrics: null,

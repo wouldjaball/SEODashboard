@@ -1,13 +1,54 @@
 import { OAuthTokenService } from './oauth-token-service'
 import type { YTMetrics, YTVideo, YTDailyData } from '@/lib/types'
 
+// Extended types for public-only data
+export interface YTPublicMetrics {
+  views: number              // Total channel views (all-time)
+  subscriberCount: number    // Current subscriber count
+  videoCount: number         // Total videos on channel
+  // These will be 0 for public data (not available)
+  totalWatchTime: number
+  shares: number
+  avgViewDuration: number
+  likes: number
+  dislikes: number
+  comments: number
+  subscriptions: number      // Net change - not available publicly
+  isPublicDataOnly: boolean  // Flag to indicate limited data
+  previousPeriod?: {
+    views: number
+    totalWatchTime: number
+    shares: number
+    avgViewDuration: number
+    likes: number
+    dislikes: number
+    comments: number
+    subscriptions: number
+  }
+}
+
+export interface YTPublicVideo {
+  id: string
+  title: string
+  thumbnailUrl: string
+  views: number
+  likes: number
+  comments: number
+  publishedAt: string
+  // These will be 0 for public data (not available via Data API)
+  avgWatchTime: number
+  shares: number
+}
+
 export class YouTubeAnalyticsService {
   private static async makeAnalyticsRequest(
     userId: string,
     channelId: string,
     params: Record<string, string>
   ) {
-    const accessToken = await OAuthTokenService.refreshAccessToken(userId)
+    // Try to get a token specifically for this YouTube channel (e.g., Brand Account token)
+    // This is critical for accessing analytics of channels owned by Brand Accounts
+    const accessToken = await OAuthTokenService.refreshAccessTokenForChannel(userId, channelId)
     if (!accessToken) throw new Error('No valid access token')
 
     const queryParams = new URLSearchParams({
@@ -35,9 +76,13 @@ export class YouTubeAnalyticsService {
   private static async makeDataRequest(
     userId: string,
     endpoint: string,
-    params: Record<string, string>
+    params: Record<string, string>,
+    channelId?: string
   ) {
-    const accessToken = await OAuthTokenService.refreshAccessToken(userId)
+    // Use channel-specific token if channelId is provided
+    const accessToken = channelId
+      ? await OAuthTokenService.refreshAccessTokenForChannel(userId, channelId)
+      : await OAuthTokenService.refreshAccessToken(userId)
     if (!accessToken) throw new Error('No valid access token')
 
     const queryParams = new URLSearchParams(params)
@@ -213,6 +258,236 @@ export class YouTubeAnalyticsService {
       }))
     } catch (error: any) {
       console.error('[YouTube] Failed to fetch channels:', error.message)
+      return []
+    }
+  }
+
+  // ============================================================
+  // PUBLIC DATA FALLBACK METHODS
+  // These use the YouTube Data API to get public statistics
+  // when the Analytics API fails (e.g., for non-owned channels)
+  // ============================================================
+
+  /**
+   * Fetch public channel statistics using YouTube Data API
+   * Available for ANY channel, not just owned ones
+   */
+  static async fetchPublicChannelStats(
+    userId: string,
+    channelId: string
+  ): Promise<{
+    viewCount: number
+    subscriberCount: number
+    videoCount: number
+    channelTitle: string
+    thumbnailUrl: string
+  }> {
+    const data = await this.makeDataRequest(userId, 'channels', {
+      id: channelId,
+      part: 'snippet,statistics'
+    })
+
+    const channel = data.items?.[0]
+    if (!channel) {
+      throw new Error(`Channel not found: ${channelId}`)
+    }
+
+    return {
+      viewCount: parseInt(channel.statistics?.viewCount || '0', 10),
+      subscriberCount: parseInt(channel.statistics?.subscriberCount || '0', 10),
+      videoCount: parseInt(channel.statistics?.videoCount || '0', 10),
+      channelTitle: channel.snippet?.title || 'Unknown Channel',
+      thumbnailUrl: channel.snippet?.thumbnails?.default?.url || ''
+    }
+  }
+
+  /**
+   * Fetch recent videos with public statistics using YouTube Data API
+   * Returns views, likes, comments for each video
+   */
+  static async fetchPublicVideos(
+    userId: string,
+    channelId: string,
+    limit: number = 10
+  ): Promise<YTPublicVideo[]> {
+    // First, get the channel's uploads playlist
+    const channelData = await this.makeDataRequest(userId, 'channels', {
+      id: channelId,
+      part: 'contentDetails'
+    })
+
+    const uploadsPlaylistId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+    if (!uploadsPlaylistId) {
+      console.log('[YouTube] No uploads playlist found for channel:', channelId)
+      return []
+    }
+
+    // Get recent videos from the uploads playlist
+    const playlistData = await this.makeDataRequest(userId, 'playlistItems', {
+      playlistId: uploadsPlaylistId,
+      part: 'snippet,contentDetails',
+      maxResults: String(limit)
+    })
+
+    const videoIds = (playlistData.items || [])
+      .map((item: any) => item.contentDetails?.videoId)
+      .filter(Boolean)
+      .join(',')
+
+    if (!videoIds) {
+      return []
+    }
+
+    // Get video statistics
+    const videoData = await this.makeDataRequest(userId, 'videos', {
+      id: videoIds,
+      part: 'snippet,statistics'
+    })
+
+    return (videoData.items || []).map((video: any) => ({
+      id: video.id,
+      title: video.snippet?.title || 'Unknown Video',
+      thumbnailUrl: video.snippet?.thumbnails?.medium?.url ||
+                    video.snippet?.thumbnails?.default?.url || '',
+      views: parseInt(video.statistics?.viewCount || '0', 10),
+      likes: parseInt(video.statistics?.likeCount || '0', 10),
+      comments: parseInt(video.statistics?.commentCount || '0', 10),
+      publishedAt: video.snippet?.publishedAt || '',
+      // Not available via public Data API
+      avgWatchTime: 0,
+      shares: 0
+    }))
+  }
+
+  /**
+   * Fetch metrics using public Data API as fallback
+   * Returns channel-level stats and aggregated video stats
+   */
+  static async fetchPublicMetrics(
+    userId: string,
+    channelId: string
+  ): Promise<YTPublicMetrics> {
+    console.log('[YouTube] Fetching public metrics for channel:', channelId)
+
+    const [channelStats, recentVideos] = await Promise.all([
+      this.fetchPublicChannelStats(userId, channelId),
+      this.fetchPublicVideos(userId, channelId, 50) // Get more videos for aggregation
+    ])
+
+    // Aggregate likes and comments from recent videos
+    const totalLikes = recentVideos.reduce((sum, v) => sum + v.likes, 0)
+    const totalComments = recentVideos.reduce((sum, v) => sum + v.comments, 0)
+
+    return {
+      views: channelStats.viewCount,           // All-time channel views
+      subscriberCount: channelStats.subscriberCount,
+      videoCount: channelStats.videoCount,
+      totalWatchTime: 0,                       // Not available publicly
+      shares: 0,                               // Not available publicly
+      avgViewDuration: 0,                      // Not available publicly
+      likes: totalLikes,                       // Sum from recent videos
+      dislikes: 0,                             // No longer public
+      comments: totalComments,                 // Sum from recent videos
+      subscriptions: 0,                        // Net change not available
+      isPublicDataOnly: true,
+      // No previous period data available for public stats
+      previousPeriod: undefined
+    }
+  }
+
+  /**
+   * Wrapper that tries Analytics API first, falls back to public Data API
+   */
+  static async fetchMetricsWithFallback(
+    userId: string,
+    channelId: string,
+    startDate: string,
+    endDate: string,
+    previousStartDate: string,
+    previousEndDate: string
+  ): Promise<YTMetrics & { isPublicDataOnly?: boolean; subscriberCount?: number; videoCount?: number }> {
+    try {
+      // Try Analytics API first
+      const metrics = await this.fetchMetrics(
+        userId,
+        channelId,
+        startDate,
+        endDate,
+        previousStartDate,
+        previousEndDate
+      )
+      return { ...metrics, isPublicDataOnly: false }
+    } catch (error: any) {
+      console.log('[YouTube] Analytics API failed, falling back to public Data API:', error.message)
+
+      // Fall back to public Data API
+      const publicMetrics = await this.fetchPublicMetrics(userId, channelId)
+
+      return {
+        views: publicMetrics.views,
+        totalWatchTime: 0,
+        shares: 0,
+        avgViewDuration: 0,
+        likes: publicMetrics.likes,
+        dislikes: 0,
+        comments: publicMetrics.comments,
+        subscriptions: 0,
+        isPublicDataOnly: true,
+        subscriberCount: publicMetrics.subscriberCount,
+        videoCount: publicMetrics.videoCount,
+        previousPeriod: undefined  // Not available for public data
+      }
+    }
+  }
+
+  /**
+   * Wrapper that tries Analytics API first for videos, falls back to public Data API
+   */
+  static async fetchTopVideosWithFallback(
+    userId: string,
+    channelId: string,
+    startDate: string,
+    endDate: string,
+    limit: number = 10
+  ): Promise<YTVideo[]> {
+    try {
+      // Try Analytics API first
+      return await this.fetchTopVideos(userId, channelId, startDate, endDate, limit)
+    } catch (error: any) {
+      console.log('[YouTube] Analytics API failed for videos, falling back to public Data API:', error.message)
+
+      // Fall back to public Data API
+      const publicVideos = await this.fetchPublicVideos(userId, channelId, limit)
+
+      // Sort by views (most viewed first) since we can't get period-specific data
+      return publicVideos
+        .sort((a, b) => b.views - a.views)
+        .map(v => ({
+          id: v.id,
+          title: v.title,
+          thumbnailUrl: v.thumbnailUrl,
+          views: v.views,
+          avgWatchTime: 0,  // Not available
+          shares: 0         // Not available
+        }))
+    }
+  }
+
+  /**
+   * Wrapper for daily data - returns empty array if Analytics API fails
+   * (No public equivalent available)
+   */
+  static async fetchDailyDataWithFallback(
+    userId: string,
+    channelId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<YTDailyData[]> {
+    try {
+      return await this.fetchDailyData(userId, channelId, startDate, endDate)
+    } catch (error: any) {
+      console.log('[YouTube] Analytics API failed for daily data, no public fallback available:', error.message)
+      // No public fallback - return empty array
       return []
     }
   }

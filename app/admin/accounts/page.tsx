@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard, Trash2 } from 'lucide-react'
 
 interface Company {
   id: string
@@ -49,6 +49,7 @@ export default function AdminAccountsPage() {
   const [linkedinForm, setLinkedinForm] = useState({ page_id: '', page_name: '', page_url: '' })
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [isLookingUp, setIsLookingUp] = useState(false)
+  const [isClearingCache, setIsClearingCache] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -111,6 +112,31 @@ export default function AdminAccountsPage() {
       alert(`Failed to save assignments: ${errorMessage}\n\nCheck the browser console for details.`)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function handleClearCache() {
+    if (!confirm('Clear all cached analytics data? This will force a fresh data fetch for all companies.')) {
+      return
+    }
+
+    setIsClearingCache(true)
+    try {
+      const response = await fetch('/api/admin/clear-cache', {
+        method: 'POST'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        alert(`Cache cleared successfully! ${data.rowsDeleted || 0} entries removed. Reload the dashboard to fetch fresh data.`)
+      } else {
+        throw new Error('Failed to clear cache')
+      }
+    } catch (error) {
+      console.error('Failed to clear cache:', error)
+      alert('Failed to clear cache. Please try again.')
+    } finally {
+      setIsClearingCache(false)
     }
   }
 
@@ -400,19 +426,34 @@ export default function AdminAccountsPage() {
                 )
               })}
 
-              <Button onClick={handleSave} disabled={isSaving} className="w-full" size="lg">
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save All Assignments
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={handleSave} disabled={isSaving} className="flex-1" size="lg">
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save All Assignments
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleClearCache}
+                  disabled={isClearingCache}
+                  variant="outline"
+                  size="lg"
+                  title="Clear cached analytics data to force fresh fetch"
+                >
+                  {isClearingCache ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </>
           )}
         </TabsContent>

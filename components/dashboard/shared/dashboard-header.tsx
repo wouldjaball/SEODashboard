@@ -1,8 +1,16 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, Settings, LayoutDashboard } from "lucide-react"
+import { BarChart3, Settings, LayoutDashboard, Shield, Building2, Users, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useCompany } from "@/lib/company-context"
 import { CompanySwitcher } from "./company-switcher"
 import { ModeToggle } from "@/components/mode-toggle"
@@ -44,16 +52,45 @@ export function DashboardHeader() {
 
         {/* Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <Link href="/dashboard">
-            <Button variant="ghost" size="icon" title="Dashboard">
+          <Button variant="ghost" size="icon" title="Dashboard" asChild>
+            <Link href="/dashboard">
               <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-          </Link>
-          <Link href="/integrations">
-            <Button variant="ghost" size="icon" title="Integrations">
+            </Link>
+          </Button>
+          <Button variant="ghost" size="icon" title="Integrations" asChild>
+            <Link href="/integrations">
               <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" title="Admin">
+                <Shield className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Admin</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin/accounts" className="flex items-center cursor-pointer">
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Account Assignments
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/companies" className="flex items-center cursor-pointer">
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Companies
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/users" className="flex items-center cursor-pointer">
+                  <Users className="mr-2 h-4 w-4" />
+                  Users
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <ModeToggle />
           <CompanySwitcher />
         </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { LucideIcon } from "lucide-react"
+import { LucideIcon, Info } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { MetricBadge } from "./metric-badge"
 import { cn, formatNumber, formatPercent, formatDuration, formatCurrency } from "@/lib/utils"
@@ -13,6 +13,12 @@ import {
   ChartContainer,
   type ChartConfig,
 } from "@/components/ui/chart"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface KPICardProps {
   title: string
@@ -24,6 +30,7 @@ interface KPICardProps {
   sparklineData?: number[]
   className?: string
   onClick?: () => void
+  tooltip?: string // Optional tooltip text for additional context
 }
 
 const sparklineConfig = {
@@ -43,6 +50,7 @@ export function KPICard({
   sparklineData,
   className,
   onClick,
+  tooltip,
 }: KPICardProps) {
   const formattedValue = (() => {
     if (value === null || value === undefined) return "N/A"
@@ -81,6 +89,18 @@ export function KPICard({
                 <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
               )}
               <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{title}</p>
+              {tooltip && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground/50 shrink-0 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-[200px]">{tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
             <p className="text-lg sm:text-2xl font-bold tracking-tight truncate">{formattedValue}</p>
             {change !== undefined && (

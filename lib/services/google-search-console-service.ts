@@ -246,8 +246,8 @@ export class GoogleSearchConsoleService {
     endDate: string
   ): Promise<GSCIndexData[]> {
     // Fetch daily data grouped by date to show trends
-    // Note: GSC API doesn't provide indexed pages directly, so we estimate from keyword data
-    const [dateData, keywordData] = await Promise.all([
+    // Note: GSC API doesn't provide indexed pages directly, so we count unique pages per day
+    const [dateData, keywordData, pageData] = await Promise.all([
       this.makeRequest(userId, siteUrl, {
         startDate,
         endDate,
@@ -258,6 +258,12 @@ export class GoogleSearchConsoleService {
         endDate,
         dimensions: ['date', 'query'],
         rowLimit: 25000 // Get more rows to count unique queries per day
+      }),
+      this.makeRequest(userId, siteUrl, {
+        startDate,
+        endDate,
+        dimensions: ['date', 'page'],
+        rowLimit: 25000 // Get pages per day
       })
     ])
 
@@ -268,18 +274,16 @@ export class GoogleSearchConsoleService {
       queryCountByDate[date] = (queryCountByDate[date] || 0) + 1
     }
 
-    // Estimate indexed pages based on unique pages in results
-    const pageData = await this.makeRequest(userId, siteUrl, {
-      startDate,
-      endDate,
-      dimensions: ['page'],
-      rowLimit: 25000
-    })
-    const totalIndexedPages = (pageData.rows || []).length
+    // Count unique pages per date (pages that appeared in search results that day)
+    const pageCountByDate: Record<string, number> = {}
+    for (const row of (pageData.rows || [])) {
+      const date = row.keys[0]
+      pageCountByDate[date] = (pageCountByDate[date] || 0) + 1
+    }
 
     return (dateData.rows || []).map((row: any) => ({
       date: row.keys[0],
-      indexedPages: totalIndexedPages, // Static for now - GSC doesn't provide daily indexed page counts
+      indexedPages: pageCountByDate[row.keys[0]] || 0, // Pages that appeared in search results that day
       rankingKeywords: queryCountByDate[row.keys[0]] || 0
     }))
   }

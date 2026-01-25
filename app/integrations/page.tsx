@@ -4,7 +4,16 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2, CheckCircle, XCircle, Info } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { PropertyMapper } from '@/components/integrations/property-mapper'
 import { OAUTH_SCOPES_STRING } from '@/lib/constants/oauth-scopes'
 
@@ -16,6 +25,7 @@ export default function IntegrationsPage() {
   const [sites, setSites] = useState([])
   const [youtubeChannels, setYoutubeChannels] = useState([])
   const [refreshKey, setRefreshKey] = useState(0)
+  const [showOAuthGuide, setShowOAuthGuide] = useState(false)
 
   useEffect(() => {
     checkConnection()
@@ -106,7 +116,14 @@ export default function IntegrationsPage() {
     }
   }
 
-  async function handleConnect() {
+  function handleConnectClick() {
+    // Show guidance dialog before starting OAuth
+    setShowOAuthGuide(true)
+  }
+
+  function proceedWithOAuth() {
+    setShowOAuthGuide(false)
+
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
     if (!clientId) {
@@ -125,7 +142,9 @@ export default function IntegrationsPage() {
       response_type: 'code',
       scope: OAUTH_SCOPES_STRING,
       access_type: 'offline',
-      prompt: 'consent'
+      // Force account picker + consent to ensure Brand Account selection appears
+      // This is critical for YouTube channels owned by Brand Accounts
+      prompt: 'select_account consent'
     })
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
@@ -201,7 +220,7 @@ export default function IntegrationsPage() {
                 and Google Search Console. You'll be able to map your properties to companies
                 and view live analytics.
               </p>
-              <Button onClick={handleConnect}>
+              <Button onClick={handleConnectClick}>
                 Connect Google Account
               </Button>
             </div>
@@ -251,6 +270,55 @@ export default function IntegrationsPage() {
       {isConnected && (
         <PropertyMapper key={refreshKey} properties={properties} sites={sites} youtubeChannels={youtubeChannels} />
       )}
+
+      {/* Pre-OAuth Guidance Dialog */}
+      <Dialog open={showOAuthGuide} onOpenChange={setShowOAuthGuide}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Connecting Your Google Account</DialogTitle>
+            <DialogDescription>
+              Important: Read this before connecting, especially for YouTube Brand Accounts
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-blue-800 dark:text-blue-200">
+                <strong>For YouTube Analytics:</strong> If your YouTube channel is owned by a Brand Account
+                (not your personal Google account), you must select the Brand Account during authorization.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-3">
+              <p className="font-medium">You'll see a two-step process:</p>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>
+                  <strong>Select your Google Account</strong> - Choose the Google account you use to manage your properties
+                </li>
+                <li>
+                  <strong>Select the Brand Account (if applicable)</strong> - After selecting your Google account,
+                  you'll see a list of accounts you can act as. <span className="text-foreground font-medium">Select the account that OWNS the YouTube channel</span> you want analytics for.
+                </li>
+              </ol>
+            </div>
+
+            <div className="rounded-lg border p-3 bg-muted/50">
+              <p className="text-sm">
+                <strong>Tip:</strong> If you manage multiple YouTube channels with different owners,
+                you may need to connect multiple times, selecting a different Brand Account each time.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowOAuthGuide(false)}>
+              Cancel
+            </Button>
+            <Button onClick={proceedWithOAuth}>
+              Continue to Google
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

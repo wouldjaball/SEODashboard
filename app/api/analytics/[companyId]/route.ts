@@ -323,8 +323,9 @@ export async function GET(
         console.log('YouTube Channel from DB:', JSON.stringify(ytChannel))
         console.log('Channel ID being used:', channelId)
 
+        // Use fallback methods that try Analytics API first, then fall back to public Data API
         const [ytMetrics, ytVideos, ytDailyData] = await Promise.all([
-          YouTubeAnalyticsService.fetchMetrics(
+          YouTubeAnalyticsService.fetchMetricsWithFallback(
             user.id,
             channelId,
             startDate,
@@ -332,14 +333,14 @@ export async function GET(
             previousStartDate,
             previousEndDate
           ),
-          YouTubeAnalyticsService.fetchTopVideos(
+          YouTubeAnalyticsService.fetchTopVideosWithFallback(
             user.id,
             channelId,
             startDate,
             endDate,
             10
           ),
-          YouTubeAnalyticsService.fetchDailyData(
+          YouTubeAnalyticsService.fetchDailyDataWithFallback(
             user.id,
             channelId,
             startDate,
@@ -349,12 +350,17 @@ export async function GET(
 
         results.ytMetrics = ytMetrics
         results.ytVideos = ytVideos
+        results.ytIsPublicDataOnly = ytMetrics.isPublicDataOnly || false
 
-        // Extract sparkline data from daily data
+        // Extract sparkline data from daily data (may be empty if using public fallback)
         results.ytViewsSparkline = ytDailyData.map(d => d.views)
         results.ytWatchTimeSparkline = ytDailyData.map(d => d.watchTime)
         results.ytSharesSparkline = ytDailyData.map(d => d.shares)
         results.ytLikesSparkline = ytDailyData.map(d => d.likes)
+
+        if (ytMetrics.isPublicDataOnly) {
+          console.log('[YouTube] Using public Data API fallback - limited metrics available')
+        }
       } catch (error: any) {
         const errorMessage = error?.message || String(error) || 'Unknown error'
         console.error('YouTube fetch error:', errorMessage)

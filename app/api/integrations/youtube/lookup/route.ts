@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
 
 // POST /api/integrations/youtube/lookup - Lookup channel details from URL
@@ -60,14 +61,10 @@ export async function POST(request: Request) {
     }
 
     // Use YouTube Data API to get channel details
-    // First, get the user's OAuth token
-    const { data: tokenData } = await supabase
-      .from('oauth_tokens')
-      .select('access_token, expires_at, refresh_token')
-      .eq('user_id', user.id)
-      .single()
+    // Get a fresh access token (handles refresh if expired)
+    const accessToken = await OAuthTokenService.refreshAccessToken(user.id)
 
-    if (!tokenData) {
+    if (!accessToken) {
       // No OAuth token - return what we have
       return NextResponse.json({
         channelId: channelId || '',
@@ -91,24 +88,28 @@ export async function POST(request: Request) {
         throw new Error('No channel identifier')
       }
 
+      console.log('[YouTube Lookup] Fetching:', apiUrl)
+
       const response = await fetch(apiUrl, {
         headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`
+          'Authorization': `Bearer ${accessToken}`
         }
       })
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('YouTube API error:', errorText)
+        console.error('[YouTube Lookup] API error:', response.status, errorText)
         // Return what we have even if API fails
         return NextResponse.json({
           channelId: channelId || '',
           channelHandle: channelHandle || '',
-          channelName: ''
+          channelName: '',
+          error: `YouTube API error: ${response.status}`
         })
       }
 
       const data = await response.json()
+      console.log('[YouTube Lookup] Response:', JSON.stringify(data))
 
       if (data.items && data.items.length > 0) {
         const channel = data.items[0]
@@ -126,16 +127,17 @@ export async function POST(request: Request) {
         })
       }
     } catch (apiError) {
-      console.error('YouTube API lookup error:', apiError)
+      console.error('[YouTube Lookup] API error:', apiError)
       // Return partial data
       return NextResponse.json({
         channelId: channelId || '',
         channelHandle: channelHandle || '',
-        channelName: ''
+        channelName: '',
+        error: 'API request failed'
       })
     }
   } catch (error) {
-    console.error('Lookup error:', error)
+    console.error('[YouTube Lookup] Error:', error)
     return NextResponse.json({ error: 'Failed to lookup channel' }, { status: 500 })
   }
 }

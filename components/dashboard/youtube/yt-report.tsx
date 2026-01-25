@@ -5,17 +5,27 @@ import { YTEngagementMetrics } from "./yt-engagement-metrics"
 import { TopVideosTable } from "./top-videos-table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Youtube, Settings } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Youtube, Settings, Info } from "lucide-react"
 import Link from "next/link"
 import type { YTMetrics, YTVideo } from "@/lib/types"
 
+// Extended metrics type that includes public data flags
+interface ExtendedYTMetrics extends YTMetrics {
+  isPublicDataOnly?: boolean
+  subscriberCount?: number
+  videoCount?: number
+}
+
 interface YTReportProps {
-  metrics: YTMetrics | null
+  metrics: ExtendedYTMetrics | null
   videos: YTVideo[]
   viewsSparkline?: number[]
   watchTimeSparkline?: number[]
   sharesSparkline?: number[]
   likesSparkline?: number[]
+  error?: string
+  isPublicDataOnly?: boolean
 }
 
 export function YTReport({
@@ -25,7 +35,41 @@ export function YTReport({
   watchTimeSparkline,
   sharesSparkline,
   likesSparkline,
+  error,
+  isPublicDataOnly,
 }: YTReportProps) {
+  // Check if using public data fallback
+  const usingPublicData = isPublicDataOnly || metrics?.isPublicDataOnly
+  // Show error message if YouTube fetch failed
+  if (error) {
+    return (
+      <Card className="border-dashed border-red-200 dark:border-red-900">
+        <CardHeader className="text-center pb-2">
+          <div className="mx-auto w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+            <Youtube className="h-6 w-6 text-red-600 dark:text-red-400" />
+          </div>
+          <CardTitle>YouTube Analytics Error</CardTitle>
+          <CardDescription className="max-w-lg mx-auto text-red-600 dark:text-red-400">
+            {error}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-4 pt-4">
+          <div className="flex gap-3">
+            <Button asChild variant="outline">
+              <Link href="/integrations">
+                <Settings className="h-4 w-4 mr-2" />
+                Check Integration Settings
+              </Link>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground text-center max-w-md">
+            This error may occur if the YouTube channel is a Brand Account. Try disconnecting and reconnecting your Google account, making sure to select the Brand Account during the OAuth consent screen.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   // Show setup message if no YouTube data is available
   if (!metrics) {
     return (
@@ -63,21 +107,40 @@ export function YTReport({
 
   return (
     <div className="space-y-6">
+      {/* Public Data Notice */}
+      {usingPublicData && (
+        <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            <span className="font-medium">Limited Data:</span> Showing public statistics only.
+            Watch time, shares, daily trends, and subscriber changes require channel ownership.
+            {metrics?.subscriberCount !== undefined && (
+              <span className="ml-2 font-medium">
+                Subscribers: {metrics.subscriberCount.toLocaleString()} |
+                Total Videos: {metrics.videoCount?.toLocaleString()}
+              </span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Trending Metrics */}
       <YTTrendingMetrics
         metrics={metrics}
         viewsSparkline={viewsSparkline}
         watchTimeSparkline={watchTimeSparkline}
         sharesSparkline={sharesSparkline}
+        isPublicDataOnly={usingPublicData}
       />
 
       {/* Top Videos Table */}
-      <TopVideosTable data={videos} />
+      <TopVideosTable data={videos} isPublicDataOnly={usingPublicData} />
 
       {/* Engagement Metrics */}
       <YTEngagementMetrics
         metrics={metrics}
         likesSparkline={likesSparkline}
+        isPublicDataOnly={usingPublicData}
       />
     </div>
   )

@@ -150,6 +150,8 @@ export default function DashboardPage() {
             watchTimeSparkline={company.ytWatchTimeSparkline}
             sharesSparkline={company.ytSharesSparkline}
             likesSparkline={company.ytLikesSparkline}
+            error={company.ytError}
+            isPublicDataOnly={company.ytIsPublicDataOnly}
           />
         </TabsContent>
 

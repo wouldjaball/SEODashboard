@@ -46,13 +46,66 @@ export async function GET(request: Request) {
 
     console.log('Saving tokens for user:', user.id)
 
-    // Save encrypted tokens
-    await OAuthTokenService.saveTokens(user.id, tokens)
+    // Fetch the authenticated Google identity info
+    let identityInfo: {
+      googleIdentity: string
+      googleIdentityName?: string
+      youtubeChannelId?: string
+      youtubeChannelName?: string
+    } | undefined
 
-    console.log('Tokens saved successfully')
+    try {
+      // Get user info to identify which Google account/Brand Account was selected
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { 'Authorization': `Bearer ${tokens.access_token}` }
+      })
+
+      if (userInfoResponse.ok) {
+        const userInfo = await userInfoResponse.json()
+        console.log('Google identity:', userInfo.email, userInfo.name)
+
+        identityInfo = {
+          googleIdentity: userInfo.email || userInfo.id,
+          googleIdentityName: userInfo.name
+        }
+
+        // Fetch YouTube channels owned by this identity
+        // This tells us which channel this token grants analytics access to
+        const channelsResponse = await fetch(
+          'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+          { headers: { 'Authorization': `Bearer ${tokens.access_token}` } }
+        )
+
+        if (channelsResponse.ok) {
+          const channelsData = await channelsResponse.json()
+          console.log('YouTube channels for this identity:', channelsData.items?.length || 0)
+
+          if (channelsData.items && channelsData.items.length > 0) {
+            // Store the primary channel owned by this identity
+            const primaryChannel = channelsData.items[0]
+            identityInfo.youtubeChannelId = primaryChannel.id
+            identityInfo.youtubeChannelName = primaryChannel.snippet?.title
+
+            console.log('Primary YouTube channel:', primaryChannel.id, primaryChannel.snippet?.title)
+          }
+        }
+      }
+    } catch (identityError) {
+      console.error('Failed to fetch identity info:', identityError)
+      // Continue without identity info - tokens will still be saved
+    }
+
+    // Save encrypted tokens with identity information
+    await OAuthTokenService.saveTokens(user.id, tokens, identityInfo)
+
+    console.log('Tokens saved successfully with identity:', identityInfo?.googleIdentity)
 
     // Redirect to integrations page with success
-    return NextResponse.redirect(`${origin}/integrations?success=true`)
+    const successParams = new URLSearchParams({ success: 'true' })
+    if (identityInfo?.youtubeChannelName) {
+      successParams.set('channel', identityInfo.youtubeChannelName)
+    }
+    return NextResponse.redirect(`${origin}/integrations?${successParams}`)
   } catch (error) {
     console.error('OAuth callback error:', error)
     return NextResponse.redirect(`${origin}/integrations?error=token_exchange`)

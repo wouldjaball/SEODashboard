@@ -5,8 +5,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
 import { Loader2, Users as UsersIcon, Search, UserPlus } from 'lucide-react'
 import { UserAssignmentDialog } from '@/components/admin/user-assignment-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface User {
   id: string
@@ -29,6 +46,11 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [hasAdminAccess, setHasAdminAccess] = useState(false)
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteCompanyId, setInviteCompanyId] = useState('')
+  const [inviteRole, setInviteRole] = useState('viewer')
+  const [isInviting, setIsInviting] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -73,6 +95,43 @@ export default function AdminUsersPage() {
     fetchData()
   }
 
+  async function handleInviteUser() {
+    if (!inviteEmail.trim() || !inviteCompanyId) {
+      alert('Please enter an email and select a company')
+      return
+    }
+
+    setIsInviting(true)
+    try {
+      const response = await fetch('/api/admin/users/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteEmail.trim().toLowerCase(),
+          companyId: inviteCompanyId,
+          role: inviteRole
+        })
+      })
+
+      if (response.ok) {
+        alert('User invited successfully! They will have access once they sign in.')
+        setInviteDialogOpen(false)
+        setInviteEmail('')
+        setInviteCompanyId('')
+        setInviteRole('viewer')
+        fetchData()
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to invite user')
+      }
+    } catch (error) {
+      console.error('Failed to invite user:', error)
+      alert('Failed to invite user. Please try again.')
+    } finally {
+      setIsInviting(false)
+    }
+  }
+
   const filteredUsers = users.filter(user =>
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -106,7 +165,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="container max-w-6xl py-8 space-y-8">
+    <div className="container max-w-4xl mx-auto py-8 px-4 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">User Management</h1>
         <p className="text-muted-foreground mt-2">
@@ -125,10 +184,77 @@ export default function AdminUsersPage() {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" disabled>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Invite User
-        </Button>
+        <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Invite User
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Invite User</DialogTitle>
+              <DialogDescription>
+                Add a user to one of your companies. They&apos;ll have access once they sign in with this email.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="invite-email">Email Address</Label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invite-company">Company</Label>
+                <Select value={inviteCompanyId} onValueChange={setInviteCompanyId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a company" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invite-role">Role</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">Viewer - Can view dashboards</SelectItem>
+                    <SelectItem value="admin">Admin - Can manage users</SelectItem>
+                    <SelectItem value="owner">Owner - Full access</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleInviteUser} disabled={isInviting}>
+                {isInviting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Inviting...
+                  </>
+                ) : (
+                  'Invite User'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Users List */}

@@ -27,7 +27,7 @@ interface IndexedPagesChartProps {
 
 const chartConfig = {
   indexedPages: {
-    label: "Indexed Pages",
+    label: "Pages in Results",
     color: "var(--chart-4)",
   },
   rankingKeywords: {
@@ -43,7 +43,7 @@ export function IndexedPagesChart({ data }: IndexedPagesChartProps) {
   }))
 
   return (
-    <ChartCard title="Indexed Pages and Ranking Keywords">
+    <ChartCard title="Daily Search Visibility">
       <ChartContainer config={chartConfig} className="h-[300px] w-full">
         <ComposedChart accessibilityLayer data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
