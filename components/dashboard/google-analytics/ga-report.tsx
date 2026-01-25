@@ -42,6 +42,7 @@ interface GAReportProps {
   devices: GADevice[]
   gender: GADemographic[]
   age: GADemographic[]
+  dateRange?: { from: Date; to: Date }
 }
 
 export function GAReport({
@@ -55,6 +56,7 @@ export function GAReport({
   devices,
   gender,
   age,
+  dateRange,
 }: GAReportProps) {
   // Filter state - empty arrays mean "all selected"
   const [filters, setFilters] = useState<GAFilters>({
@@ -90,7 +92,7 @@ export function GAReport({
       {/* Charts Row - Stack on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3">
-          <WeeklyPerformanceChart data={weeklyData} />
+          <WeeklyPerformanceChart data={weeklyData} dateRange={dateRange} />
         </div>
         <div className="lg:col-span-2">
           <TrafficShareChart data={filteredData.trafficShare} />
@@ -98,7 +100,7 @@ export function GAReport({
       </div>
 
       {/* Channel Performance */}
-      <ChannelPerformanceChart data={filteredData.channelData} />
+      <ChannelPerformanceChart data={filteredData.channelData} dateRange={dateRange} />
 
       {/* Performance Table */}
       <PerformanceTable data={filteredData.sourcePerformance} />

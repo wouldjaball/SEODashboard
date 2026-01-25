@@ -22,6 +22,7 @@ import { format, parseISO } from "date-fns"
 
 interface ChannelPerformanceChartProps {
   data: GAChannelData[]
+  dateRange?: { from: Date; to: Date }
 }
 
 const chartConfig = {
@@ -59,14 +60,18 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function ChannelPerformanceChart({ data }: ChannelPerformanceChartProps) {
+export function ChannelPerformanceChart({ data, dateRange }: ChannelPerformanceChartProps) {
   const formattedData = data.map((d) => ({
     ...d,
     formattedDate: format(parseISO(d.date), "MMM d"),
   }))
 
+  const dateRangeStr = dateRange
+    ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
+    : undefined
+
   return (
-    <ChartCard title="Weekly Channel Performance by Users" className="w-full">
+    <ChartCard title="Weekly Channel Performance by Users" dateRange={dateRangeStr} className="w-full">
       <ChartContainer config={chartConfig} className="h-[350px] w-full">
         <AreaChart accessibilityLayer data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />

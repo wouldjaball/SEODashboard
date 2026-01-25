@@ -125,6 +125,7 @@ export default function DashboardPage() {
             devices={company.gaDevices}
             gender={company.gaGender}
             age={company.gaAge}
+            dateRange={dateRange}
           />
         </TabsContent>
 

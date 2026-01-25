@@ -149,7 +149,10 @@ export class GoogleAnalyticsService {
     })
 
     return Array.from(weekMap.entries()).map(([weekKey, weekData]) => {
-      const weekLabel = `${format(weekData.weekStart, 'MMM d')}-${format(weekData.weekEnd, 'd')}`
+      // Use actual first and last dates with data, not calendar week boundaries
+      const firstDate = parseISO(weekData.dates[0])
+      const lastDate = parseISO(weekData.dates[weekData.dates.length - 1])
+      const weekLabel = `${format(firstDate, 'MMM d')}-${format(lastDate, 'd')}`
       return {
         weekLabel,
         weekNumber: weekData.weekNum,
@@ -181,7 +184,9 @@ export class GoogleAnalyticsService {
     const dateMap = new Map<string, GAChannelData>()
 
     data.rows?.forEach((row: any) => {
-      const date = row.dimensionValues[0].value
+      const dateStr = row.dimensionValues[0].value  // GA returns YYYYMMDD format
+      // Convert to ISO format (YYYY-MM-DD) for parseISO compatibility in charts
+      const date = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
       const channel = row.dimensionValues[1].value.toLowerCase().replace(/\s+/g, '')
       const sessions = parseInt(row.metricValues[0].value)
 
