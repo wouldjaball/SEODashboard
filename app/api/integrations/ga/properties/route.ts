@@ -35,33 +35,34 @@ export async function GET() {
     for (const account of accountsData.accountSummaries || []) {
       for (const propertySummary of account.propertySummaries || []) {
         const propertyId = propertySummary.property.split('/')[1]
-        const property = {
-          id: propertyId,
-          propertyId: propertyId,
-          displayName: propertySummary.displayName,
-          accountId: account.account.split('/')[1],
-          accountName: account.displayName
-        }
+        const accountId = account.account.split('/')[1]
 
-        properties.push(property)
-
-        // Save to database
+        // Save to database and get the database UUID
         console.log(`Saving GA property ${propertyId} to database for user ${user.id}`)
         const { data: savedProperty, error: saveError } = await supabase.from('ga_properties').upsert({
           user_id: user.id,
           property_id: propertyId,
           property_name: propertySummary.displayName,
           display_name: propertySummary.displayName,
-          account_id: property.accountId,
-          account_name: property.accountName
+          account_id: accountId,
+          account_name: account.displayName
         }, {
           onConflict: 'user_id,property_id'
-        }).select()
+        }).select('id').single()
 
         if (saveError) {
           console.error(`Failed to save GA property ${propertyId}:`, saveError)
         } else {
-          console.log(`Successfully saved GA property ${propertyId}:`, savedProperty)
+          console.log(`Successfully saved GA property ${propertyId} with DB id:`, savedProperty?.id)
+
+          // Return database UUID as id for frontend to use in mappings
+          properties.push({
+            id: savedProperty?.id,  // Database UUID for mappings
+            propertyId: propertyId,  // External Google ID for display
+            displayName: propertySummary.displayName,
+            accountId: accountId,
+            accountName: account.displayName
+          })
         }
       }
     }

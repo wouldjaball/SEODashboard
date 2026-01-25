@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Save mappings for each company
+    // Save mappings for each company using upsert to preserve existing mappings
     for (const [companyId, mapping] of Object.entries(mappings)) {
       console.log(`Processing company ${companyId}:`, mapping)
 
@@ -134,26 +134,9 @@ export async function POST(request: Request) {
         linkedinPageId: string
       }
 
-      // Delete existing mappings first
-      console.log(`Deleting existing mappings for company ${companyId}`)
-      const { error: deleteGaError } = await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
-      if (deleteGaError) console.error(`Delete GA mapping error:`, deleteGaError)
-
-      const { error: deleteGscError } = await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
-      if (deleteGscError) console.error(`Delete GSC mapping error:`, deleteGscError)
-
-      const { error: deleteYtError } = await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
-      if (deleteYtError) console.error(`Delete YouTube mapping error:`, deleteYtError)
-
-      const { error: deleteLiError } = await supabase.from('company_linkedin_mappings').delete().eq('company_id', companyId)
-      if (deleteLiError) console.error(`Delete LinkedIn mapping error:`, deleteLiError)
-
-      // Insert new mappings if provided
-      // Note: The IDs passed from the frontend are database UUIDs from the cached data
-
+      // GA Property mapping - upsert if set, delete if cleared
       if (gaPropertyId) {
-        // gaPropertyId is the database UUID directly from the cached properties
-        console.log(`Inserting GA mapping: company_id=${companyId}, ga_property_id=${gaPropertyId}`)
+        console.log(`Upserting GA mapping: company_id=${companyId}, ga_property_id=${gaPropertyId}`)
 
         // Verify the property exists
         const { data: gaProperty, error: gaLookupError } = await supabase
@@ -167,6 +150,8 @@ export async function POST(request: Request) {
           throw new Error(`GA property with ID "${gaPropertyId}" not found. Please refresh the properties list.`)
         }
 
+        // Delete then insert (upsert doesn't work well with non-unique company_id)
+        await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
         const { error: gaError } = await supabase.from('company_ga_mappings').insert({
           company_id: companyId,
           ga_property_id: gaPropertyId
@@ -176,11 +161,15 @@ export async function POST(request: Request) {
           throw gaError
         }
         console.log(`Successfully saved GA mapping for company ${companyId}`)
+      } else {
+        // Only delete if explicitly cleared (empty string means user selected "None")
+        console.log(`Clearing GA mapping for company ${companyId}`)
+        await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
       }
 
+      // GSC Site mapping
       if (gscSiteId) {
-        // gscSiteId is the database UUID directly from the cached sites
-        console.log(`Inserting GSC mapping: company_id=${companyId}, gsc_site_id=${gscSiteId}`)
+        console.log(`Upserting GSC mapping: company_id=${companyId}, gsc_site_id=${gscSiteId}`)
 
         // Verify the site exists
         const { data: gscSite, error: gscLookupError } = await supabase
@@ -194,6 +183,7 @@ export async function POST(request: Request) {
           throw new Error(`GSC site with ID "${gscSiteId}" not found. Please refresh the sites list.`)
         }
 
+        await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
         const { error: gscError } = await supabase.from('company_gsc_mappings').insert({
           company_id: companyId,
           gsc_site_id: gscSiteId
@@ -203,11 +193,28 @@ export async function POST(request: Request) {
           throw gscError
         }
         console.log(`Successfully saved GSC mapping for company ${companyId}`)
+      } else {
+        console.log(`Clearing GSC mapping for company ${companyId}`)
+        await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
       }
 
+      // YouTube Channel mapping
       if (youtubeChannelId) {
-        // youtubeChannelId is now the database UUID directly
-        console.log(`Inserting YouTube mapping: company_id=${companyId}, youtube_channel_id=${youtubeChannelId}`)
+        console.log(`Upserting YouTube mapping: company_id=${companyId}, youtube_channel_id=${youtubeChannelId}`)
+
+        // Verify the channel exists
+        const { data: ytChannel, error: ytLookupError } = await supabase
+          .from('youtube_channels')
+          .select('id')
+          .eq('id', youtubeChannelId)
+          .single()
+
+        if (ytLookupError || !ytChannel) {
+          console.error(`YouTube channel not found for id ${youtubeChannelId}:`, ytLookupError)
+          throw new Error(`YouTube channel with ID "${youtubeChannelId}" not found. Please refresh the channels list.`)
+        }
+
+        await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
         const { error: ytError } = await supabase.from('company_youtube_mappings').insert({
           company_id: companyId,
           youtube_channel_id: youtubeChannelId
@@ -217,11 +224,14 @@ export async function POST(request: Request) {
           throw ytError
         }
         console.log(`Successfully saved YouTube mapping for company ${companyId}`)
+      } else {
+        console.log(`Clearing YouTube mapping for company ${companyId}`)
+        await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
       }
 
+      // LinkedIn Page mapping
       if (linkedinPageId) {
-        // linkedinPageId is the database UUID directly
-        console.log(`Inserting LinkedIn mapping: company_id=${companyId}, linkedin_page_id=${linkedinPageId}`)
+        console.log(`Upserting LinkedIn mapping: company_id=${companyId}, linkedin_page_id=${linkedinPageId}`)
 
         // Verify the page exists
         const { data: liPage, error: liLookupError } = await supabase
@@ -235,6 +245,7 @@ export async function POST(request: Request) {
           throw new Error(`LinkedIn page with ID "${linkedinPageId}" not found. Please add it first.`)
         }
 
+        await supabase.from('company_linkedin_mappings').delete().eq('company_id', companyId)
         const { error: liError } = await supabase.from('company_linkedin_mappings').insert({
           company_id: companyId,
           linkedin_page_id: linkedinPageId
@@ -244,6 +255,9 @@ export async function POST(request: Request) {
           throw liError
         }
         console.log(`Successfully saved LinkedIn mapping for company ${companyId}`)
+      } else {
+        console.log(`Clearing LinkedIn mapping for company ${companyId}`)
+        await supabase.from('company_linkedin_mappings').delete().eq('company_id', companyId)
       }
     }
 

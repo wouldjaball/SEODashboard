@@ -45,15 +45,10 @@ export async function GET(request: Request) {
           }
         }
 
-        // Mark channels not in the list as inactive
-        if (channels.length > 0) {
-          const channelIds = channels.map(c => c.channelId)
-          await supabase
-            .from('youtube_channels')
-            .update({ is_active: false })
-            .eq('user_id', user.id)
-            .not('channel_id', 'in', `(${channelIds.join(',')})`)
-        }
+        // Note: We no longer mark channels as inactive during refresh
+        // This preserves manually-added Brand Account channels that won't
+        // appear in the mine=true API response. Channels are only removed
+        // when explicitly deleted by the user.
       } catch (apiError: any) {
         console.error('YouTube API error:', apiError.message)
         // Return cached data if API fails
