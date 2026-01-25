@@ -2,8 +2,24 @@ import { createClient } from '@/lib/supabase/server'
 import { GoogleAnalyticsService } from '@/lib/services/google-analytics-service'
 import { GoogleSearchConsoleService } from '@/lib/services/google-search-console-service'
 import { YouTubeAnalyticsService } from '@/lib/services/youtube-analytics-service'
+import { LinkedInSheetsService } from '@/lib/services/linkedin-sheets-service'
 import { NextResponse } from 'next/server'
 import { subDays, format } from 'date-fns'
+
+// Import LinkedIn mock data for fallback
+import {
+  liVisitorMetrics,
+  liFollowerMetrics,
+  liContentMetrics,
+  liVisitorDaily,
+  liFollowerDaily,
+  liImpressionDaily,
+  liIndustryDemographics,
+  liSeniorityDemographics,
+  liJobFunctionDemographics,
+  liCompanySizeDemographics,
+  liUpdates
+} from '@/lib/mock-data/linkedin'
 
 export async function GET(
   request: Request,
@@ -368,6 +384,66 @@ export async function GET(
       }
     }
 
+    // Fetch LinkedIn data from Google Sheets (Power My Analytics)
+    try {
+      // Check if there's a LinkedIn sheet configuration for this company
+      const { data: linkedinSheetConfig, error: liConfigError } = await supabase
+        .from('linkedin_sheet_configs')
+        .select('*')
+        .eq('company_id', companyId)
+        .maybeSingle()
+
+      console.log('LinkedIn sheet config lookup:', { linkedinSheetConfig, liConfigError })
+
+      if (linkedinSheetConfig &&
+          (linkedinSheetConfig.page_analytics_sheet_id || linkedinSheetConfig.post_analytics_sheet_id)) {
+        // Fetch LinkedIn data from Google Sheets
+        console.log('=== LinkedIn Sheets FETCH DEBUG ===')
+        console.log('User ID:', user.id)
+        console.log('Config:', JSON.stringify(linkedinSheetConfig))
+
+        const linkedInData = await LinkedInSheetsService.fetchAllLinkedInData(user.id, {
+          id: linkedinSheetConfig.id,
+          companyId: linkedinSheetConfig.company_id,
+          pageAnalyticsSheetId: linkedinSheetConfig.page_analytics_sheet_id,
+          pageAnalyticsRange: linkedinSheetConfig.page_analytics_range,
+          postAnalyticsSheetId: linkedinSheetConfig.post_analytics_sheet_id,
+          postAnalyticsRange: linkedinSheetConfig.post_analytics_range,
+          campaignAnalyticsSheetId: linkedinSheetConfig.campaign_analytics_sheet_id,
+          campaignAnalyticsRange: linkedinSheetConfig.campaign_analytics_range,
+        })
+
+        if (linkedInData) {
+          results.liVisitorMetrics = linkedInData.visitorMetrics
+          results.liFollowerMetrics = linkedInData.followerMetrics
+          results.liContentMetrics = linkedInData.contentMetrics
+          results.liVisitorDaily = linkedInData.visitorDaily
+          results.liFollowerDaily = linkedInData.followerDaily
+          results.liImpressionDaily = linkedInData.impressionDaily
+          results.liIndustryDemographics = linkedInData.industryDemographics
+          results.liSeniorityDemographics = linkedInData.seniorityDemographics
+          results.liJobFunctionDemographics = linkedInData.jobFunctionDemographics
+          results.liCompanySizeDemographics = linkedInData.companySizeDemographics
+          results.liUpdates = linkedInData.updates
+          console.log('[LinkedIn] Successfully fetched data from Google Sheets')
+        } else {
+          // Fall back to mock data if sheets return empty
+          console.log('[LinkedIn] No data from sheets, using mock data fallback')
+          addLinkedInMockData(results)
+        }
+      } else {
+        // No LinkedIn sheet config - use mock data
+        console.log('[LinkedIn] No sheet configuration found, using mock data')
+        addLinkedInMockData(results)
+      }
+    } catch (error: any) {
+      console.error('LinkedIn sheets fetch error:', error)
+      // Fall back to mock data on error
+      console.log('[LinkedIn] Error fetching from sheets, using mock data fallback')
+      addLinkedInMockData(results)
+      results.liError = error?.message || 'Failed to fetch LinkedIn data from sheets'
+    }
+
     // Cache the results (1 hour expiry)
     await cacheData(supabase, companyId, startDate, endDate, results)
 
@@ -409,4 +485,19 @@ async function cacheData(
     data,
     expires_at: expiresAt.toISOString()
   })
+}
+
+// Helper to add LinkedIn mock data as fallback
+function addLinkedInMockData(results: any) {
+  results.liVisitorMetrics = liVisitorMetrics
+  results.liFollowerMetrics = liFollowerMetrics
+  results.liContentMetrics = liContentMetrics
+  results.liVisitorDaily = liVisitorDaily
+  results.liFollowerDaily = liFollowerDaily
+  results.liImpressionDaily = liImpressionDaily
+  results.liIndustryDemographics = liIndustryDemographics
+  results.liSeniorityDemographics = liSeniorityDemographics
+  results.liJobFunctionDemographics = liJobFunctionDemographics
+  results.liCompanySizeDemographics = liCompanySizeDemographics
+  results.liUpdates = liUpdates
 }

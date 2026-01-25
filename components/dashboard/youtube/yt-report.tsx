@@ -5,8 +5,7 @@ import { YTEngagementMetrics } from "./yt-engagement-metrics"
 import { TopVideosTable } from "./top-videos-table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Youtube, Settings, Info } from "lucide-react"
+import { Youtube, Settings } from "lucide-react"
 import Link from "next/link"
 import type { YTMetrics, YTVideo } from "@/lib/types"
 
@@ -107,23 +106,6 @@ export function YTReport({
 
   return (
     <div className="space-y-6">
-      {/* Public Data Notice */}
-      {usingPublicData && (
-        <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
-          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          <AlertDescription className="text-amber-800 dark:text-amber-200">
-            <span className="font-medium">Limited Data:</span> Showing public statistics only.
-            Watch time, shares, daily trends, and subscriber changes require channel ownership.
-            {metrics?.subscriberCount !== undefined && (
-              <span className="ml-2 font-medium">
-                Subscribers: {metrics.subscriberCount.toLocaleString()} |
-                Total Videos: {metrics.videoCount?.toLocaleString()}
-              </span>
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
-
       {/* Trending Metrics */}
       <YTTrendingMetrics
         metrics={metrics}

@@ -14,6 +14,7 @@ interface SignUpFormProps extends React.ComponentProps<"div"> {
 }
 
 export function SignUpForm({ className, redirectTo = "/dashboard", ...props }: SignUpFormProps) {
+  const [accessCode, setAccessCode] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
@@ -21,13 +22,42 @@ export function SignUpForm({ className, redirectTo = "/dashboard", ...props }: S
   const [success, setSuccess] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false)
+  const [isValidatingCode, setIsValidatingCode] = React.useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  async function validateAccessCode(code: string): Promise<boolean> {
+    try {
+      const response = await fetch("/api/auth/validate-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      })
+      const data = await response.json()
+      return data.valid === true
+    } catch {
+      return false
+    }
+  }
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+
+    // Validate access code first
+    if (!accessCode.trim()) {
+      setError("Access code is required")
+      setIsLoading(false)
+      return
+    }
+
+    const isValidCode = await validateAccessCode(accessCode)
+    if (!isValidCode) {
+      setError("Invalid access code")
+      setIsLoading(false)
+      return
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match")
@@ -45,7 +75,7 @@ export function SignUpForm({ className, redirectTo = "/dashboard", ...props }: S
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}&access_code=${encodeURIComponent(accessCode.trim().toUpperCase())}`,
       },
     })
 
@@ -55,18 +85,48 @@ export function SignUpForm({ className, redirectTo = "/dashboard", ...props }: S
       return
     }
 
+    // Increment usage count
+    try {
+      await fetch("/api/auth/validate-code", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: accessCode }),
+      })
+    } catch {
+      // Non-critical, don't fail signup
+    }
+
     setSuccess(true)
     setIsLoading(false)
   }
 
   async function handleGoogleLogin() {
-    setIsGoogleLoading(true)
     setError(null)
+
+    // Validate access code first
+    if (!accessCode.trim()) {
+      setError("Access code is required")
+      return
+    }
+
+    setIsValidatingCode(true)
+    const isValidCode = await validateAccessCode(accessCode)
+    setIsValidatingCode(false)
+
+    if (!isValidCode) {
+      setError("Invalid access code")
+      return
+    }
+
+    setIsGoogleLoading(true)
+
+    // Store access code in sessionStorage for the callback to use
+    sessionStorage.setItem("signup_access_code", accessCode.trim().toUpperCase())
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}&access_code=${encodeURIComponent(accessCode.trim().toUpperCase())}`,
       },
     })
 
@@ -96,6 +156,23 @@ export function SignUpForm({ className, redirectTo = "/dashboard", ...props }: S
     <div className={cn("grid gap-6", className)} {...props}>
       <form onSubmit={handleSignUp}>
         <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="access-code">Access Code</Label>
+            <Input
+              id="access-code"
+              type="text"
+              placeholder="Enter your access code"
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+              autoCapitalize="characters"
+              autoComplete="off"
+              disabled={isLoading || isGoogleLoading}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Contact an administrator to get an access code
+            </p>
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -157,10 +234,10 @@ export function SignUpForm({ className, redirectTo = "/dashboard", ...props }: S
       <Button
         variant="outline"
         type="button"
-        disabled={isLoading || isGoogleLoading}
+        disabled={isLoading || isGoogleLoading || isValidatingCode}
         onClick={handleGoogleLogin}
       >
-        {isGoogleLoading ? (
+        {(isGoogleLoading || isValidatingCode) ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">

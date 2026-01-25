@@ -29,7 +29,7 @@ function Calendar({
         months: "flex flex-col sm:flex-row gap-4",
         month: "space-y-4",
         month_caption: "flex justify-center pt-1 relative items-center h-10",
-        caption_label: "text-sm font-medium",
+        caption_label: "hidden",
         nav: "flex items-center gap-1",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),

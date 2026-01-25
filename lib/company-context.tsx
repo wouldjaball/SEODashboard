@@ -132,7 +132,19 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         ytWatchTimeSparkline: data.ytWatchTimeSparkline || [],
         ytSharesSparkline: data.ytSharesSparkline || [],
         ytLikesSparkline: data.ytLikesSparkline || [],
-        ytError: data.ytError || undefined
+        ytError: data.ytError || undefined,
+        // LinkedIn data from Power My Analytics sheets
+        liVisitorMetrics: data.liVisitorMetrics || null,
+        liFollowerMetrics: data.liFollowerMetrics || null,
+        liContentMetrics: data.liContentMetrics || null,
+        liVisitorDaily: data.liVisitorDaily || [],
+        liFollowerDaily: data.liFollowerDaily || [],
+        liImpressionDaily: data.liImpressionDaily || [],
+        liIndustryDemographics: data.liIndustryDemographics || [],
+        liSeniorityDemographics: data.liSeniorityDemographics || [],
+        liJobFunctionDemographics: data.liJobFunctionDemographics || [],
+        liCompanySizeDemographics: data.liCompanySizeDemographics || [],
+        liUpdates: data.liUpdates || []
       }))
     } catch (err) {
       console.error('[CompanyContext] Failed to fetch analytics:', err)

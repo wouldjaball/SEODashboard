@@ -6,7 +6,8 @@ export const GOOGLE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/analytics.readonly',
   'https://www.googleapis.com/auth/webmasters.readonly',
   'https://www.googleapis.com/auth/youtube.readonly',
-  'https://www.googleapis.com/auth/yt-analytics.readonly'
+  'https://www.googleapis.com/auth/yt-analytics.readonly',
+  'https://www.googleapis.com/auth/spreadsheets.readonly'
 ]
 
 export const OAUTH_SCOPES_STRING = GOOGLE_OAUTH_SCOPES.join(' ')

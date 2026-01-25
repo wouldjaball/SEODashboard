@@ -3,8 +3,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Vestige View Analytics Dashboard",
-  description: "Multi-source analytics dashboard for Vestige Digital",
+  title: "The Transit Dashboard",
+  description: "Your comprehensive analytics platform for tracking and managing transit data",
 };
 
 export default function RootLayout({

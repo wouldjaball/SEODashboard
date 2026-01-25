@@ -51,6 +51,22 @@ interface Mappings {
   }
 }
 
+interface LinkedInSheetConfig {
+  id?: string
+  pageAnalyticsSheetId: string
+  pageAnalyticsRange: string
+  postAnalyticsSheetId: string
+  postAnalyticsRange: string
+  campaignAnalyticsSheetId: string
+  campaignAnalyticsRange: string
+  demographicsSheetId: string
+  demographicsRange: string
+}
+
+interface LinkedInSheetConfigs {
+  [companyId: string]: LinkedInSheetConfig
+}
+
 export default function AdminAccountsPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [gaProperties, setGaProperties] = useState<Account[]>([])
@@ -58,14 +74,17 @@ export default function AdminAccountsPage() {
   const [youtubeChannels, setYoutubeChannels] = useState<Account[]>([])
   const [linkedinPages, setLinkedinPages] = useState<Account[]>([])
   const [mappings, setMappings] = useState<Mappings>({})
+  const [linkedinSheetConfigs, setLinkedinSheetConfigs] = useState<LinkedInSheetConfigs>({})
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
   // Add account forms
   const [showYouTubeForm, setShowYouTubeForm] = useState(false)
   const [showLinkedInForm, setShowLinkedInForm] = useState(false)
+  const [showLinkedInSheetsForm, setShowLinkedInSheetsForm] = useState<string | null>(null) // company id if showing
   const [youtubeForm, setYoutubeForm] = useState({ channel_id: '', channel_name: '', channel_handle: '' })
   const [linkedinForm, setLinkedinForm] = useState({ page_id: '', page_name: '', page_url: '' })
+  const [isSavingSheetConfig, setIsSavingSheetConfig] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [isLookingUp, setIsLookingUp] = useState(false)
   const [isClearingCache, setIsClearingCache] = useState(false)
@@ -104,7 +123,7 @@ export default function AdminAccountsPage() {
   async function fetchData() {
     setIsLoading(true)
     try {
-      const [companiesRes, gaRes, gscRes, ytRes, liRes, mappingsRes, statusRes, connectionsRes] = await Promise.all([
+      const [companiesRes, gaRes, gscRes, ytRes, liRes, mappingsRes, statusRes, connectionsRes, liSheetConfigsRes] = await Promise.all([
         fetch('/api/admin/companies'),
         fetch('/api/integrations/ga/properties'),
         fetch('/api/integrations/gsc/sites'),
@@ -112,10 +131,11 @@ export default function AdminAccountsPage() {
         fetch('/api/integrations/linkedin/pages'),
         fetch('/api/integrations/mappings'),
         fetch('/api/integrations/status'),
-        fetch('/api/integrations/connections')
+        fetch('/api/integrations/connections'),
+        fetch('/api/integrations/linkedin/sheets')
       ])
 
-      const [companiesData, gaData, gscData, ytData, liData, mappingsData, statusData, connectionsData] = await Promise.all([
+      const [companiesData, gaData, gscData, ytData, liData, mappingsData, statusData, connectionsData, liSheetConfigsData] = await Promise.all([
         companiesRes.json(),
         gaRes.json(),
         gscRes.json(),
@@ -123,7 +143,8 @@ export default function AdminAccountsPage() {
         liRes.json(),
         mappingsRes.json(),
         statusRes.json(),
-        connectionsRes.json()
+        connectionsRes.json(),
+        liSheetConfigsRes.json()
       ])
 
       setCompanies(companiesData.companies || [])
@@ -134,6 +155,7 @@ export default function AdminAccountsPage() {
       setMappings(mappingsData.mappings || {})
       setIsConnected(statusData.connected || false)
       setConnections(connectionsData.connections || [])
+      setLinkedinSheetConfigs(liSheetConfigsData.configs || {})
     } catch (error) {
       console.error('Failed to fetch data:', error)
     } finally {
@@ -262,6 +284,60 @@ export default function AdminAccountsPage() {
     } catch (error) {
       console.error('Failed to add LinkedIn page:', error)
     }
+  }
+
+  async function handleSaveLinkedInSheetConfig(companyId: string) {
+    setIsSavingSheetConfig(true)
+    try {
+      const config = linkedinSheetConfigs[companyId] || {
+        pageAnalyticsSheetId: '',
+        pageAnalyticsRange: 'A:Z',
+        postAnalyticsSheetId: '',
+        postAnalyticsRange: 'A:Z',
+        campaignAnalyticsSheetId: '',
+        campaignAnalyticsRange: 'A:Z',
+        demographicsSheetId: '',
+        demographicsRange: 'A:Z',
+      }
+
+      const response = await fetch('/api/integrations/linkedin/sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configs: { [companyId]: config } })
+      })
+
+      if (response.ok) {
+        alert('LinkedIn sheet configuration saved!')
+        setShowLinkedInSheetsForm(null)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to save configuration')
+      }
+    } catch (error) {
+      console.error('Failed to save LinkedIn sheet config:', error)
+      alert('Failed to save configuration')
+    } finally {
+      setIsSavingSheetConfig(false)
+    }
+  }
+
+  function updateLinkedInSheetConfig(companyId: string, field: keyof LinkedInSheetConfig, value: string) {
+    setLinkedinSheetConfigs(prev => ({
+      ...prev,
+      [companyId]: {
+        ...prev[companyId] || {
+          pageAnalyticsSheetId: '',
+          pageAnalyticsRange: 'A:Z',
+          postAnalyticsSheetId: '',
+          postAnalyticsRange: 'A:Z',
+          campaignAnalyticsSheetId: '',
+          campaignAnalyticsRange: 'A:Z',
+          demographicsSheetId: '',
+          demographicsRange: 'A:Z',
+        },
+        [field]: value
+      }
+    }))
   }
 
   // Connect YouTube for a specific company - triggers OAuth with Brand Account picker
@@ -936,6 +1012,145 @@ export default function AdminAccountsPage() {
                       <Badge variant="outline">{page.page_id}</Badge>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* LinkedIn Google Sheets Configuration (Power My Analytics) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>LinkedIn Data via Google Sheets</CardTitle>
+              <CardDescription>
+                Configure Google Sheet IDs from Power My Analytics to pull LinkedIn data for each company.
+                This allows you to display real LinkedIn analytics in the dashboard.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
+                  <strong>Setup:</strong> In Power My Analytics, export your LinkedIn data to Google Sheets.
+                  Then paste the Sheet ID here. The Sheet ID is the long string in the URL between /d/ and /edit
+                  (e.g., for https://docs.google.com/spreadsheets/d/<strong>1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms</strong>/edit,
+                  the ID is the bold part).
+                </AlertDescription>
+              </Alert>
+
+              {companies.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No companies found</p>
+              ) : (
+                <div className="space-y-4">
+                  {companies.map((company) => {
+                    const config = linkedinSheetConfigs[company.id] || {
+                      pageAnalyticsSheetId: '',
+                      pageAnalyticsRange: 'A:Z',
+                      postAnalyticsSheetId: '',
+                      postAnalyticsRange: 'A:Z',
+                      campaignAnalyticsSheetId: '',
+                      campaignAnalyticsRange: 'A:Z',
+                      demographicsSheetId: '',
+                      demographicsRange: 'A:Z',
+                    }
+                    const hasConfig = config.pageAnalyticsSheetId || config.postAnalyticsSheetId || config.campaignAnalyticsSheetId
+                    const isExpanded = showLinkedInSheetsForm === company.id
+
+                    return (
+                      <div key={company.id} className="border rounded-lg">
+                        <div
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
+                          onClick={() => setShowLinkedInSheetsForm(isExpanded ? null : company.id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                              style={{ backgroundColor: company.color }}
+                            >
+                              {company.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium">{company.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {hasConfig ? 'Sheets configured' : 'No sheets configured'}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant={hasConfig ? 'default' : 'secondary'}>
+                            {hasConfig ? <CheckCircle className="h-3 w-3 mr-1" /> : null}
+                            {hasConfig ? 'Configured' : 'Not Set'}
+                          </Badge>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="border-t p-4 space-y-4 bg-muted/30">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="text-xs">Page Analytics Sheet ID</Label>
+                                <Input
+                                  value={config.pageAnalyticsSheetId}
+                                  onChange={(e) => updateLinkedInSheetConfig(company.id, 'pageAnalyticsSheetId', e.target.value)}
+                                  placeholder="e.g., 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                                />
+                                <p className="text-xs text-muted-foreground">Page views, visitors, followers</p>
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label className="text-xs">Post Analytics Sheet ID</Label>
+                                <Input
+                                  value={config.postAnalyticsSheetId}
+                                  onChange={(e) => updateLinkedInSheetConfig(company.id, 'postAnalyticsSheetId', e.target.value)}
+                                  placeholder="e.g., 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                                />
+                                <p className="text-xs text-muted-foreground">Post engagement, impressions</p>
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label className="text-xs">Campaign Analytics Sheet ID</Label>
+                                <Input
+                                  value={config.campaignAnalyticsSheetId}
+                                  onChange={(e) => updateLinkedInSheetConfig(company.id, 'campaignAnalyticsSheetId', e.target.value)}
+                                  placeholder="e.g., 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                                />
+                                <p className="text-xs text-muted-foreground">Paid ad campaigns (optional)</p>
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label className="text-xs">Demographics Sheet ID</Label>
+                                <Input
+                                  value={config.demographicsSheetId}
+                                  onChange={(e) => updateLinkedInSheetConfig(company.id, 'demographicsSheetId', e.target.value)}
+                                  placeholder="e.g., 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                                />
+                                <p className="text-xs text-muted-foreground">Visitor demographics (optional)</p>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => handleSaveLinkedInSheetConfig(company.id)}
+                                disabled={isSavingSheetConfig}
+                              >
+                                {isSavingSheetConfig ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save className="h-4 w-4 mr-2" />
+                                    Save Configuration
+                                  </>
+                                )}
+                              </Button>
+                              <Button variant="outline" onClick={() => setShowLinkedInSheetsForm(null)}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>

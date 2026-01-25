@@ -16,8 +16,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('[Admin Users API] Current user:', user.id, user.email)
+
     // Check if user has admin access
     const isAdmin = await hasAdminAccess(user.id)
+    console.log('[Admin Users API] Has admin access:', isAdmin)
+
     if (!isAdmin) {
       return NextResponse.json(
         { error: 'Forbidden: Only owners and admins can access user management' },
@@ -28,8 +32,10 @@ export async function GET() {
     // Get companies where current user is owner/admin
     const ownedCompanies = await getUserOwnedCompanies(user.id)
     const companyIds = ownedCompanies.map(c => c.id)
+    console.log('[Admin Users API] Owned companies:', companyIds.length, companyIds)
 
     if (companyIds.length === 0) {
+      console.log('[Admin Users API] No owned companies, returning empty')
       return NextResponse.json({ users: [] })
     }
 
@@ -48,8 +54,11 @@ export async function GET() {
       .in('company_id', companyIds)
 
     if (ucError) {
+      console.error('[Admin Users API] Error fetching user_companies:', ucError)
       throw ucError
     }
+
+    console.log('[Admin Users API] Found user_companies records:', userCompaniesData?.length || 0)
 
     // Group by user_id
     const userMap = new Map<string, {
@@ -105,6 +114,8 @@ export async function GET() {
       .filter(u => u.email)
       // Sort by email
       .sort((a, b) => a.email.localeCompare(b.email))
+
+    console.log('[Admin Users API] Returning users:', users.length, users.map(u => u.email))
 
     return NextResponse.json({ users })
   } catch (error) {

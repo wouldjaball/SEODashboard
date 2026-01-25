@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Users as UsersIcon, Search, UserPlus } from 'lucide-react'
 import { UserAssignmentDialog } from '@/components/admin/user-assignment-dialog'
 import {
@@ -48,7 +49,7 @@ export default function AdminUsersPage() {
   const [hasAdminAccess, setHasAdminAccess] = useState(false)
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteCompanyId, setInviteCompanyId] = useState('')
+  const [inviteCompanyIds, setInviteCompanyIds] = useState<string[]>([])
   const [inviteRole, setInviteRole] = useState('viewer')
   const [isInviting, setIsInviting] = useState(false)
 
@@ -96,39 +97,61 @@ export default function AdminUsersPage() {
   }
 
   async function handleInviteUser() {
-    if (!inviteEmail.trim() || !inviteCompanyId) {
-      alert('Please enter an email and select a company')
+    if (!inviteEmail.trim() || inviteCompanyIds.length === 0) {
+      alert('Please enter an email and select at least one company')
       return
     }
 
     setIsInviting(true)
     try {
-      const response = await fetch('/api/admin/users/assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: inviteEmail.trim().toLowerCase(),
-          companyId: inviteCompanyId,
-          role: inviteRole
-        })
-      })
+      // Invite to all selected companies
+      const results = await Promise.all(
+        inviteCompanyIds.map(companyId =>
+          fetch('/api/admin/users/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: inviteEmail.trim().toLowerCase(),
+              companyId,
+              role: inviteRole
+            })
+          })
+        )
+      )
 
-      if (response.ok) {
-        alert('User invited successfully! They will have access once they sign in.')
+      const allSuccessful = results.every(r => r.ok)
+      if (allSuccessful) {
+        alert(`User invited to ${inviteCompanyIds.length} company${inviteCompanyIds.length > 1 ? 'ies' : ''} successfully! They will have access once they sign in.`)
         setInviteDialogOpen(false)
         setInviteEmail('')
-        setInviteCompanyId('')
+        setInviteCompanyIds([])
         setInviteRole('viewer')
         fetchData()
       } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to invite user')
+        const failedCount = results.filter(r => !r.ok).length
+        alert(`Failed to invite user to ${failedCount} company${failedCount > 1 ? 'ies' : ''}. Please try again.`)
       }
     } catch (error) {
       console.error('Failed to invite user:', error)
       alert('Failed to invite user. Please try again.')
     } finally {
       setIsInviting(false)
+    }
+  }
+
+  function toggleCompanySelection(companyId: string) {
+    setInviteCompanyIds(prev =>
+      prev.includes(companyId)
+        ? prev.filter(id => id !== companyId)
+        : [...prev, companyId]
+    )
+  }
+
+  function selectAllCompanies() {
+    if (inviteCompanyIds.length === companies.length) {
+      setInviteCompanyIds([])
+    } else {
+      setInviteCompanyIds(companies.map(c => c.id))
     }
   }
 
@@ -210,19 +233,40 @@ export default function AdminUsersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="invite-company">Company</Label>
-                <Select value={inviteCompanyId} onValueChange={setInviteCompanyId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companies.map((company) => (
-                      <SelectItem key={company.id} value={company.id}>
+                <div className="flex items-center justify-between">
+                  <Label>Companies</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto py-1 px-2 text-xs"
+                    onClick={selectAllCompanies}
+                  >
+                    {inviteCompanyIds.length === companies.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </div>
+                <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                  {companies.map((company) => (
+                    <div key={company.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`company-${company.id}`}
+                        checked={inviteCompanyIds.includes(company.id)}
+                        onCheckedChange={() => toggleCompanySelection(company.id)}
+                      />
+                      <label
+                        htmlFor={`company-${company.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
                         {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {inviteCompanyIds.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {inviteCompanyIds.length} company{inviteCompanyIds.length > 1 ? 'ies' : ''} selected
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="invite-role">Role</Label>
