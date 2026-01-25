@@ -85,6 +85,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid mappings format' }, { status: 400 })
     }
 
+    // Verify user has owner/admin role for all companies they're trying to modify
+    const companyIds = Object.keys(mappings)
+    const { data: userCompanies, error: roleError } = await supabase
+      .from('user_companies')
+      .select('company_id, role')
+      .eq('user_id', user.id)
+      .in('company_id', companyIds)
+
+    console.log('User company roles:', userCompanies, 'Error:', roleError)
+
+    if (roleError) {
+      return NextResponse.json({
+        error: 'Failed to verify permissions',
+        details: roleError.message
+      }, { status: 500 })
+    }
+
+    // Check if user has admin/owner role for all requested companies
+    const userRolesMap = new Map(
+      (userCompanies || []).map(uc => [uc.company_id, uc.role])
+    )
+
+    for (const companyId of companyIds) {
+      const role = userRolesMap.get(companyId)
+      if (!role) {
+        return NextResponse.json({
+          error: `No access to company ${companyId}`,
+          details: 'You are not assigned to this company'
+        }, { status: 403 })
+      }
+      if (!['owner', 'admin'].includes(role)) {
+        return NextResponse.json({
+          error: `Insufficient permissions for company ${companyId}`,
+          details: `Your role is "${role}" but owner/admin is required to manage mappings`
+        }, { status: 403 })
+      }
+    }
+
     // Save mappings for each company
     for (const [companyId, mapping] of Object.entries(mappings)) {
       console.log(`Processing company ${companyId}:`, mapping)

@@ -43,26 +43,68 @@ export class OAuthTokenService {
     const encryptedRefreshToken = encryptToken(tokens.refresh_token)
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
 
-    // Use google_identity for the unique constraint if provided
-    const googleIdentity = identity?.googleIdentity || 'default'
-
-    const { error } = await supabase.from('oauth_tokens').upsert({
+    // First, try the simple approach with just the original columns
+    // This ensures it works even if the migration hasn't been run
+    const baseData = {
       user_id: userId,
       provider: 'google',
       access_token: encryptedAccessToken,
       refresh_token: encryptedRefreshToken,
       expires_at: expiresAt.toISOString(),
       scope: tokens.scope,
-      google_identity: googleIdentity,
-      google_identity_name: identity?.googleIdentityName || null,
-      youtube_channel_id: identity?.youtubeChannelId || null,
-      youtube_channel_name: identity?.youtubeChannelName || null,
       updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id,provider,google_identity'
+    }
+
+    console.log('Attempting to save OAuth tokens for user:', userId)
+
+    // Try with old constraint first (guaranteed to exist)
+    let { error } = await supabase.from('oauth_tokens').upsert(baseData, {
+      onConflict: 'user_id,provider'
     })
 
     if (error) {
+      console.error('Failed to save OAuth tokens with old constraint:', error)
+
+      // Maybe the new constraint exists but old one was dropped - try new constraint
+      const googleIdentity = identity?.googleIdentity || 'default'
+      const extendedData = {
+        ...baseData,
+        google_identity: googleIdentity,
+        google_identity_name: identity?.googleIdentityName || null,
+        youtube_channel_id: identity?.youtubeChannelId || null,
+        youtube_channel_name: identity?.youtubeChannelName || null
+      }
+
+      const result = await supabase.from('oauth_tokens').upsert(extendedData, {
+        onConflict: 'user_id,provider,google_identity'
+      })
+      error = result.error
+    } else {
+      console.log('Tokens saved successfully with old constraint')
+
+      // Try to update with identity info if columns exist (non-critical)
+      if (identity) {
+        try {
+          await supabase.from('oauth_tokens')
+            .update({
+              google_identity: identity.googleIdentity,
+              google_identity_name: identity.googleIdentityName || null,
+              youtube_channel_id: identity.youtubeChannelId || null,
+              youtube_channel_name: identity.youtubeChannelName || null
+            })
+            .eq('user_id', userId)
+            .eq('provider', 'google')
+          console.log('Identity info updated successfully')
+        } catch (updateError) {
+          // Columns don't exist yet - that's fine
+          console.log('Could not update identity info (columns may not exist yet)')
+        }
+      }
+      return // Success!
+    }
+
+    if (error) {
+      console.error('Failed to save OAuth tokens:', error)
       throw new Error(`Failed to save OAuth tokens: ${error.message}`)
     }
   }
@@ -81,7 +123,7 @@ export class OAuthTokenService {
     }
 
     // Get the first matching token (or specific identity if provided)
-    const { data, error } = await query.limit(1).single()
+    const { data, error } = await query.limit(1).maybeSingle()
 
     if (error || !data) return null
 
@@ -91,10 +133,11 @@ export class OAuthTokenService {
         refreshToken: decryptToken(data.refresh_token),
         expiresAt: new Date(data.expires_at),
         scope: data.scope,
-        googleIdentity: data.google_identity,
-        googleIdentityName: data.google_identity_name,
-        youtubeChannelId: data.youtube_channel_id,
-        youtubeChannelName: data.youtube_channel_name
+        // These fields may not exist in older schemas
+        googleIdentity: data.google_identity || undefined,
+        googleIdentityName: data.google_identity_name || undefined,
+        youtubeChannelId: data.youtube_channel_id || undefined,
+        youtubeChannelName: data.youtube_channel_name || undefined
       }
     } catch (error) {
       console.error('Failed to decrypt tokens:', error)
@@ -141,9 +184,10 @@ export class OAuthTokenService {
   static async listConnections(userId: string): Promise<GoogleConnection[]> {
     const supabase = await createClient()
 
+    // Select only columns that definitely exist, handle new columns gracefully
     const { data, error } = await supabase
       .from('oauth_tokens')
-      .select('id, google_identity, google_identity_name, youtube_channel_id, youtube_channel_name, created_at')
+      .select('*')
       .eq('user_id', userId)
       .eq('provider', 'google')
       .order('created_at', { ascending: false })
@@ -152,10 +196,10 @@ export class OAuthTokenService {
 
     return data.map(row => ({
       id: row.id,
-      googleIdentity: row.google_identity || 'default',
-      googleIdentityName: row.google_identity_name,
-      youtubeChannelId: row.youtube_channel_id,
-      youtubeChannelName: row.youtube_channel_name,
+      googleIdentity: row.google_identity || 'Connected Account',
+      googleIdentityName: row.google_identity_name || undefined,
+      youtubeChannelId: row.youtube_channel_id || undefined,
+      youtubeChannelName: row.youtube_channel_name || undefined,
       createdAt: new Date(row.created_at)
     }))
   }

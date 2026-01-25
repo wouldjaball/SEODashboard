@@ -81,11 +81,14 @@ export function PropertyMapper({ properties, sites, youtubeChannels = [] }: Prop
       if (response.ok) {
         alert('Mappings saved successfully!')
       } else {
-        throw new Error('Failed to save')
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.details || errorData.error || 'Failed to save'
+        throw new Error(errorMessage)
       }
     } catch (error) {
       console.error('Failed to save mappings:', error)
-      alert('Failed to save mappings. Please try again.')
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to save mappings: ${message}`)
     } finally {
       setIsSaving(false)
     }

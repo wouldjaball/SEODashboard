@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, CheckCircle, XCircle, Info } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Info, Trash2, Plus, Youtube } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,15 @@ import {
 import { PropertyMapper } from '@/components/integrations/property-mapper'
 import { OAUTH_SCOPES_STRING } from '@/lib/constants/oauth-scopes'
 
+interface GoogleConnection {
+  id: string
+  googleIdentity: string
+  googleIdentityName?: string
+  youtubeChannelId?: string
+  youtubeChannelName?: string
+  createdAt: string
+}
+
 export default function IntegrationsPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -26,6 +35,8 @@ export default function IntegrationsPage() {
   const [youtubeChannels, setYoutubeChannels] = useState([])
   const [refreshKey, setRefreshKey] = useState(0)
   const [showOAuthGuide, setShowOAuthGuide] = useState(false)
+  const [connections, setConnections] = useState<GoogleConnection[]>([])
+  const [deletingConnectionId, setDeletingConnectionId] = useState<string | null>(null)
 
   useEffect(() => {
     checkConnection()
@@ -57,24 +68,57 @@ export default function IntegrationsPage() {
     }
   }
 
-  // Load cached properties, sites, and channels from database (fast, no API calls to Google)
+  // Load cached properties, sites, channels, and connections from database
   async function loadCachedData() {
     try {
-      const [propertiesRes, sitesRes, channelsRes] = await Promise.all([
+      const [propertiesRes, sitesRes, channelsRes, connectionsRes] = await Promise.all([
         fetch('/api/integrations/ga/properties/cached'),
         fetch('/api/integrations/gsc/sites/cached'),
-        fetch('/api/integrations/youtube/channels/cached')
+        fetch('/api/integrations/youtube/channels/cached'),
+        fetch('/api/integrations/connections')
       ])
 
       const propertiesData = await propertiesRes.json()
       const sitesData = await sitesRes.json()
       const channelsData = await channelsRes.json()
+      const connectionsData = await connectionsRes.json()
 
       setProperties(propertiesData.properties || [])
       setSites(sitesData.sites || [])
       setYoutubeChannels(channelsData.channels || [])
+      setConnections(connectionsData.connections || [])
     } catch (error) {
       console.error('Failed to load cached data:', error)
+    }
+  }
+
+  async function handleDeleteConnection(connectionId: string) {
+    if (!confirm('Are you sure you want to remove this Google connection?')) {
+      return
+    }
+
+    setDeletingConnectionId(connectionId)
+    try {
+      const response = await fetch('/api/integrations/connections', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId })
+      })
+
+      if (response.ok) {
+        setConnections(prev => prev.filter(c => c.id !== connectionId))
+        // If no connections left, mark as disconnected
+        if (connections.length <= 1) {
+          setIsConnected(false)
+        }
+      } else {
+        alert('Failed to remove connection')
+      }
+    } catch (error) {
+      console.error('Failed to delete connection:', error)
+      alert('Failed to remove connection')
+    } finally {
+      setDeletingConnectionId(null)
     }
   }
 
@@ -226,6 +270,57 @@ export default function IntegrationsPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Connected Google Accounts */}
+              {connections.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Connected Accounts</span>
+                    <Button variant="outline" size="sm" onClick={handleConnectClick}>
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Account
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {connections.map((conn) => (
+                      <div key={conn.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                            <svg className="h-4 w-4" viewBox="0 0 24 24">
+                              <path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {conn.googleIdentityName || conn.googleIdentity}
+                            </p>
+                            {conn.youtubeChannelName && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Youtube className="h-3 w-3 text-red-500" />
+                                {conn.youtubeChannelName}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteConnection(conn.id)}
+                          disabled={deletingConnectionId === conn.id}
+                        >
+                          {deletingConnectionId === conn.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stats Summary */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
@@ -246,6 +341,8 @@ export default function IntegrationsPage() {
                   <p className="text-2xl font-bold">{youtubeChannels.length}</p>
                 </div>
               </div>
+
+              {/* Actions */}
               <div className="flex gap-2">
                 <Button onClick={fetchAccountData} variant="outline" disabled={isRefreshing}>
                   {isRefreshing ? (
@@ -258,9 +355,17 @@ export default function IntegrationsPage() {
                   )}
                 </Button>
                 <Button variant="destructive" onClick={handleDisconnect}>
-                  Disconnect
+                  Disconnect All
                 </Button>
               </div>
+
+              {/* Brand Account Tip */}
+              <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+                <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
+                  <strong>Need YouTube Analytics for a Brand Account channel?</strong> Click "Add Account" and select the Brand Account (not your personal account) during the authorization process.
+                </AlertDescription>
+              </Alert>
             </div>
           )}
         </CardContent>
