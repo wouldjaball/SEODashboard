@@ -164,7 +164,7 @@ export async function POST(request: Request) {
 
         if (gaLookupError || !gaProperty) {
           console.error(`GA property not found for id ${gaPropertyId}:`, gaLookupError)
-          throw new Error(`GA property not found. Please refresh the properties list on the Integrations page.`)
+          throw new Error(`GA property with ID "${gaPropertyId}" not found. Please refresh the properties list.`)
         }
 
         const { error: gaError } = await supabase.from('company_ga_mappings').insert({
@@ -191,7 +191,7 @@ export async function POST(request: Request) {
 
         if (gscLookupError || !gscSite) {
           console.error(`GSC site not found for id ${gscSiteId}:`, gscLookupError)
-          throw new Error(`GSC site not found. Please refresh the sites list on the Integrations page.`)
+          throw new Error(`GSC site with ID "${gscSiteId}" not found. Please refresh the sites list.`)
         }
 
         const { error: gscError } = await supabase.from('company_gsc_mappings').insert({
@@ -232,7 +232,7 @@ export async function POST(request: Request) {
 
         if (liLookupError || !liPage) {
           console.error(`LinkedIn page not found for id ${linkedinPageId}:`, liLookupError)
-          throw new Error(`LinkedIn page not found. Please add it first.`)
+          throw new Error(`LinkedIn page with ID "${linkedinPageId}" not found. Please add it first.`)
         }
 
         const { error: liError } = await supabase.from('company_linkedin_mappings').insert({
