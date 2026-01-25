@@ -131,54 +131,62 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
           <CardTitle className="text-sm sm:text-base font-semibold">Gender</CardTitle>
         </CardHeader>
         <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-          <ChartContainer config={genderChartConfig} className="h-[120px] sm:h-[150px] w-full">
-            <PieChart>
-              <Pie
-                data={genderData}
-                cx="50%"
-                cy="50%"
-                innerRadius={35}
-                outerRadius={55}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {genderData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={genderColors[index]} />
-                ))}
-              </Pie>
-              <ChartTooltip content={<ChartTooltipContent />} />
-            </PieChart>
-          </ChartContainer>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">Gender</TableHead>
-                <TableHead className="text-xs text-right">Users</TableHead>
-                <TableHead className="text-xs text-right">%</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {gender.map((g, index) => (
-                <TableRow key={g.segment}>
-                  <TableCell className="text-xs py-1.5">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: genderColors[index] }}
-                      />
-                      {g.segment}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs text-right py-1.5">
-                    {formatNumber(g.totalUsers)}
-                  </TableCell>
-                  <TableCell className="text-xs text-right py-1.5">
-                    {formatPercent(g.totalUsers / totalGenderUsers)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {gender.length > 0 ? (
+            <>
+              <ChartContainer config={genderChartConfig} className="h-[120px] sm:h-[150px] w-full">
+                <PieChart>
+                  <Pie
+                    data={genderData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={35}
+                    outerRadius={55}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {genderData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={genderColors[index]} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </PieChart>
+              </ChartContainer>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Gender</TableHead>
+                    <TableHead className="text-xs text-right">Users</TableHead>
+                    <TableHead className="text-xs text-right">%</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {gender.map((g, index) => (
+                    <TableRow key={g.segment}>
+                      <TableCell className="text-xs py-1.5">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: genderColors[index] }}
+                          />
+                          {g.segment}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-right py-1.5">
+                        {formatNumber(g.totalUsers)}
+                      </TableCell>
+                      <TableCell className="text-xs text-right py-1.5">
+                        {formatPercent(g.totalUsers / totalGenderUsers)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] sm:h-[250px] text-muted-foreground text-xs sm:text-sm text-center px-4">
+              <p>Gender data requires Google Signals to be enabled in your GA4 property.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -188,31 +196,37 @@ export function DemographicsCharts({ devices, gender, age }: DemographicsChartsP
           <CardTitle className="text-sm sm:text-base font-semibold">Age</CardTitle>
         </CardHeader>
         <CardContent className="px-2 sm:px-6 pb-3 sm:pb-6">
-          <ChartContainer config={ageChartConfig} className="h-[180px] sm:h-[250px] w-full">
-            <BarChart
-              data={age}
-              layout="vertical"
-              margin={{ top: 5, right: 10, left: 5, bottom: 5 }}
-            >
-              <XAxis
-                type="number"
-                tick={{ fontSize: 9 }}
-                tickFormatter={(value) => formatNumber(value)}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="segment"
-                tick={{ fontSize: 9 }}
-                width={45}
-                axisLine={false}
-                tickLine={false}
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="totalUsers" fill="var(--color-totalUsers)" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ChartContainer>
+          {age.length > 0 ? (
+            <ChartContainer config={ageChartConfig} className="h-[180px] sm:h-[250px] w-full">
+              <BarChart
+                data={age}
+                layout="vertical"
+                margin={{ top: 5, right: 10, left: 5, bottom: 5 }}
+              >
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 9 }}
+                  tickFormatter={(value) => formatNumber(value)}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="segment"
+                  tick={{ fontSize: 9 }}
+                  width={45}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="totalUsers" fill="var(--color-totalUsers)" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ChartContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[180px] sm:h-[250px] text-muted-foreground text-xs sm:text-sm text-center px-4">
+              <p>Age data requires Google Signals to be enabled in your GA4 property.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
