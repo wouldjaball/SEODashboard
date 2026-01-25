@@ -615,11 +615,11 @@ export default function AdminAccountsPage() {
                         <div className="space-y-2">
                           <Label className="text-xs">Google Analytics Property</Label>
                           <Select
-                            value={mapping.gaPropertyId}
+                            value={mapping.gaPropertyId || 'none'}
                             onValueChange={(value) =>
                               setMappings(prev => ({
                                 ...prev,
-                                [company.id]: { ...mapping, gaPropertyId: value }
+                                [company.id]: { ...mapping, gaPropertyId: value === 'none' ? '' : value }
                               }))
                             }
                           >
@@ -627,6 +627,7 @@ export default function AdminAccountsPage() {
                               <SelectValue placeholder="Select property" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="none">-- None --</SelectItem>
                               {gaProperties.map((prop: any) => (
                                 <SelectItem key={prop.id} value={prop.id}>
                                   {prop.displayName || prop.property_name}
@@ -639,11 +640,11 @@ export default function AdminAccountsPage() {
                         <div className="space-y-2">
                           <Label className="text-xs">Search Console Site</Label>
                           <Select
-                            value={mapping.gscSiteId}
+                            value={mapping.gscSiteId || 'none'}
                             onValueChange={(value) =>
                               setMappings(prev => ({
                                 ...prev,
-                                [company.id]: { ...mapping, gscSiteId: value }
+                                [company.id]: { ...mapping, gscSiteId: value === 'none' ? '' : value }
                               }))
                             }
                           >
@@ -651,6 +652,7 @@ export default function AdminAccountsPage() {
                               <SelectValue placeholder="Select site" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="none">-- None --</SelectItem>
                               {gscSites.map((site: any) => (
                                 <SelectItem key={site.id} value={site.id}>
                                   {site.siteUrl || site.site_url}
@@ -664,11 +666,11 @@ export default function AdminAccountsPage() {
                           <Label className="text-xs">YouTube Channel</Label>
                           <div className="flex gap-2">
                             <Select
-                              value={mapping.youtubeChannelId}
+                              value={mapping.youtubeChannelId || 'none'}
                               onValueChange={(value) =>
                                 setMappings(prev => ({
                                   ...prev,
-                                  [company.id]: { ...mapping, youtubeChannelId: value }
+                                  [company.id]: { ...mapping, youtubeChannelId: value === 'none' ? '' : value }
                                 }))
                               }
                             >
@@ -676,6 +678,7 @@ export default function AdminAccountsPage() {
                                 <SelectValue placeholder="Select channel" />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="none">-- None --</SelectItem>
                                 {youtubeChannels.map((channel: any) => (
                                   <SelectItem key={channel.id} value={channel.id}>
                                     {channel.channelName || channel.channel_name}
@@ -700,11 +703,11 @@ export default function AdminAccountsPage() {
                         <div className="space-y-2">
                           <Label className="text-xs">LinkedIn Page</Label>
                           <Select
-                            value={mapping.linkedinPageId}
+                            value={mapping.linkedinPageId || 'none'}
                             onValueChange={(value) =>
                               setMappings(prev => ({
                                 ...prev,
-                                [company.id]: { ...mapping, linkedinPageId: value }
+                                [company.id]: { ...mapping, linkedinPageId: value === 'none' ? '' : value }
                               }))
                             }
                           >
@@ -712,6 +715,7 @@ export default function AdminAccountsPage() {
                               <SelectValue placeholder="Select page" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="none">-- None --</SelectItem>
                               {linkedinPages.map((page: any) => (
                                 <SelectItem key={page.id} value={page.id}>
                                   {page.page_name}
