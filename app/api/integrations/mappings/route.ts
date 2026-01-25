@@ -23,16 +23,16 @@ export async function GET() {
     const mappings: Record<string, { gaPropertyId: string; gscSiteId: string; youtubeChannelId: string; linkedinPageId: string }> = {}
 
     for (const { company_id } of companies) {
-      // Join with the actual properties/sites/channels/pages tables to get the property_id/site_url values
+      // Get the database UUIDs directly - this matches what the frontend Select uses
       const { data: gaMapping } = await supabase
         .from('company_ga_mappings')
-        .select('ga_properties(property_id)')
+        .select('ga_property_id')
         .eq('company_id', company_id)
         .maybeSingle()
 
       const { data: gscMapping } = await supabase
         .from('company_gsc_mappings')
-        .select('gsc_sites(site_url)')
+        .select('gsc_site_id')
         .eq('company_id', company_id)
         .maybeSingle()
 
@@ -44,15 +44,15 @@ export async function GET() {
 
       const { data: linkedinMapping } = await supabase
         .from('company_linkedin_mappings')
-        .select('linkedin_pages(page_id)')
+        .select('linkedin_page_id')
         .eq('company_id', company_id)
         .maybeSingle()
 
       mappings[company_id] = {
-        gaPropertyId: (gaMapping?.ga_properties as any)?.property_id || '',
-        gscSiteId: (gscMapping?.gsc_sites as any)?.site_url || '',
+        gaPropertyId: gaMapping?.ga_property_id || '',
+        gscSiteId: gscMapping?.gsc_site_id || '',
         youtubeChannelId: youtubeMapping?.youtube_channel_id || '',
-        linkedinPageId: (linkedinMapping?.linkedin_pages as any)?.page_id || ''
+        linkedinPageId: linkedinMapping?.linkedin_page_id || ''
       }
     }
 
@@ -149,29 +149,27 @@ export async function POST(request: Request) {
       if (deleteLiError) console.error(`Delete LinkedIn mapping error:`, deleteLiError)
 
       // Insert new mappings if provided
-      // Note: The IDs passed from the frontend are the property_id/site_url/channel_id/page_id strings,
-      // but we need to look up the UUID from the respective tables to use as foreign keys
+      // Note: The IDs passed from the frontend are database UUIDs from the cached data
 
       if (gaPropertyId) {
-        // Look up the UUID for this GA property
-        console.log(`Looking up GA property with property_id: ${gaPropertyId}`)
+        // gaPropertyId is the database UUID directly from the cached properties
+        console.log(`Inserting GA mapping: company_id=${companyId}, ga_property_id=${gaPropertyId}`)
+
+        // Verify the property exists
         const { data: gaProperty, error: gaLookupError } = await supabase
           .from('ga_properties')
           .select('id')
-          .eq('property_id', gaPropertyId)
+          .eq('id', gaPropertyId)
           .single()
 
-        console.log(`GA property lookup result:`, { gaProperty, gaLookupError })
-
         if (gaLookupError || !gaProperty) {
-          console.error(`GA property not found for property_id ${gaPropertyId}:`, gaLookupError)
-          throw new Error(`GA property ${gaPropertyId} not found. Please refresh the properties list on the Integrations page.`)
+          console.error(`GA property not found for id ${gaPropertyId}:`, gaLookupError)
+          throw new Error(`GA property not found. Please refresh the properties list on the Integrations page.`)
         }
 
-        console.log(`Inserting GA mapping: company_id=${companyId}, ga_property_id=${gaProperty.id}`)
         const { error: gaError } = await supabase.from('company_ga_mappings').insert({
           company_id: companyId,
-          ga_property_id: gaProperty.id
+          ga_property_id: gaPropertyId
         })
         if (gaError) {
           console.error(`Failed to save GA mapping for company ${companyId}:`, gaError)
@@ -181,26 +179,30 @@ export async function POST(request: Request) {
       }
 
       if (gscSiteId) {
-        // Look up the UUID for this GSC site
+        // gscSiteId is the database UUID directly from the cached sites
+        console.log(`Inserting GSC mapping: company_id=${companyId}, gsc_site_id=${gscSiteId}`)
+
+        // Verify the site exists
         const { data: gscSite, error: gscLookupError } = await supabase
           .from('gsc_sites')
           .select('id')
-          .eq('site_url', gscSiteId)
+          .eq('id', gscSiteId)
           .single()
 
         if (gscLookupError || !gscSite) {
-          console.error(`GSC site not found for site_url ${gscSiteId}:`, gscLookupError)
-          throw new Error(`GSC site ${gscSiteId} not found. Please refresh the sites list.`)
+          console.error(`GSC site not found for id ${gscSiteId}:`, gscLookupError)
+          throw new Error(`GSC site not found. Please refresh the sites list on the Integrations page.`)
         }
 
         const { error: gscError } = await supabase.from('company_gsc_mappings').insert({
           company_id: companyId,
-          gsc_site_id: gscSite.id
+          gsc_site_id: gscSiteId
         })
         if (gscError) {
           console.error(`Failed to save GSC mapping for company ${companyId}:`, gscError)
           throw gscError
         }
+        console.log(`Successfully saved GSC mapping for company ${companyId}`)
       }
 
       if (youtubeChannelId) {
@@ -218,26 +220,30 @@ export async function POST(request: Request) {
       }
 
       if (linkedinPageId) {
-        // Look up the UUID for this LinkedIn page
+        // linkedinPageId is the database UUID directly
+        console.log(`Inserting LinkedIn mapping: company_id=${companyId}, linkedin_page_id=${linkedinPageId}`)
+
+        // Verify the page exists
         const { data: liPage, error: liLookupError } = await supabase
           .from('linkedin_pages')
           .select('id')
-          .eq('page_id', linkedinPageId)
+          .eq('id', linkedinPageId)
           .single()
 
         if (liLookupError || !liPage) {
-          console.error(`LinkedIn page not found for page_id ${linkedinPageId}:`, liLookupError)
-          throw new Error(`LinkedIn page ${linkedinPageId} not found. Please add it first.`)
+          console.error(`LinkedIn page not found for id ${linkedinPageId}:`, liLookupError)
+          throw new Error(`LinkedIn page not found. Please add it first.`)
         }
 
         const { error: liError } = await supabase.from('company_linkedin_mappings').insert({
           company_id: companyId,
-          linkedin_page_id: liPage.id
+          linkedin_page_id: linkedinPageId
         })
         if (liError) {
           console.error(`Failed to save LinkedIn mapping for company ${companyId}:`, liError)
           throw liError
         }
+        console.log(`Successfully saved LinkedIn mapping for company ${companyId}`)
       }
     }
 
