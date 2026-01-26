@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { isUserOwner } from '@/lib/auth/check-admin'
+import { EmailService } from '@/lib/services/email-service'
 
 /**
  * POST /api/admin/users/assign
@@ -84,17 +85,35 @@ export async function POST(request: Request) {
         if (inviteError) {
           // Table might not exist, create it or just return success
           console.error('Pending invitation error:', inviteError)
-          // For now, just inform the user
-          return NextResponse.json({
-            success: true,
-            pending: true,
-            message: `Invitation saved. ${email} will have access once they sign up.`
-          }, { status: 201 })
+        }
+
+        // Get company name for the email
+        const { data: company } = await serviceClient
+          .from('companies')
+          .select('name')
+          .eq('id', companyId)
+          .single()
+
+        const companyName = company?.name || 'a company'
+
+        // Get inviter's name
+        const inviterName = user.user_metadata?.full_name || user.email?.split('@')[0]
+
+        // Send invite email
+        const emailResult = await EmailService.sendInviteEmail(
+          email.toLowerCase(),
+          companyName,
+          inviterName
+        )
+
+        if (!emailResult.success) {
+          console.error('Failed to send invite email:', emailResult.error)
         }
 
         return NextResponse.json({
           success: true,
           pending: true,
+          emailSent: emailResult.success,
           message: `Invitation saved. ${email} will have access once they sign up.`
         }, { status: 201 })
       }

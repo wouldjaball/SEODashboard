@@ -97,6 +97,67 @@ If you didn't request this, you can safely ignore this email. The link will expi
     })
   }
 
+  static async sendInviteEmail(email: string, companyName: string, inviterName?: string) {
+    const invitedBy = inviterName ? ` by ${inviterName}` : ''
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>You've Been Invited to ${APP_NAME}</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">${APP_NAME}</h1>
+          </div>
+          <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #111827; margin-top: 0;">You've Been Invited!</h2>
+            <p style="color: #6b7280;">
+              You've been invited${invitedBy} to join <strong>${companyName}</strong> on ${APP_NAME}.
+            </p>
+            <p style="color: #6b7280;">
+              Click the button below to sign up and get access to your dashboard.
+            </p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${appUrl}/login" style="background: #22c55e; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
+                Accept Invitation
+              </a>
+            </div>
+            <p style="color: #6b7280; font-size: 14px;">
+              Once you sign up with this email address (${email}), you'll automatically have access to ${companyName}.
+            </p>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+            <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">
+              This email was sent by ${APP_NAME}. If you weren't expecting this invitation, you can safely ignore this email.
+            </p>
+          </div>
+        </body>
+      </html>
+    `
+
+    const text = `
+You've Been Invited to ${APP_NAME}!
+
+You've been invited${invitedBy} to join ${companyName} on ${APP_NAME}.
+
+Click here to sign up and get access: ${appUrl}/login
+
+Once you sign up with this email address (${email}), you'll automatically have access to ${companyName}.
+
+- The ${APP_NAME} Team
+    `.trim()
+
+    return this.sendEmail({
+      to: email,
+      subject: `You've been invited to join ${companyName} on ${APP_NAME}`,
+      html,
+      text,
+    })
+  }
+
   static async sendWelcomeEmail(email: string, name?: string) {
     const greeting = name ? `Hi ${name}` : 'Welcome'
 
