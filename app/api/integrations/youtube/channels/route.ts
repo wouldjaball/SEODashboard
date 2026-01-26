@@ -49,8 +49,9 @@ export async function GET(request: Request) {
         // This preserves manually-added Brand Account channels that won't
         // appear in the mine=true API response. Channels are only removed
         // when explicitly deleted by the user.
-      } catch (apiError: any) {
-        console.error('YouTube API error:', apiError.message)
+      } catch (apiError: unknown) {
+        const err = apiError as Error | undefined
+        console.error('YouTube API error:', err?.message)
         // Return cached data if API fails
       }
     }

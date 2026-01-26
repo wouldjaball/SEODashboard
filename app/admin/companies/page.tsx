@@ -233,7 +233,7 @@ export default function AdminCompaniesPage() {
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No companies found</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Click "Add Company" to create your first company
+                Click &quot;Add Company&quot; to create your first company
               </p>
             </div>
           ) : (

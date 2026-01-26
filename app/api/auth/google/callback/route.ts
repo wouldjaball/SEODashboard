@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     try {
       oauthState = JSON.parse(stateParam)
       console.log('OAuth state:', oauthState)
-    } catch (e) {
+    } catch {
       console.log('Could not parse OAuth state:', stateParam)
     }
   }

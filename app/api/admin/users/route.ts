@@ -79,9 +79,11 @@ export async function GET() {
       }
 
       const userData = userMap.get(item.user_id)!
+      const companies = item.companies as unknown as { name: string } | { name: string }[]
+      const companyName = Array.isArray(companies) ? companies[0]?.name : companies?.name
       userData.companies.push({
         id: item.company_id,
-        name: (item.companies as any).name,
+        name: companyName || '',
         role: item.role
       })
     }
@@ -89,8 +91,6 @@ export async function GET() {
     // Fetch user emails from auth.users using service role
     // Note: This requires a different approach since we can't use RLS on auth.users
     // For now, we'll use the admin API
-    const userIds = Array.from(userMap.keys())
-
     // Fetch users using admin.listUsers() which bypasses RLS
     const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers()
 

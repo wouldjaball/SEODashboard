@@ -39,8 +39,8 @@ export async function GET(
       throw error
     }
 
-    const assignments = data?.map((item: any) => ({
-      ...item.companies,
+    const assignments = data?.map((item) => ({
+      ...(item.companies as object),
       role: item.role
     })) || []
 

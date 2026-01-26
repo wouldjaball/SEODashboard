@@ -2,7 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 // POST /api/admin/fix-permissions - Grant aaron@salesmonsters.com owner access to all companies
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const serviceClient = createServiceClient()
 

@@ -143,12 +143,13 @@ export async function GET(
       }, { status: 404 })
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results: any = {}
 
     // Fetch GA data if mapped
     if (gaMappings && gaMappings.ga_properties) {
       try {
-        const gaProperty = gaMappings.ga_properties as any
+        const gaProperty = gaMappings.ga_properties as { property_id: string }
         const propertyId = gaProperty.property_id
 
         console.log('=== GA FETCH DEBUG ===')
@@ -198,15 +199,16 @@ export async function GET(
         results.gaDevices = gaDevices
         results.gaGender = gaGender
         results.gaAge = gaAge
-      } catch (error: any) {
-        const errorMessage = error?.message || String(error) || 'Unknown error'
+      } catch (error: unknown) {
+        const err = error as Error | undefined
+        const errorMessage = err?.message || String(error) || 'Unknown error'
         console.error('GA fetch error:', errorMessage)
-        console.error('GA fetch error stack:', error?.stack)
+        console.error('GA fetch error stack:', err?.stack)
         results.gaError = errorMessage
         results.gaErrorDetails = {
           message: errorMessage,
-          stack: error?.stack,
-          name: error?.name
+          stack: err?.stack,
+          name: err?.name
         }
       }
     }
@@ -214,7 +216,7 @@ export async function GET(
     // Fetch GSC data if mapped
     if (gscMappings && gscMappings.gsc_sites) {
       try {
-        const gscSite = gscMappings.gsc_sites as any
+        const gscSite = gscMappings.gsc_sites as { site_url: string }
         const [
           gscMetrics,
           gscWeeklyData,
@@ -331,7 +333,7 @@ export async function GET(
     // Fetch YouTube data if mapped
     if (ytMappings && ytMappings.youtube_channels) {
       try {
-        const ytChannel = ytMappings.youtube_channels as any
+        const ytChannel = ytMappings.youtube_channels as { channel_id: string }
         const channelId = ytChannel.channel_id
 
         console.log('=== YouTube FETCH DEBUG ===')
@@ -377,8 +379,9 @@ export async function GET(
         if (ytMetrics.isPublicDataOnly) {
           console.log('[YouTube] Using public Data API fallback - limited metrics available')
         }
-      } catch (error: any) {
-        const errorMessage = error?.message || String(error) || 'Unknown error'
+      } catch (error: unknown) {
+        const err = error as Error | undefined
+        const errorMessage = err?.message || String(error) || 'Unknown error'
         console.error('YouTube fetch error:', errorMessage)
         results.ytError = errorMessage
       }
@@ -436,12 +439,13 @@ export async function GET(
         console.log('[LinkedIn] No sheet configuration found, using mock data')
         addLinkedInMockData(results)
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('LinkedIn sheets fetch error:', error)
       // Fall back to mock data on error
       console.log('[LinkedIn] Error fetching from sheets, using mock data fallback')
       addLinkedInMockData(results)
-      results.liError = error?.message || 'Failed to fetch LinkedIn data from sheets'
+      const err = error as Error | undefined
+      results.liError = err?.message || 'Failed to fetch LinkedIn data from sheets'
     }
 
     // Cache the results (1 hour expiry)
@@ -454,6 +458,7 @@ export async function GET(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function checkCache(supabase: any, companyId: string, startDate: string, endDate: string) {
   const { data } = await supabase
     .from('analytics_cache')
@@ -469,10 +474,12 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
 }
 
 async function cacheData(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   companyId: string,
   startDate: string,
   endDate: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
 ) {
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour cache
@@ -488,6 +495,7 @@ async function cacheData(
 }
 
 // Helper to add LinkedIn mock data as fallback
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addLinkedInMockData(results: any) {
   results.liVisitorMetrics = liVisitorMetrics
   results.liFollowerMetrics = liFollowerMetrics

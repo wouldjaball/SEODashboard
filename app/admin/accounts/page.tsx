@@ -39,7 +39,19 @@ interface Company {
 
 interface Account {
   id: string
-  [key: string]: any
+  displayName?: string
+  property_name?: string
+  siteUrl?: string
+  site_url?: string
+  channelId?: string
+  channel_id?: string
+  channelName?: string
+  channel_name?: string
+  channelHandle?: string
+  channel_handle?: string
+  page_id?: string
+  page_name?: string
+  page_url?: string
 }
 
 interface Mappings {
@@ -592,7 +604,7 @@ export default function AdminAccountsPage() {
               <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
                 <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
-                  <strong>Need YouTube Analytics for a Brand Account?</strong> Click "Add Account" and select the Brand Account (not your personal account) during authorization.
+                  <strong>Need YouTube Analytics for a Brand Account?</strong> Click &quot;Add Account&quot; and select the Brand Account (not your personal account) during authorization.
                 </AlertDescription>
               </Alert>
             </div>
@@ -704,7 +716,7 @@ export default function AdminAccountsPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">-- None --</SelectItem>
-                              {gaProperties.map((prop: any) => (
+                              {gaProperties.map((prop) => (
                                 <SelectItem key={prop.id} value={prop.id}>
                                   {prop.displayName || prop.property_name}
                                 </SelectItem>
@@ -729,7 +741,7 @@ export default function AdminAccountsPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">-- None --</SelectItem>
-                              {gscSites.map((site: any) => (
+                              {gscSites.map((site) => (
                                 <SelectItem key={site.id} value={site.id}>
                                   {site.siteUrl || site.site_url}
                                 </SelectItem>
@@ -755,7 +767,7 @@ export default function AdminAccountsPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none">-- None --</SelectItem>
-                                {youtubeChannels.map((channel: any) => (
+                                {youtubeChannels.map((channel) => (
                                   <SelectItem key={channel.id} value={channel.id}>
                                     {channel.channelName || channel.channel_name}
                                   </SelectItem>
@@ -792,7 +804,7 @@ export default function AdminAccountsPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">-- None --</SelectItem>
-                              {linkedinPages.map((page: any) => (
+                              {linkedinPages.map((page) => (
                                 <SelectItem key={page.id} value={page.id}>
                                   {page.page_name}
                                 </SelectItem>
@@ -932,7 +944,7 @@ export default function AdminAccountsPage() {
                 <p className="text-sm text-muted-foreground">No YouTube channels added yet</p>
               ) : (
                 <div className="space-y-2">
-                  {youtubeChannels.map((channel: any) => (
+                  {youtubeChannels.map((channel) => (
                     <div key={channel.id} className="flex items-center justify-between border rounded p-3">
                       <div>
                         <p className="font-medium">{channel.channelName || channel.channel_name}</p>
@@ -1001,7 +1013,7 @@ export default function AdminAccountsPage() {
                 <p className="text-sm text-muted-foreground">No LinkedIn pages added yet</p>
               ) : (
                 <div className="space-y-2">
-                  {linkedinPages.map((page: any) => (
+                  {linkedinPages.map((page) => (
                     <div key={page.id} className="flex items-center justify-between border rounded p-3">
                       <div>
                         <p className="font-medium">{page.page_name}</p>
@@ -1177,14 +1189,14 @@ export default function AdminAccountsPage() {
             </Alert>
 
             <div className="space-y-3">
-              <p className="font-medium">You'll see a two-step process:</p>
+              <p className="font-medium">You&apos;ll see a two-step process:</p>
               <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
                 <li>
                   <strong>Select your Google Account</strong> - Choose the Google account you use to manage your properties
                 </li>
                 <li>
                   <strong>Select the Brand Account (if applicable)</strong> - After selecting your Google account,
-                  you'll see a list of accounts you can act as. <span className="text-foreground font-medium">Select the account that OWNS the YouTube channel</span> you want analytics for.
+                  you&apos;ll see a list of accounts you can act as. <span className="text-foreground font-medium">Select the account that OWNS the YouTube channel</span> you want analytics for.
                 </li>
               </ol>
             </div>
