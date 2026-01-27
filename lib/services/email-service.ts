@@ -97,9 +97,31 @@ If you didn't request this, you can safely ignore this email. The link will expi
     })
   }
 
-  static async sendInviteEmail(email: string, companyName: string, inviterName?: string) {
+  static async sendInviteEmail(email: string, companyNames: string | string[], inviterName?: string) {
     const invitedBy = inviterName ? ` by ${inviterName}` : ''
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+    // Support both single company name and array of company names
+    const names = Array.isArray(companyNames) ? companyNames : [companyNames]
+
+    // Format company list for display
+    let companyList: string
+    if (names.length === 1) {
+      companyList = names[0]
+    } else if (names.length === 2) {
+      companyList = `${names[0]} and ${names[1]}`
+    } else {
+      companyList = names.slice(0, -1).join(', ') + ', and ' + names[names.length - 1]
+    }
+
+    // Create a bulleted list for multiple companies
+    const companyBullets = names.length > 1
+      ? `<ul style="color: #6b7280; margin: 10px 0;">${names.map(n => `<li><strong>${n}</strong></li>`).join('')}</ul>`
+      : ''
+
+    const companyTextBullets = names.length > 1
+      ? '\n' + names.map(n => `  • ${n}`).join('\n') + '\n'
+      : ''
 
     const html = `
       <!DOCTYPE html>
@@ -116,18 +138,19 @@ If you didn't request this, you can safely ignore this email. The link will expi
           <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
             <h2 style="color: #111827; margin-top: 0;">You've Been Invited!</h2>
             <p style="color: #6b7280;">
-              You've been invited${invitedBy} to join <strong>${companyName}</strong> on ${APP_NAME}.
+              You've been invited${invitedBy} to join ${names.length === 1 ? `<strong>${companyList}</strong>` : 'the following companies'} on ${APP_NAME}${names.length > 1 ? ':' : '.'}
             </p>
+            ${companyBullets}
             <p style="color: #6b7280;">
-              Click the button below to sign up and get access to your dashboard.
+              Click the button below to sign up and get access to your dashboard${names.length > 1 ? 's' : ''}.
             </p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${appUrl}/login" style="background: #22c55e; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
+              <a href="${appUrl}/auth/login" style="background: #22c55e; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
                 Accept Invitation
               </a>
             </div>
             <p style="color: #6b7280; font-size: 14px;">
-              Once you sign up with this email address (${email}), you'll automatically have access to ${companyName}.
+              Once you sign up with this email address (${email}), you'll automatically have access to ${names.length === 1 ? companyList : 'all ' + names.length + ' companies'}.
             </p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
             <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">
@@ -141,18 +164,23 @@ If you didn't request this, you can safely ignore this email. The link will expi
     const text = `
 You've Been Invited to ${APP_NAME}!
 
-You've been invited${invitedBy} to join ${companyName} on ${APP_NAME}.
+You've been invited${invitedBy} to join ${names.length === 1 ? companyList : 'the following companies'} on ${APP_NAME}:
+${companyTextBullets}
+Click here to sign up and get access: ${appUrl}/auth/login
 
-Click here to sign up and get access: ${appUrl}/login
-
-Once you sign up with this email address (${email}), you'll automatically have access to ${companyName}.
+Once you sign up with this email address (${email}), you'll automatically have access to ${names.length === 1 ? companyList : 'all ' + names.length + ' companies'}.
 
 - The ${APP_NAME} Team
     `.trim()
 
+    // Use appropriate subject line based on number of companies
+    const subject = names.length === 1
+      ? `You've been invited to join ${companyList} on ${APP_NAME}`
+      : `You've been invited to join ${names.length} companies on ${APP_NAME}`
+
     return this.sendEmail({
       to: email,
-      subject: `You've been invited to join ${companyName} on ${APP_NAME}`,
+      subject,
       html,
       text,
     })

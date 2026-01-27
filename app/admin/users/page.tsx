@@ -104,32 +104,28 @@ export default function AdminUsersPage() {
 
     setIsInviting(true)
     try {
-      // Invite to all selected companies
-      const results = await Promise.all(
-        inviteCompanyIds.map(companyId =>
-          fetch('/api/admin/users/assign', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: inviteEmail.trim().toLowerCase(),
-              companyId,
-              role: inviteRole
-            })
-          })
-        )
-      )
+      // Send single request with all company IDs - one email will be sent
+      const response = await fetch('/api/admin/users/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteEmail.trim().toLowerCase(),
+          companyIds: inviteCompanyIds,
+          role: inviteRole
+        })
+      })
 
-      const allSuccessful = results.every(r => r.ok)
-      if (allSuccessful) {
-        alert(`User invited to ${inviteCompanyIds.length} company${inviteCompanyIds.length > 1 ? 'ies' : ''} successfully! They will have access once they sign in.`)
+      const data = await response.json()
+
+      if (response.ok) {
+        alert(`User invited to ${inviteCompanyIds.length} company${inviteCompanyIds.length > 1 ? 'ies' : ''} successfully! They will receive one email with access to all companies.`)
         setInviteDialogOpen(false)
         setInviteEmail('')
         setInviteCompanyIds([])
         setInviteRole('viewer')
         fetchData()
       } else {
-        const failedCount = results.filter(r => !r.ok).length
-        alert(`Failed to invite user to ${failedCount} company${failedCount > 1 ? 'ies' : ''}. Please try again.`)
+        alert(data.error || 'Failed to invite user. Please try again.')
       }
     } catch (error) {
       console.error('Failed to invite user:', error)
