@@ -136,7 +136,7 @@ export async function GET() {
       .filter(u => u.email)
       .sort((a, b) => a.email.localeCompare(b.email))
 
-    // Fetch pending invitations that haven't been accepted
+    // Fetch pending invitations that haven't been accepted (including recently expired)
     let pendingInvitations: Array<{
       id: string
       email: string
@@ -145,8 +145,13 @@ export async function GET() {
       invitedByEmail?: string
       expiresAt: string
       createdAt: string
+      expired: boolean
       companies: Array<{ id: string; name: string }>
     }> = []
+
+    // Include invitations expired within last 30 days
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
     const { data: invitationsData, error: invitationsError } = await serviceClient
       .from('pending_invitations')
@@ -165,22 +170,28 @@ export async function GET() {
       `)
       .in('company_id', companyIds)
       .is('accepted_at', null)
-      .gt('expires_at', new Date().toISOString())
+      .gt('expires_at', thirtyDaysAgo.toISOString())
 
     if (!invitationsError && invitationsData) {
+      const now = new Date()
+
       // Group invitations by email
       const invitationsByEmail = new Map<string, {
         id: string
         email: string
         role: string
         invitedBy: string
+        invitedByEmail?: string
         expiresAt: string
         createdAt: string
+        expired: boolean
         companies: Array<{ id: string; name: string }>
       }>()
 
       for (const inv of invitationsData as PendingInvitation[]) {
         const email = inv.email.toLowerCase()
+        const isExpired = new Date(inv.expires_at) < now
+
         if (!invitationsByEmail.has(email)) {
           invitationsByEmail.set(email, {
             id: inv.id,
@@ -189,6 +200,7 @@ export async function GET() {
             invitedBy: inv.invited_by,
             expiresAt: inv.expires_at,
             createdAt: inv.created_at,
+            expired: isExpired,
             companies: []
           })
         }
@@ -206,7 +218,7 @@ export async function GET() {
       for (const invitation of invitationsByEmail.values()) {
         const inviter = usersData.users.find(u => u.id === invitation.invitedBy)
         if (inviter) {
-          (invitation as typeof invitation & { invitedByEmail?: string }).invitedByEmail = inviter.email
+          invitation.invitedByEmail = inviter.email
         }
       }
 

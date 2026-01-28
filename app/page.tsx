@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { MagicLinkForm } from "@/components/auth/magic-link-form"
 
 export default function Home() {
   return (
@@ -8,12 +9,18 @@ export default function Home() {
         <p className="text-muted-foreground max-w-md">
           Your comprehensive analytics platform for tracking and managing transit data.
         </p>
-        <Link
-          href="/auth/login"
-          className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-        >
-          Sign In
-        </Link>
+        <div className="w-full max-w-sm">
+          <MagicLinkForm />
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Prefer password login?{" "}
+          <Link
+            href="/auth/login"
+            className="underline underline-offset-4 hover:text-primary"
+          >
+            Sign in here
+          </Link>
+        </p>
       </div>
       <footer className="w-full border-t py-6">
         <div className="flex justify-center gap-6 text-sm text-muted-foreground">

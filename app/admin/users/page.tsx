@@ -1,16 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, Users as UsersIcon, Search, UserPlus, Clock, RotateCcw, Trash2, AlertCircle } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Loader2, Users as UsersIcon, Search, UserPlus, RotateCcw, Trash2 } from 'lucide-react'
 import { UserAssignmentDialog } from '@/components/admin/user-assignment-dialog'
 import { CompanyListCell } from '@/components/admin/company-list-cell'
+import { UserStatusBadge, type UserStatus } from '@/components/admin/user-status-badge'
+import { RoleBadge, getHighestRole, type UserRole } from '@/components/admin/role-badge'
 import {
   Dialog,
   DialogContent,
@@ -55,6 +63,7 @@ interface PendingInvitation {
   invitedByEmail?: string
   expiresAt: string
   createdAt: string
+  expired: boolean
   companies: Array<{ id: string; name: string }>
 }
 
@@ -65,12 +74,33 @@ interface Company {
   color: string
 }
 
+// Unified user type for the table
+interface UnifiedUser {
+  id: string
+  email: string
+  status: UserStatus
+  // Invitation info
+  invitedAt?: string
+  invitedByEmail?: string
+  expiresAt?: string
+  // Active user info
+  lastSignInAt?: string
+  // Access info
+  companies: Array<{ id: string; name: string; role: string }>
+  highestRole: UserRole
+  // Source tracking
+  isInvitation: boolean
+}
+
+type FilterValue = 'all' | 'active' | 'pending' | 'expired'
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [filterValue, setFilterValue] = useState<FilterValue>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [hasAdminAccess, setHasAdminAccess] = useState(false)
@@ -79,7 +109,6 @@ export default function AdminUsersPage() {
   const [inviteCompanyIds, setInviteCompanyIds] = useState<string[]>([])
   const [inviteRole, setInviteRole] = useState('viewer')
   const [isInviting, setIsInviting] = useState(false)
-  const [activeTab, setActiveTab] = useState('active')
   const [revokeEmail, setRevokeEmail] = useState<string | null>(null)
   const [isRevoking, setIsRevoking] = useState(false)
   const [resendingEmail, setResendingEmail] = useState<string | null>(null)
@@ -118,9 +147,86 @@ export default function AdminUsersPage() {
     }
   }
 
-  function handleManageUser(user: User) {
-    setSelectedUser(user)
-    setDialogOpen(true)
+  // Transform to unified user list
+  const unifiedUsers = useMemo((): UnifiedUser[] => {
+    const unified: UnifiedUser[] = []
+    const processedEmails = new Set<string>()
+
+    // Process active users
+    for (const user of users) {
+      processedEmails.add(user.email.toLowerCase())
+
+      // Determine status based on user data
+      let status: UserStatus = 'active'
+      if (user.mustChangePassword && !user.lastSignInAt) {
+        status = 'pending'
+      }
+
+      unified.push({
+        id: user.id,
+        email: user.email,
+        status,
+        lastSignInAt: user.lastSignInAt,
+        companies: user.companies,
+        highestRole: getHighestRole(user.companies.map(c => c.role)),
+        isInvitation: false,
+      })
+    }
+
+    // Add pending invitations not already processed
+    for (const invitation of pendingInvitations) {
+      if (processedEmails.has(invitation.email.toLowerCase())) continue
+
+      unified.push({
+        id: invitation.id,
+        email: invitation.email,
+        status: invitation.expired ? 'expired' : 'pending',
+        invitedAt: invitation.createdAt,
+        invitedByEmail: invitation.invitedByEmail,
+        expiresAt: invitation.expiresAt,
+        companies: invitation.companies.map(c => ({ ...c, role: invitation.role })),
+        highestRole: invitation.role as UserRole,
+        isInvitation: true,
+      })
+    }
+
+    return unified
+  }, [users, pendingInvitations])
+
+  // Filter and search
+  const filteredUsers = useMemo(() => {
+    return unifiedUsers
+      .filter(user => {
+        // Apply status filter
+        if (filterValue !== 'all' && user.status !== filterValue) {
+          return false
+        }
+        // Apply search
+        if (searchQuery && !user.email.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false
+        }
+        return true
+      })
+      .sort((a, b) => a.email.localeCompare(b.email))
+  }, [unifiedUsers, filterValue, searchQuery])
+
+  // Get counts for filter badges
+  const statusCounts = useMemo(() => {
+    return {
+      all: unifiedUsers.length,
+      active: unifiedUsers.filter(u => u.status === 'active').length,
+      pending: unifiedUsers.filter(u => u.status === 'pending').length,
+      expired: unifiedUsers.filter(u => u.status === 'expired').length,
+    }
+  }, [unifiedUsers])
+
+  function handleManageUser(user: UnifiedUser) {
+    // Find the original user data for the dialog
+    const originalUser = users.find(u => u.id === user.id)
+    if (originalUser) {
+      setSelectedUser(originalUser)
+      setDialogOpen(true)
+    }
   }
 
   function handleSave() {
@@ -232,39 +338,6 @@ export default function AdminUsersPage() {
     }
   }
 
-  function formatDate(dateString: string) {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  function formatRelativeTime(dateString?: string) {
-    if (!dateString) return 'Never'
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 7) return `${diffDays} days ago`
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-    return formatDate(dateString)
-  }
-
-  function isExpired(dateString: string) {
-    return new Date(dateString) < new Date()
-  }
-
-  // Filter active users (exclude those with pending status who haven't logged in)
-  const activeUsers = users.filter(u => u.status === 'active' || u.lastSignInAt)
-  const filteredActiveUsers = activeUsers.filter(user =>
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const filteredPendingInvitations = pendingInvitations.filter(inv =>
-    inv.email.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -294,7 +367,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="container max-w-5xl mx-auto py-8 px-4 space-y-8">
+    <div className="container max-w-6xl mx-auto py-8 px-4 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">User Management</h1>
         <p className="text-muted-foreground mt-2">
@@ -313,6 +386,17 @@ export default function AdminUsersPage() {
             className="pl-10"
           />
         </div>
+        <Select value={filterValue} onValueChange={(v) => setFilterValue(v as FilterValue)}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Filter users" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Users ({statusCounts.all})</SelectItem>
+            <SelectItem value="active">Active ({statusCounts.active})</SelectItem>
+            <SelectItem value="pending">Pending ({statusCounts.pending})</SelectItem>
+            <SelectItem value="expired">Expired ({statusCounts.expired})</SelectItem>
+          </SelectContent>
+        </Select>
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -407,166 +491,113 @@ export default function AdminUsersPage() {
         </Dialog>
       </div>
 
-      {/* Tabbed Interface */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList>
-          <TabsTrigger value="active">
-            Active Users
-            {filteredActiveUsers.length > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {filteredActiveUsers.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="pending">
-            Pending Invitations
-            {filteredPendingInvitations.length > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {filteredPendingInvitations.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Active Users Tab */}
-        <TabsContent value="active">
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Users</CardTitle>
-              <CardDescription>
-                Users who have logged in and have access to your companies
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {filteredActiveUsers.length === 0 ? (
-                <div className="text-center py-12">
-                  <UsersIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    {searchQuery ? 'No users found matching your search' : 'No active users found'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredActiveUsers.map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{user.email}</span>
-                          {user.mustChangePassword && (
-                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                              <Clock className="h-3 w-3 mr-1" />
-                              Password pending
-                            </Badge>
-                          )}
+      {/* Users Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Users</CardTitle>
+          <CardDescription>
+            {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredUsers.length === 0 ? (
+            <div className="text-center py-12">
+              <UsersIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">
+                {searchQuery || filterValue !== 'all'
+                  ? 'No users found matching your criteria'
+                  : 'No users found'}
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[250px]">User</TableHead>
+                  <TableHead className="w-[140px]">Status</TableHead>
+                  <TableHead className="w-[100px]">Role</TableHead>
+                  <TableHead>Accounts</TableHead>
+                  <TableHead className="w-[120px] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((user) => (
+                  <TableRow
+                    key={user.id}
+                    className={user.status === 'expired' ? 'bg-red-50/50' : ''}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                          {user.email.substring(0, 2).toUpperCase()}
                         </div>
-                        <CompanyListCell companies={user.companies} showRoles />
-                        <div className="text-xs text-muted-foreground">
-                          Last active: {formatRelativeTime(user.lastSignInAt)}
-                        </div>
+                        <span className="font-medium truncate max-w-[180px]">
+                          {user.email}
+                        </span>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleManageUser(user)}
-                        className="ml-4"
-                      >
-                        Manage
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Pending Invitations Tab */}
-        <TabsContent value="pending">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Invitations</CardTitle>
-              <CardDescription>
-                Users who have been invited but haven&apos;t logged in yet
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {filteredPendingInvitations.length === 0 ? (
-                <div className="text-center py-12">
-                  <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    {searchQuery ? 'No pending invitations found matching your search' : 'No pending invitations'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredPendingInvitations.map((invitation) => (
-                    <div
-                      key={invitation.id}
-                      className={`flex items-center justify-between p-4 border rounded-lg ${
-                        isExpired(invitation.expiresAt) ? 'bg-red-50 border-red-200' : ''
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{invitation.email}</span>
-                          {isExpired(invitation.expiresAt) && (
-                            <Badge variant="destructive" className="text-xs">
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                              Expired
-                            </Badge>
-                          )}
-                        </div>
-                        <CompanyListCell
-                          companies={invitation.companies}
-                          showRoles={false}
-                        />
-                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                          <span>
-                            Invited by: {invitation.invitedByEmail || 'Unknown'}
-                          </span>
-                          <span>
-                            Sent: {formatDate(invitation.createdAt)}
-                          </span>
-                          <span className={isExpired(invitation.expiresAt) ? 'text-red-600' : ''}>
-                            Expires: {formatDate(invitation.expiresAt)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
+                    </TableCell>
+                    <TableCell>
+                      <UserStatusBadge
+                        status={user.status}
+                        invitedAt={user.invitedAt}
+                        invitedByEmail={user.invitedByEmail}
+                        lastActiveAt={user.lastSignInAt}
+                        expiresAt={user.expiresAt}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <RoleBadge role={user.highestRole} />
+                    </TableCell>
+                    <TableCell>
+                      <CompanyListCell
+                        companies={user.companies}
+                        showRoles={user.status === 'active'}
+                        maxVisible={2}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {user.status === 'active' ? (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleResendInvite(invitation.email)}
-                          disabled={resendingEmail === invitation.email}
+                          onClick={() => handleManageUser(user)}
                         >
-                          {resendingEmail === invitation.email ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <RotateCcw className="h-4 w-4" />
-                          )}
-                          <span className="ml-2 hidden sm:inline">Resend</span>
+                          Manage
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setRevokeEmail(invitation.email)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="ml-2 hidden sm:inline">Revoke</span>
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleResendInvite(user.email)}
+                            disabled={resendingEmail === user.email}
+                            title="Resend invitation"
+                          >
+                            {resendingEmail === user.email ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRevokeEmail(user.email)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Revoke invitation"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* User Assignment Dialog */}
       <UserAssignmentDialog

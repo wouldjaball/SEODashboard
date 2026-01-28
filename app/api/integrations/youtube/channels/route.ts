@@ -56,13 +56,30 @@ export async function GET(request: Request) {
       }
     }
 
+    // Check if user is an admin (owner or admin role in any company)
+    const { data: userRole } = await supabase
+      .from('user_companies')
+      .select('role')
+      .eq('user_id', user.id)
+      .in('role', ['owner', 'admin'])
+      .limit(1)
+      .single()
+
+    const isAdmin = !!userRole
+
     // Return cached channels from database
-    const { data: channels, error } = await supabase
+    // Admins can see all channels; regular users only see their own
+    let query = supabase
       .from('youtube_channels')
       .select('id, channel_id, channel_name, channel_handle, thumbnail_url, created_at')
-      .eq('user_id', user.id)
       .eq('is_active', true)
       .order('channel_name')
+
+    if (!isAdmin) {
+      query = query.eq('user_id', user.id)
+    }
+
+    const { data: channels, error } = await query
 
     if (error) {
       throw error

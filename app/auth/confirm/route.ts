@@ -17,6 +17,13 @@ export async function GET(request: NextRequest) {
       token_hash,
     })
     if (!error) {
+      // Check if user needs to change their password (first-time login)
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user?.user_metadata?.must_change_password) {
+        return NextResponse.redirect(`${origin}/auth/change-password`)
+      }
+
       // Redirect user to specified redirect URL or root of app
       return NextResponse.redirect(`${origin}${next}`)
     }
