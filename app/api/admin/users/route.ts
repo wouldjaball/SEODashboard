@@ -1,15 +1,37 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { hasAdminAccess, getUserOwnedCompanies } from '@/lib/auth/check-admin'
+
+interface UserWithStatus {
+  id: string
+  email: string
+  status: 'active' | 'pending'
+  mustChangePassword: boolean
+  lastSignInAt?: string
+  companies: Array<{ id: string; name: string; role: string }>
+}
+
+interface PendingInvitation {
+  id: string
+  email: string
+  company_id: string
+  role: string
+  invited_by: string
+  expires_at: string
+  created_at: string
+  companies: { id: string; name: string } | { id: string; name: string }[]
+}
 
 /**
  * GET /api/admin/users
  * Returns all users that the current owner/admin can manage
  * (users who belong to companies where current user is owner/admin)
+ * Includes both active users and pending invitations with status field
  */
 export async function GET() {
   try {
     const supabase = await createClient()
+    const serviceClient = createServiceClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -36,7 +58,7 @@ export async function GET() {
 
     if (companyIds.length === 0) {
       console.log('[Admin Users API] No owned companies, returning empty')
-      return NextResponse.json({ users: [] })
+      return NextResponse.json({ users: [], pendingInvitations: [] })
     }
 
     // Get all user_companies relationships for those companies
@@ -61,19 +83,15 @@ export async function GET() {
     console.log('[Admin Users API] Found user_companies records:', userCompaniesData?.length || 0)
 
     // Group by user_id
-    const userMap = new Map<string, {
-      id: string
-      email: string
-      companies: Array<{ id: string; name: string; role: string }>
-    }>()
+    const userMap = new Map<string, UserWithStatus>()
 
     for (const item of userCompaniesData || []) {
       if (!userMap.has(item.user_id)) {
-        // Note: We can't directly access auth.users due to RLS
-        // We'll fetch user emails in a separate query
         userMap.set(item.user_id, {
           id: item.user_id,
-          email: '', // Will be filled below
+          email: '',
+          status: 'active',
+          mustChangePassword: false,
           companies: []
         })
       }
@@ -88,36 +106,117 @@ export async function GET() {
       })
     }
 
-    // Fetch user emails from auth.users using service role
-    // Note: This requires a different approach since we can't use RLS on auth.users
-    // For now, we'll use the admin API
     // Fetch users using admin.listUsers() which bypasses RLS
     const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers()
 
     if (usersError) {
       console.error('Error fetching users:', usersError)
-      // Fallback: return without emails
       return NextResponse.json({
-        users: Array.from(userMap.values())
+        users: Array.from(userMap.values()),
+        pendingInvitations: []
       })
     }
 
-    // Match user IDs with emails
+    // Match user IDs with emails and metadata
     for (const authUser of usersData.users) {
       if (userMap.has(authUser.id)) {
-        userMap.get(authUser.id)!.email = authUser.email || ''
+        const userData = userMap.get(authUser.id)!
+        userData.email = authUser.email || ''
+        userData.lastSignInAt = authUser.last_sign_in_at || undefined
+        userData.mustChangePassword = authUser.user_metadata?.must_change_password === true
+
+        // User is "pending" if they have must_change_password flag and never signed in
+        if (userData.mustChangePassword && !authUser.last_sign_in_at) {
+          userData.status = 'pending'
+        }
       }
     }
 
     const users = Array.from(userMap.values())
-      // Filter out users without emails (shouldn't happen)
       .filter(u => u.email)
-      // Sort by email
       .sort((a, b) => a.email.localeCompare(b.email))
 
-    console.log('[Admin Users API] Returning users:', users.length, users.map(u => u.email))
+    // Fetch pending invitations that haven't been accepted
+    let pendingInvitations: Array<{
+      id: string
+      email: string
+      role: string
+      invitedBy: string
+      invitedByEmail?: string
+      expiresAt: string
+      createdAt: string
+      companies: Array<{ id: string; name: string }>
+    }> = []
 
-    return NextResponse.json({ users })
+    const { data: invitationsData, error: invitationsError } = await serviceClient
+      .from('pending_invitations')
+      .select(`
+        id,
+        email,
+        company_id,
+        role,
+        invited_by,
+        expires_at,
+        created_at,
+        companies (
+          id,
+          name
+        )
+      `)
+      .in('company_id', companyIds)
+      .is('accepted_at', null)
+      .gt('expires_at', new Date().toISOString())
+
+    if (!invitationsError && invitationsData) {
+      // Group invitations by email
+      const invitationsByEmail = new Map<string, {
+        id: string
+        email: string
+        role: string
+        invitedBy: string
+        expiresAt: string
+        createdAt: string
+        companies: Array<{ id: string; name: string }>
+      }>()
+
+      for (const inv of invitationsData as PendingInvitation[]) {
+        const email = inv.email.toLowerCase()
+        if (!invitationsByEmail.has(email)) {
+          invitationsByEmail.set(email, {
+            id: inv.id,
+            email: inv.email,
+            role: inv.role,
+            invitedBy: inv.invited_by,
+            expiresAt: inv.expires_at,
+            createdAt: inv.created_at,
+            companies: []
+          })
+        }
+        const companies = inv.companies as unknown as { id: string; name: string } | { id: string; name: string }[]
+        const company = Array.isArray(companies) ? companies[0] : companies
+        if (company) {
+          invitationsByEmail.get(email)!.companies.push({
+            id: company.id,
+            name: company.name
+          })
+        }
+      }
+
+      // Add inviter email to pending invitations
+      for (const invitation of invitationsByEmail.values()) {
+        const inviter = usersData.users.find(u => u.id === invitation.invitedBy)
+        if (inviter) {
+          (invitation as typeof invitation & { invitedByEmail?: string }).invitedByEmail = inviter.email
+        }
+      }
+
+      pendingInvitations = Array.from(invitationsByEmail.values())
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    }
+
+    console.log('[Admin Users API] Returning users:', users.length, 'pending:', pendingInvitations.length)
+
+    return NextResponse.json({ users, pendingInvitations })
   } catch (error) {
     console.error('Fetch users error:', error)
     return NextResponse.json(

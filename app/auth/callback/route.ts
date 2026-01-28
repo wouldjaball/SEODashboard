@@ -41,14 +41,22 @@ export async function GET(request: Request) {
           .eq("id", codeData.id)
       }
 
+      // Determine redirect destination
+      let redirectPath = next
+
+      // Check if user needs to change their password (temp password from invite)
+      if (sessionData.user.user_metadata?.must_change_password) {
+        redirectPath = "/auth/change-password"
+      }
+
       const forwardedHost = request.headers.get("x-forwarded-host")
       const isLocalEnv = process.env.NODE_ENV === "development"
       if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`)
+        return NextResponse.redirect(`${origin}${redirectPath}`)
       } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
+        return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`)
       } else {
-        return NextResponse.redirect(`${origin}${next}`)
+        return NextResponse.redirect(`${origin}${redirectPath}`)
       }
     }
   }

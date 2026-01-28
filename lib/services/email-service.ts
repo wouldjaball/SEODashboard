@@ -97,7 +97,12 @@ If you didn't request this, you can safely ignore this email. The link will expi
     })
   }
 
-  static async sendInviteEmail(email: string, companyNames: string | string[], inviterName?: string) {
+  static async sendInviteEmail(
+    email: string,
+    companyNames: string | string[],
+    inviterName?: string,
+    temporaryPassword?: string
+  ) {
     const invitedBy = inviterName ? ` by ${inviterName}` : ''
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
@@ -123,6 +128,25 @@ If you didn't request this, you can safely ignore this email. The link will expi
       ? '\n' + names.map(n => `  • ${n}`).join('\n') + '\n'
       : ''
 
+    // Password section for email (only if temporary password provided)
+    const passwordHtml = temporaryPassword ? `
+            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin: 20px 0;">
+              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials</p>
+              <p style="color: #78350f; margin: 0 0 4px 0;">Email: <strong>${email}</strong></p>
+              <p style="color: #78350f; margin: 0 0 12px 0;">Temporary Password: <strong style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${temporaryPassword}</strong></p>
+              <p style="color: #b45309; margin: 0; font-size: 13px;">You will be required to change this password on your first login.</p>
+            </div>
+    ` : ''
+
+    const passwordText = temporaryPassword ? `
+
+YOUR LOGIN CREDENTIALS:
+Email: ${email}
+Temporary Password: ${temporaryPassword}
+
+IMPORTANT: You will be required to change this password on your first login.
+` : ''
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -141,17 +165,20 @@ If you didn't request this, you can safely ignore this email. The link will expi
               You've been invited${invitedBy} to join ${names.length === 1 ? `<strong>${companyList}</strong>` : 'the following companies'} on ${APP_NAME}${names.length > 1 ? ':' : '.'}
             </p>
             ${companyBullets}
+            ${passwordHtml}
             <p style="color: #6b7280;">
-              Click the button below to sign up and get access to your dashboard${names.length > 1 ? 's' : ''}.
+              ${temporaryPassword ? 'Click the button below to log in and access your dashboard' : 'Click the button below to sign up and get access to your dashboard'}${names.length > 1 ? 's' : ''}.
             </p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${appUrl}/auth/login" style="background: #22c55e; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
-                Accept Invitation
+                ${temporaryPassword ? 'Log In Now' : 'Accept Invitation'}
               </a>
             </div>
+            ${!temporaryPassword ? `
             <p style="color: #6b7280; font-size: 14px;">
               Once you sign up with this email address (${email}), you'll automatically have access to ${names.length === 1 ? companyList : 'all ' + names.length + ' companies'}.
             </p>
+            ` : ''}
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
             <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">
               This email was sent by ${APP_NAME}. If you weren't expecting this invitation, you can safely ignore this email.
@@ -165,10 +192,10 @@ If you didn't request this, you can safely ignore this email. The link will expi
 You've Been Invited to ${APP_NAME}!
 
 You've been invited${invitedBy} to join ${names.length === 1 ? companyList : 'the following companies'} on ${APP_NAME}:
-${companyTextBullets}
-Click here to sign up and get access: ${appUrl}/auth/login
+${companyTextBullets}${passwordText}
+Click here to ${temporaryPassword ? 'log in' : 'sign up'} and get access: ${appUrl}/auth/login
 
-Once you sign up with this email address (${email}), you'll automatically have access to ${names.length === 1 ? companyList : 'all ' + names.length + ' companies'}.
+${!temporaryPassword ? `Once you sign up with this email address (${email}), you'll automatically have access to ${names.length === 1 ? companyList : 'all ' + names.length + ' companies'}.` : ''}
 
 - The ${APP_NAME} Team
     `.trim()

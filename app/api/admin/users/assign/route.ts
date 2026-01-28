@@ -2,6 +2,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { isUserOwner } from '@/lib/auth/check-admin'
 import { EmailService } from '@/lib/services/email-service'
+import { generateTempPassword } from '@/lib/utils/password'
 
 /**
  * POST /api/admin/users/assign
@@ -73,11 +74,33 @@ export async function POST(request: Request) {
       if (existingUser) {
         targetUserId = existingUser.id
       } else {
-        // User doesn't exist yet - store pending invitations for all companies
+        // User doesn't exist yet - create user with temporary password
+        const tempPassword = generateTempPassword()
         const companyNames: string[] = []
 
+        // Create user with Supabase Admin API
+        const { data: newUser, error: createUserError } = await serviceClient.auth.admin.createUser({
+          email: email.toLowerCase(),
+          password: tempPassword,
+          email_confirm: true, // Skip email verification
+          user_metadata: {
+            must_change_password: true,
+            invited_by: user.id,
+            invited_at: new Date().toISOString()
+          }
+        })
+
+        if (createUserError) {
+          console.error('Error creating user:', createUserError)
+          return NextResponse.json(
+            { error: 'Failed to create user account' },
+            { status: 500 }
+          )
+        }
+
+        // Store pending invitations and collect company names
         for (const cId of targetCompanyIds) {
-          // Store pending invitation
+          // Store pending invitation record for tracking
           const { error: inviteError } = await serviceClient
             .from('pending_invitations')
             .upsert({
@@ -85,14 +108,30 @@ export async function POST(request: Request) {
               company_id: cId,
               role,
               invited_by: user.id,
-              created_at: new Date().toISOString()
+              expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             }, {
               onConflict: 'email,company_id'
             })
 
           if (inviteError) {
-            // Table might not exist, just log and continue
             console.error('Pending invitation error:', inviteError)
+          }
+
+          // Create user_company relationship immediately since user exists
+          const { error: assignError } = await serviceClient
+            .from('user_companies')
+            .upsert({
+              user_id: newUser.user.id,
+              company_id: cId,
+              role
+            }, {
+              onConflict: 'user_id,company_id'
+            })
+
+          if (assignError) {
+            console.error('User company assignment error:', assignError)
           }
 
           // Get company name for the email
@@ -110,11 +149,12 @@ export async function POST(request: Request) {
         // Get inviter's name
         const inviterName = user.user_metadata?.full_name || user.email?.split('@')[0]
 
-        // Send ONE invite email with all company names
+        // Send ONE invite email with temporary password and all company names
         const emailResult = await EmailService.sendInviteEmail(
           email.toLowerCase(),
           companyNames.length > 0 ? companyNames : ['your company'],
-          inviterName
+          inviterName,
+          tempPassword
         )
 
         if (!emailResult.success) {
@@ -126,7 +166,8 @@ export async function POST(request: Request) {
           pending: true,
           emailSent: emailResult.success,
           companiesInvited: targetCompanyIds.length,
-          message: `Invitation sent. ${email} will have access to ${targetCompanyIds.length} company${targetCompanyIds.length > 1 ? 'ies' : ''} once they sign up.`
+          userId: newUser.user.id,
+          message: `User account created and invitation sent. ${email} can log in with their temporary password.`
         }, { status: 201 })
       }
     }

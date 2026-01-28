@@ -27,7 +27,7 @@ export function LoginForm({ className, redirectTo = "/dashboard", ...props }: Lo
     setIsLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
@@ -35,6 +35,13 @@ export function LoginForm({ className, redirectTo = "/dashboard", ...props }: Lo
     if (error) {
       setError(error.message)
       setIsLoading(false)
+      return
+    }
+
+    // Check if user needs to change their password
+    if (data.user?.user_metadata?.must_change_password) {
+      router.push('/auth/change-password')
+      router.refresh()
       return
     }
 
