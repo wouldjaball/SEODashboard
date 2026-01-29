@@ -90,14 +90,20 @@ export async function POST(request: Request) {
     }
 
     if (action === 'resend') {
-      // Rate limiting: max 3 resends per email per hour
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-      const { count: recentResendCount } = await serviceClient
-        .from('invite_audit_log')
-        .select('*', { count: 'exact', head: true })
-        .eq('target_email', email.toLowerCase())
-        .eq('action', 'resend')
-        .gte('created_at', oneHourAgo)
+      // Rate limiting: max 3 resends per email per hour (fail-open if query fails)
+      let recentResendCount: number | null = null
+      try {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+        const { count } = await serviceClient
+          .from('invite_audit_log')
+          .select('*', { count: 'exact', head: true })
+          .eq('target_email', email.toLowerCase())
+          .eq('action', 'resend')
+          .gte('created_at', oneHourAgo)
+        recentResendCount = count
+      } catch (rateLimitError) {
+        console.error('Rate limit check failed, proceeding with resend:', rateLimitError)
+      }
 
       if (recentResendCount !== null && recentResendCount >= 3) {
         return NextResponse.json(

@@ -44,14 +44,20 @@ export async function POST(request: Request) {
 
     const serviceClient = createServiceClient()
 
-    // Rate limiting: max 20 invites per admin per hour
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-    const { count: recentInviteCount } = await serviceClient
-      .from('invite_audit_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('admin_id', user.id)
-      .eq('action', 'invite')
-      .gte('created_at', oneHourAgo)
+    // Rate limiting: max 20 invites per admin per hour (fail-open if query fails)
+    let recentInviteCount: number | null = null
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+      const { count } = await serviceClient
+        .from('invite_audit_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('admin_id', user.id)
+        .eq('action', 'invite')
+        .gte('created_at', oneHourAgo)
+      recentInviteCount = count
+    } catch (rateLimitError) {
+      console.error('Rate limit check failed, proceeding with invite:', rateLimitError)
+    }
 
     if (recentInviteCount !== null && recentInviteCount >= 20) {
       return NextResponse.json(
