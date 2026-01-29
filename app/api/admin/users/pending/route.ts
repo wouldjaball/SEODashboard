@@ -90,6 +90,22 @@ export async function POST(request: Request) {
     }
 
     if (action === 'resend') {
+      // Rate limiting: max 3 resends per email per hour
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+      const { count: recentResendCount } = await serviceClient
+        .from('invite_audit_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('target_email', email.toLowerCase())
+        .eq('action', 'resend')
+        .gte('created_at', oneHourAgo)
+
+      if (recentResendCount !== null && recentResendCount >= 3) {
+        return NextResponse.json(
+          { error: 'Rate limit exceeded. Maximum 3 resends per email per hour.' },
+          { status: 429 }
+        )
+      }
+
       // Get all pending invitations for this email
       const { data: invitations, error: fetchError } = await serviceClient
         .from('pending_invitations')
@@ -192,6 +208,21 @@ export async function POST(request: Request) {
         )
       }
 
+      // Log resend action to audit log
+      const companyIds = invitations.map(inv => inv.company_id)
+      await serviceClient
+        .from('invite_audit_log')
+        .insert({
+          admin_id: user.id,
+          action: 'resend',
+          target_email: email.toLowerCase(),
+          company_ids: companyIds,
+          metadata: {
+            companies_count: invitations.length,
+            new_password_generated: !!tempPassword
+          }
+        })
+
       return NextResponse.json({
         success: true,
         message: 'Invitation resent successfully'
@@ -290,6 +321,20 @@ export async function DELETE(request: Request) {
         // Don't fail - invitation is revoked, user can still be manually removed
       }
     }
+
+    // Log revoke action to audit log
+    const companyIds = invitations.map(inv => inv.company_id)
+    await serviceClient
+      .from('invite_audit_log')
+      .insert({
+        admin_id: user.id,
+        action: 'revoke',
+        target_email: email.toLowerCase(),
+        company_ids: companyIds,
+        metadata: {
+          user_account_deleted: existingUser && existingUser.user_metadata?.must_change_password && !existingUser.last_sign_in_at
+        }
+      })
 
     return NextResponse.json({
       success: true,

@@ -42,6 +42,24 @@ export async function POST(request: Request) {
       )
     }
 
+    const serviceClient = createServiceClient()
+
+    // Rate limiting: max 20 invites per admin per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { count: recentInviteCount } = await serviceClient
+      .from('invite_audit_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('admin_id', user.id)
+      .eq('action', 'invite')
+      .gte('created_at', oneHourAgo)
+
+    if (recentInviteCount !== null && recentInviteCount >= 20) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Maximum 20 invitations per hour.' },
+        { status: 429 }
+      )
+    }
+
     // Check if current user is owner of ALL the companies
     for (const cId of targetCompanyIds) {
       const isOwner = await isUserOwner(user.id, cId)
@@ -53,13 +71,15 @@ export async function POST(request: Request) {
       }
     }
 
-    const serviceClient = createServiceClient()
-
     // If email provided, look up or wait for user
     let targetUserId = userId
     if (!targetUserId && email) {
       // First, check if user already exists in auth.users
-      const { data: authUsers, error: authError } = await serviceClient.auth.admin.listUsers()
+      // Use higher perPage limit to ensure we find existing users
+      const { data: authUsers, error: authError } = await serviceClient.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000
+      })
 
       if (authError) {
         console.error('Error listing users:', authError)
@@ -92,13 +112,24 @@ export async function POST(request: Request) {
 
         if (createUserError) {
           console.error('Error creating user:', createUserError)
+          // Provide more helpful error messages
+          let errorMessage = 'Failed to create user account'
+          if (createUserError.message?.includes('already been registered') ||
+              createUserError.message?.includes('already exists')) {
+            errorMessage = 'A user with this email already exists'
+          } else if (createUserError.message) {
+            errorMessage = `Failed to create user account: ${createUserError.message}`
+          }
           return NextResponse.json(
-            { error: 'Failed to create user account' },
+            { error: errorMessage },
             { status: 500 }
           )
         }
 
         // Store pending invitations and collect company names
+        let successfulAssignments = 0
+        const assignmentErrors: string[] = []
+
         for (const cId of targetCompanyIds) {
           // Store pending invitation record for tracking
           const { error: inviteError } = await serviceClient
@@ -117,6 +148,7 @@ export async function POST(request: Request) {
 
           if (inviteError) {
             console.error('Pending invitation error:', inviteError)
+            assignmentErrors.push(`invitation:${cId}`)
           }
 
           // Create user_company relationship immediately since user exists
@@ -132,6 +164,9 @@ export async function POST(request: Request) {
 
           if (assignError) {
             console.error('User company assignment error:', assignError)
+            assignmentErrors.push(`assignment:${cId}`)
+          } else {
+            successfulAssignments++
           }
 
           // Get company name for the email
@@ -144,6 +179,16 @@ export async function POST(request: Request) {
           if (company?.name) {
             companyNames.push(company.name)
           }
+        }
+
+        // Rollback: if all assignments failed, delete the created user to avoid orphans
+        if (successfulAssignments === 0) {
+          console.error('All assignments failed, rolling back user creation:', assignmentErrors)
+          await serviceClient.auth.admin.deleteUser(newUser.user.id)
+          return NextResponse.json(
+            { error: 'Failed to assign user to companies. User creation has been rolled back.' },
+            { status: 500 }
+          )
         }
 
         // Get inviter's name
@@ -161,13 +206,31 @@ export async function POST(request: Request) {
           console.error('Failed to send invite email:', emailResult.error)
         }
 
+        // Log invite action to audit log
+        await serviceClient
+          .from('invite_audit_log')
+          .insert({
+            admin_id: user.id,
+            action: 'invite',
+            target_email: email.toLowerCase(),
+            company_ids: targetCompanyIds,
+            metadata: {
+              role,
+              email_sent: emailResult.success,
+              companies_count: targetCompanyIds.length
+            }
+          })
+
         return NextResponse.json({
           success: true,
           pending: true,
           emailSent: emailResult.success,
+          emailError: !emailResult.success ? emailResult.error : undefined,
           companiesInvited: targetCompanyIds.length,
           userId: newUser.user.id,
-          message: `User account created and invitation sent. ${email} can log in with their temporary password.`
+          message: emailResult.success
+            ? `User account created and invitation sent. ${email} can log in with their temporary password.`
+            : `User account created but email failed to send. Please use "Resend Invitation" to try again.`
         }, { status: 201 })
       }
     }
@@ -175,6 +238,7 @@ export async function POST(request: Request) {
     // User exists - assign to all companies
     const assignments = []
     const errors = []
+    const newlyAssignedCompanyNames: string[] = []
 
     for (const cId of targetCompanyIds) {
       // Check if assignment already exists
@@ -205,6 +269,32 @@ export async function POST(request: Request) {
         errors.push({ companyId: cId, error: error.message })
       } else {
         assignments.push(data)
+
+        // Get company name for the notification email
+        const { data: company } = await serviceClient
+          .from('companies')
+          .select('name')
+          .eq('id', cId)
+          .single()
+
+        if (company?.name) {
+          newlyAssignedCompanyNames.push(company.name)
+        }
+      }
+    }
+
+    // Send notification email to existing user about new company access
+    let emailSent = false
+    if (newlyAssignedCompanyNames.length > 0 && email) {
+      const inviterName = user.user_metadata?.full_name || user.email?.split('@')[0]
+      const emailResult = await EmailService.sendAssignmentEmail(
+        email.toLowerCase(),
+        newlyAssignedCompanyNames,
+        inviterName
+      )
+      emailSent = emailResult.success
+      if (!emailResult.success) {
+        console.error('Failed to send assignment notification email:', emailResult.error)
       }
     }
 
@@ -212,6 +302,7 @@ export async function POST(request: Request) {
       success: true,
       assignments,
       errors: errors.length > 0 ? errors : undefined,
+      emailSent: newlyAssignedCompanyNames.length > 0 ? emailSent : undefined,
       message: `User assigned to ${assignments.length} company${assignments.length !== 1 ? 'ies' : ''}${errors.length > 0 ? ` (${errors.length} skipped)` : ''}`
     }, { status: 201 })
   } catch (error) {

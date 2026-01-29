@@ -213,6 +213,92 @@ ${!temporaryPassword ? `Once you sign up with this email address (${email}), you
     })
   }
 
+  static async sendAssignmentEmail(
+    email: string,
+    companyNames: string[],
+    assignedByName?: string
+  ) {
+    const assignedBy = assignedByName ? ` by ${assignedByName}` : ''
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+    // Format company list for display
+    let companyList: string
+    if (companyNames.length === 1) {
+      companyList = companyNames[0]
+    } else if (companyNames.length === 2) {
+      companyList = `${companyNames[0]} and ${companyNames[1]}`
+    } else {
+      companyList = companyNames.slice(0, -1).join(', ') + ', and ' + companyNames[companyNames.length - 1]
+    }
+
+    // Create a bulleted list for multiple companies
+    const companyBullets = companyNames.length > 1
+      ? `<ul style="color: #6b7280; margin: 10px 0;">${companyNames.map(n => `<li><strong>${n}</strong></li>`).join('')}</ul>`
+      : ''
+
+    const companyTextBullets = companyNames.length > 1
+      ? '\n' + companyNames.map(n => `  - ${n}`).join('\n') + '\n'
+      : ''
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>New Company Access on ${APP_NAME}</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">${APP_NAME}</h1>
+          </div>
+          <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #111827; margin-top: 0;">New Company Access</h2>
+            <p style="color: #6b7280;">
+              You've been granted access${assignedBy} to ${companyNames.length === 1 ? `<strong>${companyList}</strong>` : 'the following companies'} on ${APP_NAME}${companyNames.length > 1 ? ':' : '.'}
+            </p>
+            ${companyBullets}
+            <p style="color: #6b7280;">
+              You can now view dashboards and data for ${companyNames.length === 1 ? 'this company' : 'these companies'} in your account.
+            </p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${appUrl}/dashboard" style="background: #22c55e; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
+                Go to Dashboard
+              </a>
+            </div>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+            <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">
+              This email was sent by ${APP_NAME}. If you weren't expecting this access, please contact your administrator.
+            </p>
+          </div>
+        </body>
+      </html>
+    `
+
+    const text = `
+New Company Access on ${APP_NAME}
+
+You've been granted access${assignedBy} to ${companyNames.length === 1 ? companyList : 'the following companies'} on ${APP_NAME}:
+${companyTextBullets}
+You can now view dashboards and data for ${companyNames.length === 1 ? 'this company' : 'these companies'} in your account.
+
+Go to Dashboard: ${appUrl}/dashboard
+
+- The ${APP_NAME} Team
+    `.trim()
+
+    const subject = companyNames.length === 1
+      ? `You now have access to ${companyList} on ${APP_NAME}`
+      : `You now have access to ${companyNames.length} new companies on ${APP_NAME}`
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      html,
+      text,
+    })
+  }
+
   static async sendWelcomeEmail(email: string, name?: string) {
     const greeting = name ? `Hi ${name}` : 'Welcome'
 

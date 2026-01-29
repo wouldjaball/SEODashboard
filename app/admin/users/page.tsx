@@ -254,7 +254,12 @@ export default function AdminUsersPage() {
       const data = await response.json()
 
       if (response.ok) {
-        alert(`User invited successfully! They will receive an email with login instructions.`)
+        // Check if email was sent successfully
+        if (data.emailSent === false) {
+          alert(`User account created, but the invitation email failed to send.\n\nError: ${data.emailError || 'Unknown error'}\n\nPlease use "Resend Invitation" to try again.`)
+        } else {
+          alert(`User invited successfully! They will receive an email with login instructions.`)
+        }
         setInviteDialogOpen(false)
         setInviteEmail('')
         setInviteCompanyIds([])
@@ -513,7 +518,7 @@ export default function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[250px]">User</TableHead>
+                  <TableHead className="min-w-[280px]">User</TableHead>
                   <TableHead className="w-[140px]">Status</TableHead>
                   <TableHead className="w-[100px]">Role</TableHead>
                   <TableHead>Accounts</TableHead>
@@ -528,10 +533,10 @@ export default function AdminUsersPage() {
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium shrink-0">
                           {user.email.substring(0, 2).toUpperCase()}
                         </div>
-                        <span className="font-medium truncate max-w-[180px]">
+                        <span className="font-medium break-all">
                           {user.email}
                         </span>
                       </div>

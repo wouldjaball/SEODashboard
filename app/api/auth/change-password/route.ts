@@ -69,6 +69,30 @@ export async function POST(request: Request) {
       )
     }
 
+    // Mark any pending invitations as accepted
+    if (user.email) {
+      const { data: acceptedInvites } = await serviceClient
+        .from('pending_invitations')
+        .update({ accepted_at: new Date().toISOString() })
+        .eq('email', user.email.toLowerCase())
+        .is('accepted_at', null)
+        .select('company_id')
+
+      // Log the acceptance to audit log
+      if (acceptedInvites && acceptedInvites.length > 0) {
+        const companyIds = acceptedInvites.map(inv => inv.company_id)
+        await serviceClient
+          .from('invite_audit_log')
+          .insert({
+            admin_id: user.id,
+            action: 'accept',
+            target_email: user.email.toLowerCase(),
+            company_ids: companyIds,
+            metadata: { password_changed_at: new Date().toISOString() }
+          })
+      }
+    }
+
     // Sign in again with new password to refresh session
     await supabase.auth.signInWithPassword({
       email: user.email!,
