@@ -11,9 +11,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const hasTokens = await OAuthTokenService.hasValidTokens(user.id)
+    // Check Google and LinkedIn connections in parallel
+    const [googleConnected, linkedinConnected] = await Promise.all([
+      OAuthTokenService.hasValidTokens(user.id),
+      OAuthTokenService.hasValidLinkedInTokens(user.id)
+    ])
 
-    return NextResponse.json({ connected: hasTokens })
+    return NextResponse.json({
+      connected: googleConnected,  // Keep backward compatibility
+      googleConnected,
+      linkedinConnected
+    })
   } catch (error) {
     console.error('Status check error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { OAUTH_SCOPES_STRING } from '@/lib/constants/oauth-scopes'
+import { LINKEDIN_OAUTH_SCOPES_STRING } from '@/lib/constants/linkedin-oauth-scopes'
 
 interface GoogleConnection {
   id: string
@@ -27,6 +28,13 @@ interface GoogleConnection {
   googleIdentityName?: string
   youtubeChannelId?: string
   youtubeChannelName?: string
+  createdAt: string
+}
+
+interface LinkedInConnection {
+  id: string
+  linkedinOrganizationId: string
+  linkedinOrganizationName?: string
   createdAt: string
 }
 
@@ -108,26 +116,50 @@ export default function AdminAccountsPage() {
   const [showOAuthGuide, setShowOAuthGuide] = useState(false)
   const [deletingConnectionId, setDeletingConnectionId] = useState<string | null>(null)
 
+  // LinkedIn connection state
+  const [isLinkedInConnected, setIsLinkedInConnected] = useState(false)
+  const [linkedinConnections, setLinkedinConnections] = useState<LinkedInConnection[]>([])
+  const [deletingLinkedInConnectionId, setDeletingLinkedInConnectionId] = useState<string | null>(null)
+
   useEffect(() => {
     fetchData()
 
     // Check for success message from OAuth callback
     const params = new URLSearchParams(window.location.search)
     if (params.get('success') === 'true') {
+      const provider = params.get('provider')
       const channel = params.get('channel')
+      const organization = params.get('organization')
       const mapped = params.get('mapped')
       const company = params.get('company')
 
-      if (mapped === 'true' && company && channel) {
-        alert(`Successfully connected "${channel}" to ${company}!`)
-      } else if (channel) {
-        alert(`Successfully connected YouTube account with channel "${channel}"!`)
+      if (provider === 'linkedin') {
+        // LinkedIn OAuth success
+        if (mapped === 'true' && company && organization) {
+          alert(`Successfully connected LinkedIn organization "${organization}" to ${company}!`)
+        } else if (organization) {
+          alert(`Successfully connected LinkedIn organization "${organization}"!`)
+        } else {
+          alert('Successfully connected LinkedIn account!')
+        }
+      } else {
+        // Google OAuth success
+        if (mapped === 'true' && company && channel) {
+          alert(`Successfully connected "${channel}" to ${company}!`)
+        } else if (channel) {
+          alert(`Successfully connected YouTube account with channel "${channel}"!`)
+        }
       }
 
       // Clean up URL
       window.history.replaceState({}, '', '/admin/accounts')
     } else if (params.get('error')) {
-      alert('Failed to connect YouTube account. Please try again.')
+      const provider = params.get('provider')
+      if (provider === 'linkedin') {
+        alert('Failed to connect LinkedIn account. Please try again.')
+      } else {
+        alert('Failed to connect YouTube account. Please try again.')
+      }
       window.history.replaceState({}, '', '/admin/accounts')
     }
   }, [])
@@ -135,7 +167,7 @@ export default function AdminAccountsPage() {
   async function fetchData() {
     setIsLoading(true)
     try {
-      const [companiesRes, gaRes, gscRes, ytRes, liRes, mappingsRes, statusRes, connectionsRes, liSheetConfigsRes] = await Promise.all([
+      const [companiesRes, gaRes, gscRes, ytRes, liRes, mappingsRes, statusRes, connectionsRes, liSheetConfigsRes, liConnectionsRes] = await Promise.all([
         fetch('/api/admin/companies'),
         fetch('/api/integrations/ga/properties'),
         fetch('/api/integrations/gsc/sites'),
@@ -144,10 +176,11 @@ export default function AdminAccountsPage() {
         fetch('/api/integrations/mappings'),
         fetch('/api/integrations/status'),
         fetch('/api/integrations/connections'),
-        fetch('/api/integrations/linkedin/sheets')
+        fetch('/api/integrations/linkedin/sheets'),
+        fetch('/api/integrations/linkedin/connections')
       ])
 
-      const [companiesData, gaData, gscData, ytData, liData, mappingsData, statusData, connectionsData, liSheetConfigsData] = await Promise.all([
+      const [companiesData, gaData, gscData, ytData, liData, mappingsData, statusData, connectionsData, liSheetConfigsData, liConnectionsData] = await Promise.all([
         companiesRes.json(),
         gaRes.json(),
         gscRes.json(),
@@ -156,7 +189,8 @@ export default function AdminAccountsPage() {
         mappingsRes.json(),
         statusRes.json(),
         connectionsRes.json(),
-        liSheetConfigsRes.json()
+        liSheetConfigsRes.json(),
+        liConnectionsRes.json()
       ])
 
       setCompanies(companiesData.companies || [])
@@ -166,7 +200,9 @@ export default function AdminAccountsPage() {
       setLinkedinPages(liData.pages || [])
       setMappings(mappingsData.mappings || {})
       setIsConnected(statusData.connected || false)
+      setIsLinkedInConnected(statusData.linkedinConnected || false)
       setConnections(connectionsData.connections || [])
+      setLinkedinConnections(liConnectionsData.connections || [])
       setLinkedinSheetConfigs(liSheetConfigsData.configs || {})
     } catch (error) {
       console.error('Failed to fetch data:', error)
@@ -441,6 +477,64 @@ export default function AdminAccountsPage() {
     }
   }
 
+  // LinkedIn OAuth functions
+  function triggerLinkedInOAuth(options?: { companyId?: string; companyName?: string }) {
+    const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
+
+    if (!clientId) {
+      alert('LinkedIn OAuth is not configured. Please contact support.')
+      return
+    }
+
+    const state = JSON.stringify({
+      companyId: options?.companyId,
+      companyName: options?.companyName,
+      returnTo: '/admin/accounts'
+    })
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: `${window.location.origin}/api/auth/linkedin/callback`,
+      scope: LINKEDIN_OAUTH_SCOPES_STRING,
+      state
+    })
+
+    window.location.href = `https://www.linkedin.com/oauth/v2/authorization?${params}`
+  }
+
+  function connectLinkedInForCompany(companyId: string, companyName: string) {
+    triggerLinkedInOAuth({ companyId, companyName })
+  }
+
+  async function handleDeleteLinkedInConnection(connectionId: string) {
+    if (!confirm('Are you sure you want to remove this LinkedIn connection?')) {
+      return
+    }
+
+    setDeletingLinkedInConnectionId(connectionId)
+    try {
+      const response = await fetch(`/api/integrations/linkedin/connections?id=${connectionId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setLinkedinConnections(prev => prev.filter(c => c.id !== connectionId))
+        if (linkedinConnections.length <= 1) {
+          setIsLinkedInConnected(false)
+        }
+        await fetchData() // Refresh all data
+      } else {
+        alert('Failed to remove LinkedIn connection')
+      }
+    } catch (error) {
+      console.error('Failed to delete LinkedIn connection:', error)
+      alert('Failed to remove LinkedIn connection')
+    } finally {
+      setDeletingLinkedInConnectionId(null)
+    }
+  }
+
   async function handleRefreshProperties() {
     setIsRefreshing(true)
     try {
@@ -607,6 +701,107 @@ export default function AdminAccountsPage() {
                   <strong>Need YouTube Analytics for a Brand Account?</strong> Click &quot;Add Account&quot; and select the Brand Account (not your personal account) during authorization.
                 </AlertDescription>
               </Alert>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* LinkedIn Connection Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+                <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                </svg>
+              </div>
+              <div>
+                <CardTitle>LinkedIn Organization</CardTitle>
+                <CardDescription>
+                  Connect to access LinkedIn Page analytics via Community Management API
+                </CardDescription>
+              </div>
+            </div>
+            <Badge variant={isLinkedInConnected ? 'default' : 'secondary'}>
+              {isLinkedInConnected ? (
+                <><CheckCircle className="h-3 w-3 mr-1" /> Connected</>
+              ) : (
+                <><XCircle className="h-3 w-3 mr-1" /> Not Connected</>
+              )}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!isLinkedInConnected ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your LinkedIn account to access organization analytics including followers, page views, and post engagement.
+              </p>
+              <Button onClick={() => triggerLinkedInOAuth()}>
+                Connect LinkedIn Account
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Connected LinkedIn Organizations */}
+              {linkedinConnections.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Connected Organizations</span>
+                    <Button variant="outline" size="sm" onClick={() => triggerLinkedInOAuth()}>
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Organization
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {linkedinConnections.map((conn) => (
+                      <div key={conn.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
+                            <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {conn.linkedinOrganizationName || conn.linkedinOrganizationId}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Organization ID: {conn.linkedinOrganizationId}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteLinkedInConnection(conn.id)}
+                          disabled={deletingLinkedInConnectionId === conn.id}
+                        >
+                          {deletingLinkedInConnectionId === conn.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {linkedinConnections.length === 0 && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Connected but no organizations found. Make sure you have admin access to a LinkedIn organization.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => triggerLinkedInOAuth()}>
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Reconnect
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -790,27 +985,42 @@ export default function AdminAccountsPage() {
 
                         <div className="space-y-2">
                           <Label className="text-xs">LinkedIn Page</Label>
-                          <Select
-                            value={mapping.linkedinPageId || 'none'}
-                            onValueChange={(value) =>
-                              setMappings(prev => ({
-                                ...prev,
-                                [company.id]: { ...mapping, linkedinPageId: value === 'none' ? '' : value }
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select page" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">-- None --</SelectItem>
-                              {linkedinPages.map((page) => (
-                                <SelectItem key={page.id} value={page.id}>
-                                  {page.page_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex gap-2">
+                            <Select
+                              value={mapping.linkedinPageId || 'none'}
+                              onValueChange={(value) =>
+                                setMappings(prev => ({
+                                  ...prev,
+                                  [company.id]: { ...mapping, linkedinPageId: value === 'none' ? '' : value }
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Select page" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">-- None --</SelectItem>
+                                {linkedinPages.map((page) => (
+                                  <SelectItem key={page.id} value={page.id}>
+                                    {page.page_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => connectLinkedInForCompany(company.id, company.name)}
+                              title={`Connect LinkedIn organization for ${company.name}`}
+                            >
+                              <svg className="h-4 w-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                              </svg>
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Click the LinkedIn icon to connect an organization
+                          </p>
                         </div>
                       </div>
                     </CardContent>

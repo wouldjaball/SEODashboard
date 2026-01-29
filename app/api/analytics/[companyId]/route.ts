@@ -3,6 +3,8 @@ import { GoogleAnalyticsService } from '@/lib/services/google-analytics-service'
 import { GoogleSearchConsoleService } from '@/lib/services/google-search-console-service'
 import { YouTubeAnalyticsService } from '@/lib/services/youtube-analytics-service'
 import { LinkedInSheetsService } from '@/lib/services/linkedin-sheets-service'
+import { LinkedInAnalyticsService } from '@/lib/services/linkedin-analytics-service'
+import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
 import { subDays, format } from 'date-fns'
 
@@ -387,65 +389,123 @@ export async function GET(
       }
     }
 
-    // Fetch LinkedIn data from Google Sheets (Power My Analytics)
+    // Fetch LinkedIn data - try API first, then Google Sheets, then mock data
+    let linkedInDataFetched = false
+
+    // First, try LinkedIn Community Management API
     try {
-      // Check if there's a LinkedIn sheet configuration for this company
-      const { data: linkedinSheetConfig, error: liConfigError } = await supabase
-        .from('linkedin_sheet_configs')
-        .select('*')
+      // Check for LinkedIn page mapping with OAuth connection
+      const { data: linkedinMapping } = await supabase
+        .from('company_linkedin_mappings')
+        .select('linkedin_page_id')
         .eq('company_id', companyId)
         .maybeSingle()
 
-      console.log('LinkedIn sheet config lookup:', { linkedinSheetConfig, liConfigError })
+      if (linkedinMapping?.linkedin_page_id) {
+        const { data: linkedinPage } = await supabase
+          .from('linkedin_pages')
+          .select('*')
+          .eq('id', linkedinMapping.linkedin_page_id)
+          .single()
 
-      if (linkedinSheetConfig &&
-          (linkedinSheetConfig.page_analytics_sheet_id || linkedinSheetConfig.post_analytics_sheet_id)) {
-        // Fetch LinkedIn data from Google Sheets
-        console.log('=== LinkedIn Sheets FETCH DEBUG ===')
-        console.log('User ID:', user.id)
-        console.log('Config:', JSON.stringify(linkedinSheetConfig))
+        if (linkedinPage?.page_id) {
+          // Check if user has LinkedIn OAuth tokens
+          const hasLinkedInTokens = await OAuthTokenService.hasValidLinkedInTokens(user.id)
 
-        const linkedInData = await LinkedInSheetsService.fetchAllLinkedInData(user.id, {
-          id: linkedinSheetConfig.id,
-          companyId: linkedinSheetConfig.company_id,
-          pageAnalyticsSheetId: linkedinSheetConfig.page_analytics_sheet_id,
-          pageAnalyticsRange: linkedinSheetConfig.page_analytics_range,
-          postAnalyticsSheetId: linkedinSheetConfig.post_analytics_sheet_id,
-          postAnalyticsRange: linkedinSheetConfig.post_analytics_range,
-          campaignAnalyticsSheetId: linkedinSheetConfig.campaign_analytics_sheet_id,
-          campaignAnalyticsRange: linkedinSheetConfig.campaign_analytics_range,
-        })
+          if (hasLinkedInTokens) {
+            console.log('=== LinkedIn API FETCH DEBUG ===')
+            console.log('User ID:', user.id)
+            console.log('Organization ID:', linkedinPage.page_id)
 
-        if (linkedInData) {
-          results.liVisitorMetrics = linkedInData.visitorMetrics
-          results.liFollowerMetrics = linkedInData.followerMetrics
-          results.liContentMetrics = linkedInData.contentMetrics
-          results.liVisitorDaily = linkedInData.visitorDaily
-          results.liFollowerDaily = linkedInData.followerDaily
-          results.liImpressionDaily = linkedInData.impressionDaily
-          results.liIndustryDemographics = linkedInData.industryDemographics
-          results.liSeniorityDemographics = linkedInData.seniorityDemographics
-          results.liJobFunctionDemographics = linkedInData.jobFunctionDemographics
-          results.liCompanySizeDemographics = linkedInData.companySizeDemographics
-          results.liUpdates = linkedInData.updates
-          console.log('[LinkedIn] Successfully fetched data from Google Sheets')
-        } else {
-          // Fall back to mock data if sheets return empty
-          console.log('[LinkedIn] No data from sheets, using mock data fallback')
-          addLinkedInMockData(results)
+            const linkedInData = await LinkedInAnalyticsService.fetchAllMetrics(
+              user.id,
+              linkedinPage.page_id,
+              startDate,
+              endDate,
+              previousStartDate,
+              previousEndDate
+            )
+
+            results.liVisitorMetrics = linkedInData.visitorMetrics
+            results.liFollowerMetrics = linkedInData.followerMetrics
+            results.liContentMetrics = linkedInData.contentMetrics
+            results.liVisitorDaily = linkedInData.visitorDaily
+            results.liFollowerDaily = linkedInData.followerDaily
+            results.liImpressionDaily = linkedInData.impressionDaily
+            results.liIndustryDemographics = linkedInData.industryDemographics
+            results.liSeniorityDemographics = linkedInData.seniorityDemographics
+            results.liJobFunctionDemographics = linkedInData.jobFunctionDemographics
+            results.liCompanySizeDemographics = linkedInData.companySizeDemographics
+            results.liUpdates = linkedInData.updates
+            results.liDataSource = 'api'
+            linkedInDataFetched = true
+            console.log('[LinkedIn] Successfully fetched data from Community Management API')
+          }
         }
-      } else {
-        // No LinkedIn sheet config - use mock data
-        console.log('[LinkedIn] No sheet configuration found, using mock data')
-        addLinkedInMockData(results)
       }
     } catch (error: unknown) {
-      console.error('LinkedIn sheets fetch error:', error)
-      // Fall back to mock data on error
-      console.log('[LinkedIn] Error fetching from sheets, using mock data fallback')
-      addLinkedInMockData(results)
       const err = error as Error | undefined
-      results.liError = err?.message || 'Failed to fetch LinkedIn data from sheets'
+      console.error('LinkedIn API fetch error:', err?.message || error)
+      // Continue to try other sources
+    }
+
+    // If API didn't work, try Google Sheets (Power My Analytics)
+    if (!linkedInDataFetched) {
+      try {
+        const { data: linkedinSheetConfig, error: liConfigError } = await supabase
+          .from('linkedin_sheet_configs')
+          .select('*')
+          .eq('company_id', companyId)
+          .maybeSingle()
+
+        console.log('LinkedIn sheet config lookup:', { linkedinSheetConfig, liConfigError })
+
+        if (linkedinSheetConfig &&
+            (linkedinSheetConfig.page_analytics_sheet_id || linkedinSheetConfig.post_analytics_sheet_id)) {
+          console.log('=== LinkedIn Sheets FETCH DEBUG ===')
+          console.log('User ID:', user.id)
+          console.log('Config:', JSON.stringify(linkedinSheetConfig))
+
+          const linkedInData = await LinkedInSheetsService.fetchAllLinkedInData(user.id, {
+            id: linkedinSheetConfig.id,
+            companyId: linkedinSheetConfig.company_id,
+            pageAnalyticsSheetId: linkedinSheetConfig.page_analytics_sheet_id,
+            pageAnalyticsRange: linkedinSheetConfig.page_analytics_range,
+            postAnalyticsSheetId: linkedinSheetConfig.post_analytics_sheet_id,
+            postAnalyticsRange: linkedinSheetConfig.post_analytics_range,
+            campaignAnalyticsSheetId: linkedinSheetConfig.campaign_analytics_sheet_id,
+            campaignAnalyticsRange: linkedinSheetConfig.campaign_analytics_range,
+          })
+
+          if (linkedInData) {
+            results.liVisitorMetrics = linkedInData.visitorMetrics
+            results.liFollowerMetrics = linkedInData.followerMetrics
+            results.liContentMetrics = linkedInData.contentMetrics
+            results.liVisitorDaily = linkedInData.visitorDaily
+            results.liFollowerDaily = linkedInData.followerDaily
+            results.liImpressionDaily = linkedInData.impressionDaily
+            results.liIndustryDemographics = linkedInData.industryDemographics
+            results.liSeniorityDemographics = linkedInData.seniorityDemographics
+            results.liJobFunctionDemographics = linkedInData.jobFunctionDemographics
+            results.liCompanySizeDemographics = linkedInData.companySizeDemographics
+            results.liUpdates = linkedInData.updates
+            results.liDataSource = 'sheets'
+            linkedInDataFetched = true
+            console.log('[LinkedIn] Successfully fetched data from Google Sheets')
+          }
+        }
+      } catch (error: unknown) {
+        console.error('LinkedIn sheets fetch error:', error)
+        const err = error as Error | undefined
+        results.liError = err?.message || 'Failed to fetch LinkedIn data from sheets'
+      }
+    }
+
+    // If still no data, use mock data
+    if (!linkedInDataFetched) {
+      console.log('[LinkedIn] No data source available, using mock data')
+      addLinkedInMockData(results)
+      results.liDataSource = 'mock'
     }
 
     // Cache the results (1 hour expiry)
