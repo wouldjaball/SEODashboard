@@ -266,7 +266,8 @@ export default function AdminUsersPage() {
         setInviteRole('viewer')
         fetchData()
       } else {
-        alert(data.error || 'Failed to invite user. Please try again.')
+        const errorDetails = data.details ? `\n\nDetails: ${data.details}` : ''
+        alert(`${data.error || 'Failed to invite user. Please try again.'}${errorDetails}`)
       }
     } catch (error) {
       console.error('Failed to invite user:', error)

@@ -106,8 +106,8 @@ export async function GET() {
       })
     }
 
-    // Fetch users using admin.listUsers() which bypasses RLS
-    const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers()
+    // Fetch users using admin.listUsers() which bypasses RLS (requires service client)
+    const { data: usersData, error: usersError } = await serviceClient.auth.admin.listUsers()
 
     if (usersError) {
       console.error('Error fetching users:', usersError)

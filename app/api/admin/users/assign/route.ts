@@ -117,7 +117,10 @@ export async function POST(request: Request) {
         })
 
         if (createUserError) {
-          console.error('Error creating user:', createUserError)
+          console.error('Error creating user:', JSON.stringify(createUserError, null, 2))
+          console.error('Error code:', createUserError.code)
+          console.error('Error status:', createUserError.status)
+          console.error('Error name:', createUserError.name)
           // Provide more helpful error messages
           let errorMessage = 'Failed to create user account'
           if (createUserError.message?.includes('already been registered') ||
@@ -127,7 +130,7 @@ export async function POST(request: Request) {
             errorMessage = `Failed to create user account: ${createUserError.message}`
           }
           return NextResponse.json(
-            { error: errorMessage },
+            { error: errorMessage, details: createUserError.message, code: createUserError.code },
             { status: 500 }
           )
         }
