@@ -62,7 +62,8 @@ export async function GET() {
     }
 
     // Get all user_companies relationships for those companies
-    const { data: userCompaniesData, error: ucError } = await supabase
+    // Use serviceClient to bypass RLS (admins need to see all users, not just themselves)
+    const { data: userCompaniesData, error: ucError } = await serviceClient
       .from('user_companies')
       .select(`
         user_id,
