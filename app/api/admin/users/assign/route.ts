@@ -157,7 +157,7 @@ export async function POST(request: Request) {
 
           if (inviteError) {
             console.error('Pending invitation error:', inviteError)
-            assignmentErrors.push(`invitation:${cId}`)
+            assignmentErrors.push(`invitation:${cId}:${inviteError.message}`)
           }
 
           // Create user_company relationship immediately since user exists
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
 
           if (assignError) {
             console.error('User company assignment error:', assignError)
-            assignmentErrors.push(`assignment:${cId}`)
+            assignmentErrors.push(`assignment:${cId}:${assignError.message}`)
           } else {
             successfulAssignments++
           }
@@ -195,7 +195,10 @@ export async function POST(request: Request) {
           console.error('All assignments failed, rolling back user creation:', assignmentErrors)
           await serviceClient.auth.admin.deleteUser(newUser.user.id)
           return NextResponse.json(
-            { error: 'Failed to assign user to companies. User creation has been rolled back.' },
+            {
+              error: 'Failed to assign user to companies. User creation has been rolled back.',
+              details: assignmentErrors.join(', ')
+            },
             { status: 500 }
           )
         }

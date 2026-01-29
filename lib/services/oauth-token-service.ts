@@ -12,12 +12,28 @@ export interface OAuthToken {
   youtubeChannelName?: string
 }
 
+export interface LinkedInOAuthToken {
+  accessToken: string
+  refreshToken?: string
+  expiresAt: Date
+  scope: string
+  linkedinOrganizationId?: string
+  linkedinOrganizationName?: string
+}
+
 export interface GoogleConnection {
   id: string
   googleIdentity: string
   googleIdentityName?: string
   youtubeChannelId?: string
   youtubeChannelName?: string
+  createdAt: Date
+}
+
+export interface LinkedInConnection {
+  id: string
+  linkedinOrganizationId: string
+  linkedinOrganizationName?: string
   createdAt: Date
 }
 
@@ -304,5 +320,203 @@ export class OAuthTokenService {
   static async hasAnyValidTokens(userId: string): Promise<boolean> {
     const connections = await this.listConnections(userId)
     return connections.length > 0
+  }
+
+  // ==================== LinkedIn OAuth Methods ====================
+
+  static async saveLinkedInTokens(
+    userId: string,
+    tokens: {
+      access_token: string
+      refresh_token?: string
+      expires_in: number
+      scope?: string
+    },
+    identity?: {
+      linkedinOrganizationId: string
+      linkedinOrganizationName?: string
+    }
+  ): Promise<void> {
+    const supabase = await createClient()
+
+    const encryptedAccessToken = encryptToken(tokens.access_token)
+    const encryptedRefreshToken = tokens.refresh_token ? encryptToken(tokens.refresh_token) : null
+    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
+
+    const data = {
+      user_id: userId,
+      provider: 'linkedin',
+      access_token: encryptedAccessToken,
+      refresh_token: encryptedRefreshToken || encryptedAccessToken, // LinkedIn may not provide refresh token
+      expires_at: expiresAt.toISOString(),
+      scope: tokens.scope || '',
+      linkedin_organization_id: identity?.linkedinOrganizationId || null,
+      linkedin_organization_name: identity?.linkedinOrganizationName || null,
+      updated_at: new Date().toISOString()
+    }
+
+    console.log('Attempting to save LinkedIn OAuth tokens for user:', userId)
+
+    // Use upsert with the provider and organization as the conflict key
+    const { error } = await supabase.from('oauth_tokens').upsert(data, {
+      onConflict: 'user_id,provider,linkedin_organization_id'
+    })
+
+    if (error) {
+      // Fall back to simpler upsert if the constraint doesn't exist
+      const { error: fallbackError } = await supabase.from('oauth_tokens').upsert(data, {
+        onConflict: 'user_id,provider'
+      })
+
+      if (fallbackError) {
+        console.error('Failed to save LinkedIn OAuth tokens:', fallbackError)
+        throw new Error(`Failed to save LinkedIn OAuth tokens: ${fallbackError.message}`)
+      }
+    }
+
+    console.log('LinkedIn tokens saved successfully')
+  }
+
+  static async getLinkedInTokens(userId: string, organizationId?: string): Promise<LinkedInOAuthToken | null> {
+    const supabase = await createClient()
+
+    let query = supabase
+      .from('oauth_tokens')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'linkedin')
+
+    if (organizationId) {
+      query = query.eq('linkedin_organization_id', organizationId)
+    }
+
+    const { data, error } = await query.limit(1).maybeSingle()
+
+    if (error || !data) return null
+
+    try {
+      return {
+        accessToken: decryptToken(data.access_token),
+        refreshToken: data.refresh_token ? decryptToken(data.refresh_token) : undefined,
+        expiresAt: new Date(data.expires_at),
+        scope: data.scope,
+        linkedinOrganizationId: data.linkedin_organization_id || undefined,
+        linkedinOrganizationName: data.linkedin_organization_name || undefined
+      }
+    } catch (error) {
+      console.error('Failed to decrypt LinkedIn tokens:', error)
+      return null
+    }
+  }
+
+  static async refreshLinkedInAccessToken(userId: string, organizationId?: string): Promise<string | null> {
+    const tokens = await this.getLinkedInTokens(userId, organizationId)
+    if (!tokens) return null
+
+    // Check if token is expired (with 5 minute buffer)
+    const now = new Date()
+    const expiryWithBuffer = new Date(tokens.expiresAt.getTime() - 5 * 60 * 1000)
+
+    if (now < expiryWithBuffer) {
+      return tokens.accessToken
+    }
+
+    // LinkedIn tokens typically have long expiration (60 days for access, 365 days for refresh)
+    // If we have a refresh token, try to refresh
+    if (tokens.refreshToken) {
+      try {
+        const response = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: tokens.refreshToken,
+            client_id: process.env.LINKEDIN_OAUTH_CLIENT_ID!,
+            client_secret: process.env.LINKEDIN_OAUTH_CLIENT_SECRET!
+          })
+        })
+
+        if (!response.ok) {
+          console.error('LinkedIn token refresh failed:', await response.text())
+          return null
+        }
+
+        const data = await response.json()
+
+        // Save new tokens
+        await this.saveLinkedInTokens(userId, {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token || tokens.refreshToken,
+          expires_in: data.expires_in,
+          scope: tokens.scope
+        }, tokens.linkedinOrganizationId ? {
+          linkedinOrganizationId: tokens.linkedinOrganizationId,
+          linkedinOrganizationName: tokens.linkedinOrganizationName
+        } : undefined)
+
+        return data.access_token
+      } catch (error) {
+        console.error('Failed to refresh LinkedIn token:', error)
+        return null
+      }
+    }
+
+    // No refresh token and token expired - user needs to re-authenticate
+    console.log('LinkedIn token expired and no refresh token available')
+    return null
+  }
+
+  static async listLinkedInConnections(userId: string): Promise<LinkedInConnection[]> {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('oauth_tokens')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'linkedin')
+      .order('created_at', { ascending: false })
+
+    if (error || !data) return []
+
+    return data.map(row => ({
+      id: row.id,
+      linkedinOrganizationId: row.linkedin_organization_id || 'Connected Organization',
+      linkedinOrganizationName: row.linkedin_organization_name || undefined,
+      createdAt: new Date(row.created_at)
+    }))
+  }
+
+  static async hasValidLinkedInTokens(userId: string): Promise<boolean> {
+    const tokens = await this.getLinkedInTokens(userId)
+    return tokens !== null
+  }
+
+  static async deleteLinkedInTokens(userId: string): Promise<void> {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+      .from('oauth_tokens')
+      .delete()
+      .eq('user_id', userId)
+      .eq('provider', 'linkedin')
+
+    if (error) {
+      throw new Error(`Failed to delete LinkedIn OAuth tokens: ${error.message}`)
+    }
+  }
+
+  static async deleteLinkedInConnection(userId: string, connectionId: string): Promise<void> {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+      .from('oauth_tokens')
+      .delete()
+      .eq('id', connectionId)
+      .eq('user_id', userId)
+      .eq('provider', 'linkedin')
+
+    if (error) {
+      throw new Error(`Failed to delete LinkedIn connection: ${error.message}`)
+    }
   }
 }
