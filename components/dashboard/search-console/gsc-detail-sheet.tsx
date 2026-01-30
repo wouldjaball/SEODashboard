@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { formatNumber, formatPercent } from "@/lib/utils"
 import type { GSCKeyword, GSCLandingPage } from "@/lib/types"
 
@@ -94,14 +95,21 @@ export function GSCDetailSheet({
   const [search, setSearch] = React.useState("")
   const [sortField, setSortField] = React.useState<SortField>("impressions")
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc")
+  const [error, setError] = React.useState<string | null>(null)
 
   // Reset state when type changes
   React.useEffect(() => {
     if (type) {
-      const config = typeConfig[type]
-      setSortField(config.defaultSort)
-      setSortDirection(config.defaultDirection)
-      setSearch("")
+      try {
+        const config = typeConfig[type]
+        setSortField(config.defaultSort)
+        setSortDirection(config.defaultDirection)
+        setSearch("")
+        setError(null)
+      } catch (err) {
+        console.error('Error resetting state:', err)
+        setError('Failed to initialize component')
+      }
     }
   }, [type])
 
@@ -113,111 +121,153 @@ export function GSCDetailSheet({
 
   // Filter and sort data
   const filteredKeywords = React.useMemo(() => {
-    let data = [...keywords]
+    try {
+      // Validate keywords data
+      if (!Array.isArray(keywords)) {
+        console.warn('Keywords is not an array:', keywords)
+        return []
+      }
 
-    // Filter by search
-    if (search) {
-      const searchLower = search.toLowerCase()
-      data = data.filter(k => k.query.toLowerCase().includes(searchLower))
+      let data = keywords.filter(k => k && typeof k === 'object')
+
+      // Filter by search
+      if (search) {
+        const searchLower = search.toLowerCase()
+        data = data.filter(k => {
+          return k.query && typeof k.query === 'string' && k.query.toLowerCase().includes(searchLower)
+        })
+      }
+
+      // Sort
+      data.sort((a, b) => {
+        if (!a || !b) return 0
+        
+        let aVal: number | string
+        let bVal: number | string
+
+        try {
+          switch (sortField) {
+            case "query":
+              aVal = a.query || ''
+              bVal = b.query || ''
+              break
+            case "impressions":
+              aVal = a.impressions || 0
+              bVal = b.impressions || 0
+              break
+            case "clicks":
+              aVal = a.clicks || 0
+              bVal = b.clicks || 0
+              break
+            case "ctr":
+              aVal = a.ctr || 0
+              bVal = b.ctr || 0
+              break
+            case "avgPosition":
+              aVal = a.avgPosition || 0
+              bVal = b.avgPosition || 0
+              break
+            default:
+              aVal = a.impressions || 0
+              bVal = b.impressions || 0
+          }
+
+          if (typeof aVal === "string" && typeof bVal === "string") {
+            return sortDirection === "asc"
+              ? aVal.localeCompare(bVal)
+              : bVal.localeCompare(aVal)
+          }
+
+          return sortDirection === "asc"
+            ? (aVal as number) - (bVal as number)
+            : (bVal as number) - (aVal as number)
+        } catch (sortError) {
+          console.error('Error sorting keywords:', sortError)
+          return 0
+        }
+      })
+
+      return data
+    } catch (err) {
+      console.error('Error filtering keywords:', err)
+      setError('Failed to process keywords data')
+      return []
     }
-
-    // Sort
-    data.sort((a, b) => {
-      let aVal: number | string
-      let bVal: number | string
-
-      switch (sortField) {
-        case "query":
-          aVal = a.query
-          bVal = b.query
-          break
-        case "impressions":
-          aVal = a.impressions
-          bVal = b.impressions
-          break
-        case "clicks":
-          aVal = a.clicks
-          bVal = b.clicks
-          break
-        case "ctr":
-          aVal = a.ctr
-          bVal = b.ctr
-          break
-        case "avgPosition":
-          aVal = a.avgPosition
-          bVal = b.avgPosition
-          break
-        default:
-          aVal = a.impressions
-          bVal = b.impressions
-      }
-
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortDirection === "asc"
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal)
-      }
-
-      return sortDirection === "asc"
-        ? (aVal as number) - (bVal as number)
-        : (bVal as number) - (aVal as number)
-    })
-
-    return data
   }, [keywords, search, sortField, sortDirection])
 
   const filteredPages = React.useMemo(() => {
-    let data = [...landingPages]
+    try {
+      // Validate landing pages data
+      if (!Array.isArray(landingPages)) {
+        console.warn('Landing pages is not an array:', landingPages)
+        return []
+      }
 
-    // Filter by search
-    if (search) {
-      const searchLower = search.toLowerCase()
-      data = data.filter(p => p.url.toLowerCase().includes(searchLower))
+      let data = landingPages.filter(p => p && typeof p === 'object')
+
+      // Filter by search
+      if (search) {
+        const searchLower = search.toLowerCase()
+        data = data.filter(p => {
+          return p.url && typeof p.url === 'string' && p.url.toLowerCase().includes(searchLower)
+        })
+      }
+
+      // Sort
+      data.sort((a, b) => {
+        if (!a || !b) return 0
+        
+        let aVal: number | string
+        let bVal: number | string
+
+        try {
+          switch (sortField) {
+            case "url":
+              aVal = a.url || ''
+              bVal = b.url || ''
+              break
+            case "impressions":
+              aVal = a.impressions || 0
+              bVal = b.impressions || 0
+              break
+            case "clicks":
+              aVal = a.clicks || 0
+              bVal = b.clicks || 0
+              break
+            case "ctr":
+              aVal = a.ctr || 0
+              bVal = b.ctr || 0
+              break
+            case "avgPosition":
+              aVal = a.avgPosition || 0
+              bVal = b.avgPosition || 0
+              break
+            default:
+              aVal = a.impressions || 0
+              bVal = b.impressions || 0
+          }
+
+          if (typeof aVal === "string" && typeof bVal === "string") {
+            return sortDirection === "asc"
+              ? aVal.localeCompare(bVal)
+              : bVal.localeCompare(aVal)
+          }
+
+          return sortDirection === "asc"
+            ? (aVal as number) - (bVal as number)
+            : (bVal as number) - (aVal as number)
+        } catch (sortError) {
+          console.error('Error sorting pages:', sortError)
+          return 0
+        }
+      })
+
+      return data
+    } catch (err) {
+      console.error('Error filtering pages:', err)
+      setError('Failed to process landing pages data')
+      return []
     }
-
-    // Sort
-    data.sort((a, b) => {
-      let aVal: number | string
-      let bVal: number | string
-
-      switch (sortField) {
-        case "url":
-          aVal = a.url
-          bVal = b.url
-          break
-        case "impressions":
-          aVal = a.impressions
-          bVal = b.impressions
-          break
-        case "clicks":
-          aVal = a.clicks
-          bVal = b.clicks
-          break
-        case "ctr":
-          aVal = a.ctr
-          bVal = b.ctr
-          break
-        case "avgPosition":
-          aVal = a.avgPosition
-          bVal = b.avgPosition
-          break
-        default:
-          aVal = a.impressions
-          bVal = b.impressions
-      }
-
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortDirection === "asc"
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal)
-      }
-
-      return sortDirection === "asc"
-        ? (aVal as number) - (bVal as number)
-        : (bVal as number) - (aVal as number)
-    })
-
-    return data
   }, [landingPages, search, sortField, sortDirection])
 
   const handleSort = (field: SortField) => {
@@ -245,6 +295,14 @@ export function GSCDetailSheet({
         </SheetHeader>
 
         <div className="mt-4 space-y-4">
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -377,17 +435,20 @@ export function GSCDetailSheet({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredKeywords.map((keyword, i) => (
-                      <TableRow key={`${keyword.query}-${i}`}>
-                        <TableCell className="font-medium max-w-[200px] truncate">
-                          {keyword.query}
-                        </TableCell>
-                        <TableCell className="text-right">{formatNumber(keyword.impressions)}</TableCell>
-                        <TableCell className="text-right">{formatNumber(keyword.clicks)}</TableCell>
-                        <TableCell className="text-right">{formatPercent(keyword.ctr)}</TableCell>
-                        <TableCell className="text-right">{keyword.avgPosition.toFixed(1)}</TableCell>
-                      </TableRow>
-                    ))
+                    filteredKeywords.map((keyword, i) => {
+                      if (!keyword) return null
+                      return (
+                        <TableRow key={`${keyword.query || 'unknown'}-${i}`}>
+                          <TableCell className="font-medium max-w-[200px] truncate">
+                            {keyword.query || 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-right">{formatNumber(keyword.impressions || 0)}</TableCell>
+                          <TableCell className="text-right">{formatNumber(keyword.clicks || 0)}</TableCell>
+                          <TableCell className="text-right">{formatPercent(keyword.ctr || 0)}</TableCell>
+                          <TableCell className="text-right">{(keyword.avgPosition || 0).toFixed(1)}</TableCell>
+                        </TableRow>
+                      )
+                    })
                   )
                 ) : (
                   filteredPages.length === 0 ? (
@@ -397,17 +458,20 @@ export function GSCDetailSheet({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredPages.map((page, i) => (
-                      <TableRow key={`${page.url}-${i}`}>
-                        <TableCell className="font-medium max-w-[200px] truncate">
-                          {page.url}
-                        </TableCell>
-                        <TableCell className="text-right">{formatNumber(page.impressions)}</TableCell>
-                        <TableCell className="text-right">{formatNumber(page.clicks)}</TableCell>
-                        <TableCell className="text-right">{formatPercent(page.ctr)}</TableCell>
-                        <TableCell className="text-right">{page.avgPosition.toFixed(1)}</TableCell>
-                      </TableRow>
-                    ))
+                    filteredPages.map((page, i) => {
+                      if (!page) return null
+                      return (
+                        <TableRow key={`${page.url || 'unknown'}-${i}`}>
+                          <TableCell className="font-medium max-w-[200px] truncate">
+                            {page.url || 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-right">{formatNumber(page.impressions || 0)}</TableCell>
+                          <TableCell className="text-right">{formatNumber(page.clicks || 0)}</TableCell>
+                          <TableCell className="text-right">{formatPercent(page.ctr || 0)}</TableCell>
+                          <TableCell className="text-right">{(page.avgPosition || 0).toFixed(1)}</TableCell>
+                        </TableRow>
+                      )
+                    })
                   )
                 )}
               </TableBody>

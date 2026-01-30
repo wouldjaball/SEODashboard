@@ -9,6 +9,7 @@ import { KeywordTable } from "./keyword-table"
 import { LandingPagePerformanceTable } from "./landing-page-performance-table"
 import { CountryPerformanceMap } from "./country-performance-map"
 import { GSCDetailSheet, type GSCDetailType } from "./gsc-detail-sheet"
+import { ErrorBoundary } from "@/components/ui/error-boundary"
 import type {
   GSCMetrics,
   GSCWeeklyData,
@@ -76,13 +77,15 @@ export function GSCReport({
       <LandingPagePerformanceTable data={landingPages} />
 
       {/* Detail Sheet */}
-      <GSCDetailSheet
-        open={detailSheetOpen}
-        onOpenChange={setDetailSheetOpen}
-        type={detailType}
-        keywords={keywords}
-        landingPages={landingPages}
-      />
+      <ErrorBoundary onReset={() => setDetailSheetOpen(false)}>
+        <GSCDetailSheet
+          open={detailSheetOpen}
+          onOpenChange={setDetailSheetOpen}
+          type={detailType}
+          keywords={keywords}
+          landingPages={landingPages}
+        />
+      </ErrorBoundary>
     </div>
   )
 }
