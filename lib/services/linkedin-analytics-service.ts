@@ -45,14 +45,18 @@ export class LinkedInAnalyticsService {
       throw new Error(`LinkedIn API Error: ${response.status} - ${errorText}`)
     }
 
-    return response.json()
+    const jsonResponse = await response.json()
+    console.log('LinkedIn API response:', JSON.stringify(jsonResponse, null, 2))
+    return jsonResponse
   }
 
   /**
    * Format date for LinkedIn API (Unix timestamp in milliseconds)
    */
   private static formatDate(dateStr: string): string {
-    return new Date(dateStr).getTime().toString()
+    const timestamp = new Date(dateStr).getTime().toString()
+    console.log(`[LinkedIn] Converting date ${dateStr} to timestamp ${timestamp}`)
+    return timestamp
   }
 
   /**

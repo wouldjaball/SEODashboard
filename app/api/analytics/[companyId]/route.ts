@@ -56,19 +56,30 @@ export async function GET(
     let startDate = searchParams.get('startDate') || format(subDays(new Date(), 30), 'yyyy-MM-dd')
     let endDate = searchParams.get('endDate') || format(new Date(), 'yyyy-MM-dd')
     
-    // Validate dates - don't allow future dates beyond today
+    // Validate dates - don't allow future dates beyond today (with small buffer for timezone issues)
     const today = new Date()
+    today.setDate(today.getDate() + 1) // Allow up to tomorrow to handle timezone differences
     const startDateObj = new Date(startDate)
     const endDateObj = new Date(endDate)
     
+    console.log('[Analytics API] Date validation:', { 
+      today: format(new Date(), 'yyyy-MM-dd'),
+      startDate, 
+      endDate,
+      isEndDateFuture: endDateObj > today,
+      isStartDateFuture: startDateObj > today
+    })
+    
     if (endDateObj > today) {
-      console.warn('[Analytics API] End date is in the future, adjusting to today:', { originalEnd: endDate, adjustedEnd: format(today, 'yyyy-MM-dd') })
-      endDate = format(today, 'yyyy-MM-dd')
+      const adjustedEnd = format(new Date(), 'yyyy-MM-dd')
+      console.warn('[Analytics API] End date is in the future, adjusting to today:', { originalEnd: endDate, adjustedEnd })
+      endDate = adjustedEnd
     }
     
     if (startDateObj > today) {
-      console.warn('[Analytics API] Start date is in the future, adjusting to 30 days ago:', { originalStart: startDate, adjustedStart: format(subDays(today, 30), 'yyyy-MM-dd') })
-      startDate = format(subDays(today, 30), 'yyyy-MM-dd')
+      const adjustedStart = format(subDays(new Date(), 30), 'yyyy-MM-dd')
+      console.warn('[Analytics API] Start date is in the future, adjusting to 30 days ago:', { originalStart: startDate, adjustedStart })
+      startDate = adjustedStart
     }
 
     // Calculate previous period dates
