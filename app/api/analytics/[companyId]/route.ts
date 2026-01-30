@@ -53,8 +53,23 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url)
-    const startDate = searchParams.get('startDate') || format(subDays(new Date(), 30), 'yyyy-MM-dd')
-    const endDate = searchParams.get('endDate') || format(new Date(), 'yyyy-MM-dd')
+    let startDate = searchParams.get('startDate') || format(subDays(new Date(), 30), 'yyyy-MM-dd')
+    let endDate = searchParams.get('endDate') || format(new Date(), 'yyyy-MM-dd')
+    
+    // Validate dates - don't allow future dates beyond today
+    const today = new Date()
+    const startDateObj = new Date(startDate)
+    const endDateObj = new Date(endDate)
+    
+    if (endDateObj > today) {
+      console.warn('[Analytics API] End date is in the future, adjusting to today:', { originalEnd: endDate, adjustedEnd: format(today, 'yyyy-MM-dd') })
+      endDate = format(today, 'yyyy-MM-dd')
+    }
+    
+    if (startDateObj > today) {
+      console.warn('[Analytics API] Start date is in the future, adjusting to 30 days ago:', { originalStart: startDate, adjustedStart: format(subDays(today, 30), 'yyyy-MM-dd') })
+      startDate = format(subDays(today, 30), 'yyyy-MM-dd')
+    }
 
     // Calculate previous period dates
     const daysDiff = Math.abs(new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
@@ -531,6 +546,11 @@ export async function GET(
               }
             }
 
+            console.log('=== LINKEDIN API FETCH DEBUG ===')
+            console.log('LinkedIn Owner User ID:', liOwnerUserId)
+            console.log('LinkedIn Page ID:', linkedinPage.page_id)
+            console.log('Date range (after validation):', { startDate, endDate, previousStartDate, previousEndDate })
+            
             const linkedInData = await LinkedInAnalyticsService.fetchAllMetrics(
               liOwnerUserId,
               linkedinPage.page_id,
@@ -539,6 +559,12 @@ export async function GET(
               previousStartDate,
               previousEndDate
             )
+            
+            console.log('LinkedIn API Response Summary:')
+            console.log('- Page Views:', linkedInData.visitorMetrics?.pageViews || 0)
+            console.log('- Unique Visitors:', linkedInData.visitorMetrics?.uniqueVisitors || 0)
+            console.log('- Custom Button Clicks:', linkedInData.visitorMetrics?.customButtonClicks || 0)
+            console.log('- Total Followers:', linkedInData.followerMetrics?.totalFollowers || 0)
 
             results.liVisitorMetrics = linkedInData.visitorMetrics
             results.liFollowerMetrics = linkedInData.followerMetrics
