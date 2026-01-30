@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard, Trash2, Youtube, RefreshCw, XCircle, Info } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Plus, X, LayoutDashboard, Trash2, Youtube, RefreshCw, XCircle, Info, Settings2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Dialog,
@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/dialog'
 import { OAUTH_SCOPES_STRING } from '@/lib/constants/oauth-scopes'
 import { LINKEDIN_OAUTH_SCOPES_STRING } from '@/lib/constants/linkedin-oauth-scopes'
+import { Checkbox } from '@/components/ui/checkbox'
+import { cn } from '@/lib/utils'
 
 interface GoogleConnection {
   id: string
@@ -87,6 +89,14 @@ interface LinkedInSheetConfigs {
   [companyId: string]: LinkedInSheetConfig
 }
 
+interface LinkedInOrganization {
+  id: string
+  name: string
+  vanityName?: string
+  logoUrl?: string
+  alreadySaved?: boolean
+}
+
 export default function AdminAccountsPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [gaProperties, setGaProperties] = useState<Account[]>([])
@@ -120,6 +130,13 @@ export default function AdminAccountsPage() {
   const [isLinkedInConnected, setIsLinkedInConnected] = useState(false)
   const [linkedinConnections, setLinkedinConnections] = useState<LinkedInConnection[]>([])
   const [deletingLinkedInConnectionId, setDeletingLinkedInConnectionId] = useState<string | null>(null)
+
+  // LinkedIn organization selection dialog
+  const [showLinkedInOrgDialog, setShowLinkedInOrgDialog] = useState(false)
+  const [availableLinkedInOrgs, setAvailableLinkedInOrgs] = useState<LinkedInOrganization[]>([])
+  const [selectedOrgIds, setSelectedOrgIds] = useState<Set<string>>(new Set())
+  const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
+  const [isSavingOrgs, setIsSavingOrgs] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -535,6 +552,89 @@ export default function AdminAccountsPage() {
     }
   }
 
+  // Fetch all LinkedIn organizations user has admin access to
+  async function fetchLinkedInOrganizations() {
+    setIsLoadingOrgs(true)
+    try {
+      const response = await fetch('/api/integrations/linkedin/organizations')
+      if (response.ok) {
+        const data = await response.json()
+
+        // Mark which orgs are already saved
+        const savedPageIds = new Set(linkedinPages.map(p => p.page_id))
+        const orgsWithStatus = (data.organizations || []).map((org: LinkedInOrganization) => ({
+          ...org,
+          alreadySaved: savedPageIds.has(org.id)
+        }))
+
+        setAvailableLinkedInOrgs(orgsWithStatus)
+
+        // Pre-select already saved orgs
+        const preSelected = new Set<string>(orgsWithStatus.filter((o: LinkedInOrganization) => o.alreadySaved).map((o: LinkedInOrganization) => o.id))
+        setSelectedOrgIds(preSelected)
+      }
+    } catch (error) {
+      console.error('Failed to fetch LinkedIn organizations:', error)
+    } finally {
+      setIsLoadingOrgs(false)
+    }
+  }
+
+  // Save selected organizations to linkedin_pages
+  async function handleSaveSelectedOrganizations() {
+    setIsSavingOrgs(true)
+    try {
+      // Find newly selected orgs (not already saved)
+      const savedPageIds = new Set(linkedinPages.map(p => p.page_id))
+      const newOrgsToSave = availableLinkedInOrgs.filter(
+        org => selectedOrgIds.has(org.id) && !savedPageIds.has(org.id)
+      )
+
+      // Save each new organization
+      for (const org of newOrgsToSave) {
+        await fetch('/api/integrations/linkedin/organizations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            organizationId: org.id,
+            organizationName: org.name
+          })
+        })
+      }
+
+      // Refresh data and close dialog
+      await fetchData()
+      setShowLinkedInOrgDialog(false)
+      if (newOrgsToSave.length > 0) {
+        alert(`Successfully added ${newOrgsToSave.length} LinkedIn organization(s)!`)
+      }
+    } catch (error) {
+      console.error('Failed to save organizations:', error)
+      alert('Failed to save some organizations. Please try again.')
+    } finally {
+      setIsSavingOrgs(false)
+    }
+  }
+
+  // Open the organization selection dialog
+  function openLinkedInOrgDialog() {
+    setShowLinkedInOrgDialog(true)
+    fetchLinkedInOrganizations()
+  }
+
+  // Toggle organization selection
+  function toggleOrgSelection(orgId: string) {
+    setSelectedOrgIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(orgId)) {
+        newSet.delete(orgId)
+      } else {
+        newSet.add(orgId)
+      }
+      return newSet
+    })
+  }
+
   async function handleRefreshProperties() {
     setIsRefreshing(true)
     try {
@@ -749,10 +849,16 @@ export default function AdminAccountsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Connected Organizations</span>
-                    <Button variant="outline" size="sm" onClick={() => triggerLinkedInOAuth()}>
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Organization
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={openLinkedInOrgDialog}>
+                        <Settings2 className="h-3 w-3 mr-1" />
+                        Manage Organizations
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => triggerLinkedInOAuth()}>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Reconnect
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {linkedinConnections.map((conn) => (
@@ -1424,6 +1530,104 @@ export default function AdminAccountsPage() {
             </Button>
             <Button onClick={proceedWithOAuth}>
               Continue to Google
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* LinkedIn Organization Selection Dialog */}
+      <Dialog open={showLinkedInOrgDialog} onOpenChange={setShowLinkedInOrgDialog}>
+        <DialogContent className="max-w-lg max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Manage LinkedIn Organizations</DialogTitle>
+            <DialogDescription>
+              Select the LinkedIn organizations you want to make available for company assignments.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {isLoadingOrgs ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading organizations...</span>
+              </div>
+            ) : availableLinkedInOrgs.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted-foreground mb-4">
+                  No organizations found. Make sure you have admin access to at least one LinkedIn organization.
+                </p>
+                <Button variant="outline" onClick={() => {
+                  setShowLinkedInOrgDialog(false)
+                  triggerLinkedInOAuth()
+                }}>
+                  Reconnect LinkedIn Account
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+                {availableLinkedInOrgs.map((org) => (
+                  <div
+                    key={org.id}
+                    className={cn(
+                      "flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors",
+                      selectedOrgIds.has(org.id)
+                        ? "border-primary bg-primary/5"
+                        : "hover:bg-muted/50"
+                    )}
+                    onClick={() => toggleOrgSelection(org.id)}
+                  >
+                    <Checkbox
+                      checked={selectedOrgIds.has(org.id)}
+                      onCheckedChange={() => toggleOrgSelection(org.id)}
+                    />
+                    <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {org.logoUrl ? (
+                        <img src={org.logoUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{org.name}</p>
+                      {org.vanityName && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          linkedin.com/company/{org.vanityName}
+                        </p>
+                      )}
+                    </div>
+                    {org.alreadySaved && (
+                      <Badge variant="secondary" className="flex-shrink-0">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Added
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowLinkedInOrgDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveSelectedOrganizations}
+              disabled={isSavingOrgs || isLoadingOrgs}
+            >
+              {isSavingOrgs ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Selection
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
