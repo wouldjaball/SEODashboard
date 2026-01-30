@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useCompany } from "@/lib/company-context"
 import { CompanySwitcher } from "./company-switcher"
+import { UserMenu } from "./user-menu"
 import { ModeToggle } from "@/components/mode-toggle"
 
 export function DashboardHeader() {
@@ -104,6 +105,7 @@ export function DashboardHeader() {
             </DropdownMenu>
           )}
           <ModeToggle />
+          <UserMenu />
           <CompanySwitcher />
         </div>
       </div>

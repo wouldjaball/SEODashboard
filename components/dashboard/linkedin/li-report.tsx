@@ -8,7 +8,7 @@ import { UpdatesTable } from "./updates-table"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Linkedin, Settings } from "lucide-react"
+import { Linkedin } from "lucide-react"
 import Link from "next/link"
 import type {
   LIVisitorMetrics,
@@ -62,22 +62,11 @@ export function LIReport({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4 pt-4">
-          <div className="flex gap-3">
-            <Button asChild variant="outline">
-              <Link href="/integrations">
-                <Settings className="h-4 w-4 mr-2" />
-                Set Up Integration
-              </Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/dashboard">
-                Back to Dashboard
-              </Link>
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground text-center max-w-sm">
-            LinkedIn integration requires connecting your LinkedIn account with company page admin access.
-          </p>
+          <Button asChild variant="ghost">
+            <Link href="/dashboard">
+              Back to Dashboard
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     )
