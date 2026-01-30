@@ -26,6 +26,11 @@ envContent.split('\n').forEach(line => {
   if (match) envVars[match[1].trim()] = match[2].trim().replace(/^["']|["']$/g, '')
 })
 
+// Set environment variables for the process
+Object.keys(envVars).forEach(key => {
+  process.env[key] = envVars[key]
+})
+
 const supabase = createClient(envVars.NEXT_PUBLIC_SUPABASE_URL, envVars.SUPABASE_SERVICE_ROLE_KEY)
 
 interface DiagnosticResult {
