@@ -33,11 +33,11 @@ export async function GET(request: Request) {
   // Handle OAuth errors from LinkedIn
   if (error) {
     console.error('LinkedIn OAuth error:', error, errorDescription)
-    return NextResponse.redirect(`${origin}${returnUrl}?error=${error}&error_description=${encodeURIComponent(errorDescription || '')}`)
+    return NextResponse.redirect(`${origin}${returnUrl}?error=${error}&error_description=${encodeURIComponent(errorDescription || '')}&provider=linkedin`)
   }
 
   if (!code) {
-    return NextResponse.redirect(`${origin}${returnUrl}?error=no_code`)
+    return NextResponse.redirect(`${origin}${returnUrl}?error=no_code&provider=linkedin`)
   }
 
   try {
@@ -218,6 +218,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}${returnUrl}?${successParams}`)
   } catch (error) {
     console.error('LinkedIn OAuth callback error:', error)
-    return NextResponse.redirect(`${origin}${returnUrl}?error=token_exchange`)
+    return NextResponse.redirect(`${origin}${returnUrl}?error=token_exchange&provider=linkedin`)
   }
 }
