@@ -32,31 +32,47 @@ export const gaMetrics: GAMetrics = {
   },
 }
 
-// Weekly data from PDF
+// Weekly data from PDF (updated to current dates)
 export const gaWeeklyData: GAWeeklyData[] = [
-  { weekLabel: "Dec 1-7, 2025 (Week 49)", weekNumber: 49, startDate: "2025-12-01", endDate: "2025-12-07", views: 2000, sessions: 1669 },
-  { weekLabel: "Dec 8-14, 2025 (Week 50)", weekNumber: 50, startDate: "2025-12-08", endDate: "2025-12-14", views: 4200, sessions: 3491 },
-  { weekLabel: "Dec 15-21, 2025 (Week 51)", weekNumber: 51, startDate: "2025-12-15", endDate: "2025-12-21", views: 2800, sessions: 2242 },
-  { weekLabel: "Dec 22-28, 2025 (Week 52)", weekNumber: 52, startDate: "2025-12-22", endDate: "2025-12-28", views: 2100, sessions: 1775 },
-  { weekLabel: "Dec 29-Jan 4, 2026 (Week 1)", weekNumber: 1, startDate: "2025-12-29", endDate: "2026-01-04", views: 912, sessions: 740 },
+  { weekLabel: "Dec 30-Jan 5, 2026 (Week 1)", weekNumber: 1, startDate: "2025-12-30", endDate: "2026-01-05", views: 2000, sessions: 1669 },
+  { weekLabel: "Jan 6-12, 2026 (Week 2)", weekNumber: 2, startDate: "2026-01-06", endDate: "2026-01-12", views: 4200, sessions: 3491 },
+  { weekLabel: "Jan 13-19, 2026 (Week 3)", weekNumber: 3, startDate: "2026-01-13", endDate: "2026-01-19", views: 2800, sessions: 2242 },
+  { weekLabel: "Jan 20-26, 2026 (Week 4)", weekNumber: 4, startDate: "2026-01-20", endDate: "2026-01-26", views: 2100, sessions: 1775 },
+  { weekLabel: "Jan 27-Feb 2, 2026 (Week 5)", weekNumber: 5, startDate: "2026-01-27", endDate: "2026-02-02", views: 912, sessions: 740 },
 ]
 
-// Channel data for stacked area chart
+// Channel data for stacked area chart (updated to current dates)
 export const gaChannelData: GAChannelData[] = [
-  { date: "2025-12-01", direct: 800, paidSearch: 150, organicSearch: 400, paidOther: 50, referral: 100, crossNetwork: 30, unassigned: 20, organicSocial: 50 },
-  { date: "2025-12-02", direct: 850, paidSearch: 180, organicSearch: 450, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
-  { date: "2025-12-03", direct: 900, paidSearch: 200, organicSearch: 480, paidOther: 70, referral: 130, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
-  { date: "2025-12-04", direct: 820, paidSearch: 170, organicSearch: 420, paidOther: 55, referral: 110, crossNetwork: 32, unassigned: 22, organicSocial: 55 },
-  { date: "2025-12-05", direct: 780, paidSearch: 160, organicSearch: 400, paidOther: 48, referral: 105, crossNetwork: 28, unassigned: 18, organicSocial: 48 },
-  { date: "2025-12-06", direct: 600, paidSearch: 120, organicSearch: 320, paidOther: 35, referral: 80, crossNetwork: 20, unassigned: 12, organicSocial: 35 },
-  { date: "2025-12-07", direct: 550, paidSearch: 100, organicSearch: 280, paidOther: 30, referral: 70, crossNetwork: 18, unassigned: 10, organicSocial: 30 },
-  { date: "2025-12-08", direct: 1200, paidSearch: 250, organicSearch: 600, paidOther: 80, referral: 150, crossNetwork: 45, unassigned: 35, organicSocial: 80 },
-  { date: "2025-12-09", direct: 1100, paidSearch: 230, organicSearch: 550, paidOther: 75, referral: 140, crossNetwork: 42, unassigned: 32, organicSocial: 75 },
-  { date: "2025-12-10", direct: 1050, paidSearch: 220, organicSearch: 520, paidOther: 70, referral: 135, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
-  { date: "2025-12-11", direct: 980, paidSearch: 200, organicSearch: 480, paidOther: 65, referral: 125, crossNetwork: 38, unassigned: 28, organicSocial: 65 },
-  { date: "2025-12-12", direct: 920, paidSearch: 190, organicSearch: 460, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
-  { date: "2025-12-13", direct: 700, paidSearch: 140, organicSearch: 350, paidOther: 45, referral: 90, crossNetwork: 25, unassigned: 18, organicSocial: 45 },
-  { date: "2025-12-14", direct: 650, paidSearch: 130, organicSearch: 320, paidOther: 40, referral: 85, crossNetwork: 22, unassigned: 15, organicSocial: 40 },
+  { date: "2026-01-01", direct: 800, paidSearch: 150, organicSearch: 400, paidOther: 50, referral: 100, crossNetwork: 30, unassigned: 20, organicSocial: 50 },
+  { date: "2026-01-02", direct: 850, paidSearch: 180, organicSearch: 450, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
+  { date: "2026-01-03", direct: 900, paidSearch: 200, organicSearch: 480, paidOther: 70, referral: 130, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
+  { date: "2026-01-04", direct: 820, paidSearch: 170, organicSearch: 420, paidOther: 55, referral: 110, crossNetwork: 32, unassigned: 22, organicSocial: 55 },
+  { date: "2026-01-05", direct: 780, paidSearch: 160, organicSearch: 400, paidOther: 48, referral: 105, crossNetwork: 28, unassigned: 18, organicSocial: 48 },
+  { date: "2026-01-06", direct: 600, paidSearch: 120, organicSearch: 320, paidOther: 35, referral: 80, crossNetwork: 20, unassigned: 12, organicSocial: 35 },
+  { date: "2026-01-07", direct: 550, paidSearch: 100, organicSearch: 280, paidOther: 30, referral: 70, crossNetwork: 18, unassigned: 10, organicSocial: 30 },
+  { date: "2026-01-08", direct: 1200, paidSearch: 250, organicSearch: 600, paidOther: 80, referral: 150, crossNetwork: 45, unassigned: 35, organicSocial: 80 },
+  { date: "2026-01-09", direct: 1100, paidSearch: 230, organicSearch: 550, paidOther: 75, referral: 140, crossNetwork: 42, unassigned: 32, organicSocial: 75 },
+  { date: "2026-01-10", direct: 1050, paidSearch: 220, organicSearch: 520, paidOther: 70, referral: 135, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
+  { date: "2026-01-11", direct: 980, paidSearch: 200, organicSearch: 480, paidOther: 65, referral: 125, crossNetwork: 38, unassigned: 28, organicSocial: 65 },
+  { date: "2026-01-12", direct: 920, paidSearch: 190, organicSearch: 460, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
+  { date: "2026-01-13", direct: 700, paidSearch: 140, organicSearch: 350, paidOther: 45, referral: 90, crossNetwork: 25, unassigned: 18, organicSocial: 45 },
+  { date: "2026-01-14", direct: 650, paidSearch: 130, organicSearch: 320, paidOther: 40, referral: 85, crossNetwork: 22, unassigned: 15, organicSocial: 40 },
+  { date: "2026-01-15", direct: 850, paidSearch: 180, organicSearch: 450, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
+  { date: "2026-01-16", direct: 900, paidSearch: 200, organicSearch: 480, paidOther: 70, referral: 130, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
+  { date: "2026-01-17", direct: 820, paidSearch: 170, organicSearch: 420, paidOther: 55, referral: 110, crossNetwork: 32, unassigned: 22, organicSocial: 55 },
+  { date: "2026-01-18", direct: 780, paidSearch: 160, organicSearch: 400, paidOther: 48, referral: 105, crossNetwork: 28, unassigned: 18, organicSocial: 48 },
+  { date: "2026-01-19", direct: 600, paidSearch: 120, organicSearch: 320, paidOther: 35, referral: 80, crossNetwork: 20, unassigned: 12, organicSocial: 35 },
+  { date: "2026-01-20", direct: 550, paidSearch: 100, organicSearch: 280, paidOther: 30, referral: 70, crossNetwork: 18, unassigned: 10, organicSocial: 30 },
+  { date: "2026-01-21", direct: 1200, paidSearch: 250, organicSearch: 600, paidOther: 80, referral: 150, crossNetwork: 45, unassigned: 35, organicSocial: 80 },
+  { date: "2026-01-22", direct: 1100, paidSearch: 230, organicSearch: 550, paidOther: 75, referral: 140, crossNetwork: 42, unassigned: 32, organicSocial: 75 },
+  { date: "2026-01-23", direct: 1050, paidSearch: 220, organicSearch: 520, paidOther: 70, referral: 135, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
+  { date: "2026-01-24", direct: 980, paidSearch: 200, organicSearch: 480, paidOther: 65, referral: 125, crossNetwork: 38, unassigned: 28, organicSocial: 65 },
+  { date: "2026-01-25", direct: 920, paidSearch: 190, organicSearch: 460, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
+  { date: "2026-01-26", direct: 700, paidSearch: 140, organicSearch: 350, paidOther: 45, referral: 90, crossNetwork: 25, unassigned: 18, organicSocial: 45 },
+  { date: "2026-01-27", direct: 650, paidSearch: 130, organicSearch: 320, paidOther: 40, referral: 85, crossNetwork: 22, unassigned: 15, organicSocial: 40 },
+  { date: "2026-01-28", direct: 850, paidSearch: 180, organicSearch: 450, paidOther: 60, referral: 120, crossNetwork: 35, unassigned: 25, organicSocial: 60 },
+  { date: "2026-01-29", direct: 900, paidSearch: 200, organicSearch: 480, paidOther: 70, referral: 130, crossNetwork: 40, unassigned: 30, organicSocial: 70 },
+  { date: "2026-01-30", direct: 820, paidSearch: 170, organicSearch: 420, paidOther: 55, referral: 110, crossNetwork: 32, unassigned: 22, organicSocial: 55 },
 ]
 
 // Traffic share by channel
