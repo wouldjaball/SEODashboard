@@ -1,3 +1,4 @@
+import { isWithinInterval, parseISO } from "date-fns"
 import type {
   GAFilters,
   GAMetrics,
@@ -6,6 +7,7 @@ import type {
   GADevice,
   GAChannelData,
   GATrafficShare,
+  GAWeeklyData,
 } from "./types"
 
 // Channel name mapping from GAChannelData keys to display names
@@ -31,10 +33,6 @@ export const CHANNEL_NAME_TO_KEY: Record<string, string> = {
   "Organic Social": "organicSocial",
 }
 
-// Check if filters are active (not all selected)
-function isFilterActive(values: string[], totalOptions: number): boolean {
-  return values.length > 0 && values.length < totalOptions
-}
 
 // Filter landing pages by selected paths
 export function filterLandingPages(
@@ -274,4 +272,48 @@ export function extractChannelOptions(
       count: item.users,
     }))
     .sort((a, b) => b.count - a.count)
+}
+
+// Filter weekly data by date range
+export function filterWeeklyDataByDateRange(
+  data: GAWeeklyData[],
+  dateRange?: { from: Date; to: Date }
+): GAWeeklyData[] {
+  if (!dateRange) return data
+
+  return data.filter((item) => {
+    try {
+      // Parse the week start date from the data
+      const weekStart = parseISO(item.startDate)
+      return isWithinInterval(weekStart, {
+        start: dateRange.from,
+        end: dateRange.to,
+      })
+    } catch {
+      // If date parsing fails, include the item
+      return true
+    }
+  })
+}
+
+// Filter channel data by date range
+export function filterChannelDataByDateRange(
+  data: GAChannelData[],
+  dateRange?: { from: Date; to: Date }
+): GAChannelData[] {
+  if (!dateRange) return data
+
+  return data.filter((item) => {
+    try {
+      // Parse the date from the data
+      const itemDate = parseISO(item.date)
+      return isWithinInterval(itemDate, {
+        start: dateRange.from,
+        end: dateRange.to,
+      })
+    } catch {
+      // If date parsing fails, include the item
+      return true
+    }
+  })
 }

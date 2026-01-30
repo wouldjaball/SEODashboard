@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/chart"
 import { formatNumber } from "@/lib/utils"
 import { format } from "date-fns"
+import { filterWeeklyDataByDateRange } from "@/lib/ga-filters"
 import type { GAWeeklyData } from "@/lib/types"
 
 interface WeeklyPerformanceChartProps {
@@ -38,6 +39,8 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function WeeklyPerformanceChart({ data, dateRange }: WeeklyPerformanceChartProps) {
+  const filteredData = filterWeeklyDataByDateRange(data, dateRange)
+  
   const dateRangeStr = dateRange
     ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
     : undefined
@@ -45,7 +48,7 @@ export function WeeklyPerformanceChart({ data, dateRange }: WeeklyPerformanceCha
   return (
     <ChartCard title="Weekly User & Conversion Performance" dateRange={dateRangeStr} className="h-full">
       <ChartContainer config={chartConfig} className="h-[300px] w-full">
-        <ComposedChart accessibilityLayer data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ComposedChart accessibilityLayer data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="weekLabel"

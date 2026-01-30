@@ -17,6 +17,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { formatNumber } from "@/lib/utils"
+import { filterChannelDataByDateRange } from "@/lib/ga-filters"
 import type { GAChannelData } from "@/lib/types"
 import { format, parseISO } from "date-fns"
 
@@ -61,7 +62,8 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function ChannelPerformanceChart({ data, dateRange }: ChannelPerformanceChartProps) {
-  const formattedData = data.map((d) => ({
+  const filteredData = filterChannelDataByDateRange(data, dateRange)
+  const formattedData = filteredData.map((d) => ({
     ...d,
     formattedDate: format(parseISO(d.date), "MMM d"),
   }))
