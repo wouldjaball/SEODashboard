@@ -90,8 +90,11 @@ export async function GET(
     // Check cache first
     const cached = await checkCache(supabase, companyId, startDate, endDate)
     if (cached) {
+      console.log(`[Analytics] Serving cached data for ${companyId}`)
       return NextResponse.json(cached)
     }
+
+    console.log(`[Analytics] Fetching fresh data for ${companyId} (${startDate} to ${endDate})`)
 
     // Get company mappings
     console.log(`Fetching mappings for company ${companyId}`)
@@ -755,6 +758,7 @@ export async function GET(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function checkCache(supabase: any, companyId: string, startDate: string, endDate: string) {
+  // Check for existing cache entry
   const { data } = await supabase
     .from('analytics_cache')
     .select('*')
@@ -762,9 +766,35 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
     .eq('data_type', 'all')
     .eq('date_range_start', startDate)
     .eq('date_range_end', endDate)
-    .gt('expires_at', new Date().toISOString())
     .single()
 
+  if (!data) {
+    return null // No cache entry found
+  }
+
+  const now = new Date()
+  const cacheDate = new Date(data.created_at)
+  const expiresAt = new Date(data.expires_at)
+
+  // Check if cache is from a previous day (daily cache invalidation)
+  const isFromPreviousDay = cacheDate.toDateString() !== now.toDateString()
+  
+  // Check if cache has expired normally
+  const hasExpired = now > expiresAt
+
+  if (isFromPreviousDay || hasExpired) {
+    console.log(`[Cache] Clearing stale cache for ${companyId}: ${isFromPreviousDay ? 'previous day' : 'expired'}`)
+    
+    // Delete the stale cache entry
+    await supabase
+      .from('analytics_cache')
+      .delete()
+      .eq('id', data.id)
+    
+    return null // Force fresh data fetch
+  }
+
+  console.log(`[Cache] Using valid cache for ${companyId}, expires: ${data.expires_at}`)
   return data?.data || null
 }
 
@@ -777,7 +807,7 @@ async function cacheData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
 ) {
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour cache
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000) // 30 minute cache for better real-time experience
 
   await supabase.from('analytics_cache').insert({
     company_id: companyId,
