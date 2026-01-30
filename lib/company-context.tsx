@@ -188,6 +188,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
           industry: c.industry,
           color: c.color,
           logo: c.logo_url,
+          role: c.role,
           // No data initially - will be loaded on demand
           gaMetrics: null,
           gaWeeklyData: [],

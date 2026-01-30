@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, Settings, LayoutDashboard, Building2, Users, Link2, Key, Plug } from "lucide-react"
+import { BarChart3, Settings, LayoutDashboard, Building2, Users, Link2, Key } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,6 +17,9 @@ import { ModeToggle } from "@/components/mode-toggle"
 
 export function DashboardHeader() {
   const { company } = useCompany()
+  const isOwner = company.role === 'owner'
+  const isAdmin = company.role === 'admin'
+  const canManageUsers = isOwner || isAdmin
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-top">
@@ -57,46 +60,49 @@ export function DashboardHeader() {
               <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5" />
             </Link>
           </Button>
-          <Button variant="ghost" size="icon" title="Integrations" asChild>
-            <Link href="/integrations">
-              <Plug className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Link>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" title="Admin">
-                <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Admin</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/admin/accounts" className="flex items-center cursor-pointer">
-                  <Link2 className="mr-2 h-4 w-4" />
-                  Account Assignments
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/companies" className="flex items-center cursor-pointer">
-                  <Building2 className="mr-2 h-4 w-4" />
-                  Companies
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/users" className="flex items-center cursor-pointer">
-                  <Users className="mr-2 h-4 w-4" />
-                  Users
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/access-codes" className="flex items-center cursor-pointer">
-                  <Key className="mr-2 h-4 w-4" />
-                  Access Codes
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canManageUsers && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" title="Admin">
+                  <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Admin</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isOwner && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/accounts" className="flex items-center cursor-pointer">
+                      <Link2 className="mr-2 h-4 w-4" />
+                      Account Assignments
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {isOwner && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/companies" className="flex items-center cursor-pointer">
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Companies
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/users" className="flex items-center cursor-pointer">
+                    <Users className="mr-2 h-4 w-4" />
+                    Users
+                  </Link>
+                </DropdownMenuItem>
+                {isOwner && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/access-codes" className="flex items-center cursor-pointer">
+                      <Key className="mr-2 h-4 w-4" />
+                      Access Codes
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <ModeToggle />
           <CompanySwitcher />
         </div>

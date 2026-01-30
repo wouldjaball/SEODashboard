@@ -289,6 +289,7 @@ export interface Company {
   logo?: string
   industry: string
   color: string  // Brand color for visual identification (hex)
+  role?: 'owner' | 'admin' | 'client' | 'viewer'  // User's role in this company
   // Google Analytics
   gaMetrics: GAMetrics
   gaWeeklyData: GAWeeklyData[]
