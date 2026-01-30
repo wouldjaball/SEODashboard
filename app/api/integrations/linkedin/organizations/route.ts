@@ -11,7 +11,7 @@ interface LinkedInOrganization {
 }
 
 /**
- * GET: Fetch LinkedIn organizations the user has admin access to
+ * GET: Fetch LinkedIn organizations the user has access to (any role)
  */
 export async function GET() {
   try {
@@ -28,55 +28,72 @@ export async function GET() {
       return NextResponse.json({ organizations: [], connected: false })
     }
 
-    // Fetch organizations from LinkedIn API
-    const orgAclsResponse = await fetch(
-      'https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(localizedName,vanityName,id,logoV2(original~:playableStreams))))',
-      {
-        headers: {
-          'Authorization': `Bearer ${tokens.accessToken}`,
-          'LinkedIn-Version': LINKEDIN_API_VERSION,
-          'X-Restli-Protocol-Version': '2.0.0'
-        }
-      }
-    )
+    // LinkedIn roles that grant access to organization pages
+    // Check all roles since user might have different access levels
+    const roles = ['ADMINISTRATOR', 'CONTENT_ADMIN', 'DIRECT_SPONSORED_CONTENT_POSTER', 'LEAD_GEN_FORMS_MANAGER', 'RECRUITING_POSTER']
 
-    if (!orgAclsResponse.ok) {
-      console.error('Failed to fetch LinkedIn organizations:', await orgAclsResponse.text())
-      return NextResponse.json({ organizations: [], connected: true, error: 'Failed to fetch organizations' })
+    const allOrganizations: LinkedInOrganization[] = []
+    const seenOrgIds = new Set<string>()
+
+    // Fetch organizations for each role and combine results
+    for (const role of roles) {
+      try {
+        const orgAclsResponse = await fetch(
+          `https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id,logoV2(original~:playableStreams))))`,
+          {
+            headers: {
+              'Authorization': `Bearer ${tokens.accessToken}`,
+              'LinkedIn-Version': LINKEDIN_API_VERSION,
+              'X-Restli-Protocol-Version': '2.0.0'
+            }
+          }
+        )
+
+        if (orgAclsResponse.ok) {
+          const orgAcls = await orgAclsResponse.json()
+          console.log(`LinkedIn organizations for role ${role}:`, orgAcls.elements?.length || 0)
+
+          for (const elem of (orgAcls.elements || [])) {
+            const orgUrn = elem.organization || ''
+            const orgId = orgUrn.split(':').pop() || ''
+
+            // Skip if we've already seen this organization
+            if (seenOrgIds.has(orgId)) continue
+            seenOrgIds.add(orgId)
+
+            const orgDetails = elem['organization~']
+
+            // Try to extract logo URL
+            let logoUrl: string | undefined
+            try {
+              logoUrl = orgDetails?.['logoV2']?.['original~']?.elements?.[0]?.identifiers?.[0]?.identifier
+            } catch {
+              // No logo available
+            }
+
+            allOrganizations.push({
+              id: orgId,
+              name: orgDetails?.localizedName || 'Unknown Organization',
+              vanityName: orgDetails?.vanityName,
+              logoUrl
+            })
+          }
+        } else {
+          // Some roles may return 403 if not supported - that's ok
+          const status = orgAclsResponse.status
+          if (status !== 403 && status !== 400) {
+            console.error(`Failed to fetch LinkedIn organizations for role ${role}:`, await orgAclsResponse.text())
+          }
+        }
+      } catch (roleError) {
+        console.error(`Error fetching organizations for role ${role}:`, roleError)
+        // Continue with other roles
+      }
     }
 
-    const orgAcls = await orgAclsResponse.json()
+    console.log(`Total LinkedIn organizations found: ${allOrganizations.length}`)
 
-    const organizations: LinkedInOrganization[] = (orgAcls.elements || []).map((elem: {
-      organization?: string,
-      'organization~'?: {
-        localizedName?: string,
-        vanityName?: string,
-        id?: number,
-        'logoV2'?: { 'original~'?: { elements?: Array<{ identifiers?: Array<{ identifier?: string }> }> } }
-      }
-    }) => {
-      const orgUrn = elem.organization || ''
-      const orgId = orgUrn.split(':').pop() || ''
-      const orgDetails = elem['organization~']
-
-      // Try to extract logo URL
-      let logoUrl: string | undefined
-      try {
-        logoUrl = orgDetails?.['logoV2']?.['original~']?.elements?.[0]?.identifiers?.[0]?.identifier
-      } catch {
-        // No logo available
-      }
-
-      return {
-        id: orgId,
-        name: orgDetails?.localizedName || 'Unknown Organization',
-        vanityName: orgDetails?.vanityName,
-        logoUrl
-      }
-    })
-
-    return NextResponse.json({ organizations, connected: true })
+    return NextResponse.json({ organizations: allOrganizations, connected: true })
   } catch (error) {
     console.error('Error fetching LinkedIn organizations:', error)
     return NextResponse.json(

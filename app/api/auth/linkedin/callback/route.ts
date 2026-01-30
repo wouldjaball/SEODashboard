@@ -76,47 +76,61 @@ export async function GET(request: Request) {
 
     console.log('Saving LinkedIn tokens for user:', user.id)
 
-    // Fetch organizations the user has admin access to
+    // Fetch organizations the user has access to (check multiple roles)
     let identityInfo: {
       linkedinOrganizationId: string
       linkedinOrganizationName?: string
     } | undefined
 
     try {
-      // Get organization admin roles for this user
-      const orgAclsResponse = await fetch(
-        'https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(localizedName,vanityName,id)))',
-        {
-          headers: {
-            'Authorization': `Bearer ${tokens.access_token}`,
-            'LinkedIn-Version': LINKEDIN_API_VERSION,
-            'X-Restli-Protocol-Version': '2.0.0'
+      // LinkedIn roles that grant access to organization pages
+      const roles = ['ADMINISTRATOR', 'CONTENT_ADMIN', 'DIRECT_SPONSORED_CONTENT_POSTER', 'LEAD_GEN_FORMS_MANAGER', 'RECRUITING_POSTER']
+
+      // Try each role until we find an organization
+      for (const role of roles) {
+        if (identityInfo) break // Stop once we found an organization
+
+        try {
+          const orgAclsResponse = await fetch(
+            `https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id)))`,
+            {
+              headers: {
+                'Authorization': `Bearer ${tokens.access_token}`,
+                'LinkedIn-Version': LINKEDIN_API_VERSION,
+                'X-Restli-Protocol-Version': '2.0.0'
+              }
+            }
+          )
+
+          if (orgAclsResponse.ok) {
+            const orgAcls = await orgAclsResponse.json()
+            console.log(`LinkedIn organization ACLs for role ${role}:`, orgAcls.elements?.length || 0)
+
+            // Get the first organization the user has access to
+            if (orgAcls.elements && orgAcls.elements.length > 0) {
+              const firstOrg = orgAcls.elements[0]
+              // Extract organization ID from URN (urn:li:organization:12345 -> 12345)
+              const orgUrn = firstOrg.organization
+              const orgId = orgUrn?.split(':').pop() || ''
+              const orgDetails = firstOrg['organization~']
+
+              identityInfo = {
+                linkedinOrganizationId: orgId,
+                linkedinOrganizationName: orgDetails?.localizedName || orgDetails?.vanityName
+              }
+
+              console.log(`Primary LinkedIn organization (role: ${role}):`, identityInfo)
+            }
+          } else {
+            const status = orgAclsResponse.status
+            if (status !== 403 && status !== 400) {
+              console.error(`Failed to fetch LinkedIn organizations for role ${role}:`, await orgAclsResponse.text())
+            }
           }
+        } catch (roleError) {
+          console.error(`Error fetching organizations for role ${role}:`, roleError)
+          // Continue with other roles
         }
-      )
-
-      if (orgAclsResponse.ok) {
-        const orgAcls = await orgAclsResponse.json()
-        console.log('LinkedIn organization ACLs:', JSON.stringify(orgAcls, null, 2))
-
-        // Get the first organization the user has admin access to
-        if (orgAcls.elements && orgAcls.elements.length > 0) {
-          const firstOrg = orgAcls.elements[0]
-          // Extract organization ID from URN (urn:li:organization:12345 -> 12345)
-          const orgUrn = firstOrg.organization
-          const orgId = orgUrn?.split(':').pop() || ''
-          const orgDetails = firstOrg['organization~']
-
-          identityInfo = {
-            linkedinOrganizationId: orgId,
-            linkedinOrganizationName: orgDetails?.localizedName || orgDetails?.vanityName
-          }
-
-          console.log('Primary LinkedIn organization:', identityInfo)
-        }
-      } else {
-        const errorText = await orgAclsResponse.text()
-        console.error('Failed to fetch LinkedIn organizations:', orgAclsResponse.status, errorText)
       }
     } catch (identityError) {
       console.error('Failed to fetch LinkedIn organization info:', identityError)
