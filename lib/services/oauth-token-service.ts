@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { encryptToken, decryptToken } from '@/lib/utils/token-encryption'
 
 export interface OAuthToken {
@@ -131,7 +131,7 @@ export class OAuthTokenService {
   }
 
   static async getTokens(userId: string, googleIdentity?: string): Promise<OAuthToken | null> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     let query = supabase
       .from('oauth_tokens')
@@ -176,7 +176,7 @@ export class OAuthTokenService {
 
   // Get token that grants access to a specific YouTube channel
   static async getTokenForYouTubeChannel(userId: string, channelId: string): Promise<OAuthToken | null> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // First try to find a token specifically linked to this channel
     const { data: specificToken } = await supabase
@@ -211,7 +211,7 @@ export class OAuthTokenService {
 
   // List all Google connections for a user
   static async listConnections(userId: string): Promise<GoogleConnection[]> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Select only columns that definitely exist, handle new columns gracefully
     const { data, error } = await supabase
@@ -337,7 +337,7 @@ export class OAuthTokenService {
   }
 
   static async deleteTokens(userId: string): Promise<void> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { error } = await supabase
       .from('oauth_tokens')
@@ -352,7 +352,7 @@ export class OAuthTokenService {
 
   // Delete a specific Google connection by its ID
   static async deleteConnection(userId: string, connectionId: string): Promise<void> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { error } = await supabase
       .from('oauth_tokens')
@@ -428,7 +428,7 @@ export class OAuthTokenService {
   }
 
   static async getLinkedInTokens(userId: string, organizationId?: string): Promise<LinkedInOAuthToken | null> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     let query = supabase
       .from('oauth_tokens')
@@ -517,7 +517,7 @@ export class OAuthTokenService {
   }
 
   static async listLinkedInConnections(userId: string): Promise<LinkedInConnection[]> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from('oauth_tokens')
@@ -542,7 +542,7 @@ export class OAuthTokenService {
   }
 
   static async deleteLinkedInTokens(userId: string): Promise<void> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { error } = await supabase
       .from('oauth_tokens')
@@ -556,7 +556,7 @@ export class OAuthTokenService {
   }
 
   static async deleteLinkedInConnection(userId: string, connectionId: string): Promise<void> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { error } = await supabase
       .from('oauth_tokens')
