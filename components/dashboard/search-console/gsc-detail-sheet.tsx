@@ -96,39 +96,66 @@ export function GSCDetailSheet({
   const [sortField, setSortField] = React.useState<SortField>("impressions")
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc")
   const [error, setError] = React.useState<string | null>(null)
+  const [isLoading, setIsLoading] = React.useState(false)
 
   // Reset state when type changes
   React.useEffect(() => {
-    if (type) {
+    if (type && open) {
       try {
+        setIsLoading(true)
         const config = typeConfig[type]
         setSortField(config.defaultSort)
         setSortDirection(config.defaultDirection)
         setSearch("")
         setError(null)
+        
+        // Simulate brief loading for better UX
+        setTimeout(() => setIsLoading(false), 300)
       } catch (err) {
         console.error('Error resetting state:', err)
         setError('Failed to initialize component')
+        setIsLoading(false)
       }
     }
-  }, [type])
+  }, [type, open])
 
-  if (!type) return null
+  if (!type) {
+    console.log('[GSCDetailSheet] No type provided, returning null')
+    return null
+  }
+
+  console.log('[GSCDetailSheet] Rendering with:', {
+    type,
+    open,
+    keywordsLength: keywords?.length || 0,
+    landingPagesLength: landingPages?.length || 0
+  })
 
   const config = typeConfig[type]
   const isKeywordView = type === "rankingKeywords" || type === "impressions" || type === "ctr" || type === "clicks" || type === "position"
   const isPageView = type === "indexedPages"
+
+  console.log('[GSCDetailSheet] View type:', { isKeywordView, isPageView, type })
 
   // Filter and sort data
   const filteredKeywords = React.useMemo(() => {
     try {
       // Validate keywords data
       if (!Array.isArray(keywords)) {
-        console.warn('Keywords is not an array:', keywords)
+        console.warn('[GSCDetailSheet] Keywords is not an array:', keywords)
         return []
       }
 
-      let data = keywords.filter(k => k && typeof k === 'object')
+      console.log('[GSCDetailSheet] Original keywords count:', keywords.length)
+      let data = keywords.filter(k => {
+        if (!k || typeof k !== 'object') {
+          console.warn('[GSCDetailSheet] Invalid keyword object:', k)
+          return false
+        }
+        // Less strict validation - allow objects with at least a query property
+        return k.query !== undefined && k.query !== null
+      })
+      console.log('[GSCDetailSheet] Filtered keywords count:', data.length)
 
       // Filter by search
       if (search) {
@@ -199,11 +226,20 @@ export function GSCDetailSheet({
     try {
       // Validate landing pages data
       if (!Array.isArray(landingPages)) {
-        console.warn('Landing pages is not an array:', landingPages)
+        console.warn('[GSCDetailSheet] Landing pages is not an array:', landingPages)
         return []
       }
 
-      let data = landingPages.filter(p => p && typeof p === 'object')
+      console.log('[GSCDetailSheet] Original landing pages count:', landingPages.length)
+      let data = landingPages.filter(p => {
+        if (!p || typeof p !== 'object') {
+          console.warn('[GSCDetailSheet] Invalid page object:', p)
+          return false
+        }
+        // Less strict validation - allow objects with at least a url property
+        return p.url !== undefined && p.url !== null
+      })
+      console.log('[GSCDetailSheet] Filtered landing pages count:', data.length)
 
       // Filter by search
       if (search) {
@@ -288,9 +324,13 @@ export function GSCDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{config.title}</SheetTitle>
+          <SheetTitle>
+            {config.title}
+            {isKeywordView && keywords && ` (${keywords.length} total)`}
+            {isPageView && landingPages && ` (${landingPages.length} total)`}
+          </SheetTitle>
           <SheetDescription>{config.description}</SheetDescription>
         </SheetHeader>
 
@@ -324,6 +364,14 @@ export function GSCDetailSheet({
 
           {/* Table */}
           <div className="border rounded-lg">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="space-y-2 text-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                  <p className="text-sm text-muted-foreground">Loading data...</p>
+                </div>
+              </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -430,8 +478,22 @@ export function GSCDetailSheet({
                 {isKeywordView ? (
                   filteredKeywords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No keywords found
+                      <TableCell colSpan={5} className="text-center py-12">
+                        <div className="space-y-2">
+                          <p className="text-lg font-medium text-muted-foreground">
+                            {search ? 'No keywords match your search' : 'No keywords available'}
+                          </p>
+                          {search && (
+                            <p className="text-sm text-muted-foreground">
+                              Try adjusting your search terms or clear the filter
+                            </p>
+                          )}
+                          {!search && keywords.length === 0 && (
+                            <p className="text-sm text-muted-foreground">
+                              Keywords data may be unavailable for the selected date range
+                            </p>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -453,8 +515,22 @@ export function GSCDetailSheet({
                 ) : (
                   filteredPages.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No pages found
+                      <TableCell colSpan={5} className="text-center py-12">
+                        <div className="space-y-2">
+                          <p className="text-lg font-medium text-muted-foreground">
+                            {search ? 'No pages match your search' : 'No pages available'}
+                          </p>
+                          {search && (
+                            <p className="text-sm text-muted-foreground">
+                              Try adjusting your search terms or clear the filter
+                            </p>
+                          )}
+                          {!search && landingPages.length === 0 && (
+                            <p className="text-sm text-muted-foreground">
+                              Landing pages data may be unavailable for the selected date range
+                            </p>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -476,6 +552,7 @@ export function GSCDetailSheet({
                 )}
               </TableBody>
             </Table>
+            )}
           </div>
         </div>
       </SheetContent>

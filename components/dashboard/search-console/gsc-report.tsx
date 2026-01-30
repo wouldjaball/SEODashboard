@@ -43,8 +43,16 @@ export function GSCReport({
   const [detailType, setDetailType] = React.useState<GSCDetailType | null>(null)
 
   const handleCardClick = (type: GSCDetailType) => {
+    console.log(`[GSCReport] Card clicked:`, type)
+    console.log(`[GSCReport] Keywords array length:`, keywords?.length || 0)
+    console.log(`[GSCReport] Landing pages array length:`, landingPages?.length || 0)
+    console.log(`[GSCReport] Keywords data sample:`, keywords?.slice(0, 2))
+    console.log(`[GSCReport] Landing pages data sample:`, landingPages?.slice(0, 2))
+    
     setDetailType(type)
     setDetailSheetOpen(true)
+    
+    console.log(`[GSCReport] Detail sheet should now be open for type:`, type)
   }
 
   return (

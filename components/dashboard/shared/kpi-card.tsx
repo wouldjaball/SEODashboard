@@ -52,6 +52,16 @@ export function KPICard({
   onClick,
   tooltip,
 }: KPICardProps) {
+  const [isClicked, setIsClicked] = React.useState(false)
+
+  const handleClick = () => {
+    if (onClick) {
+      console.log(`[KPICard] Card clicked: ${title}`)
+      setIsClicked(true)
+      setTimeout(() => setIsClicked(false), 200) // Reset after animation
+      onClick()
+    }
+  }
   const formattedValue = (() => {
     if (value === null || value === undefined) return "N/A"
     if (typeof value === "string") return value
@@ -76,10 +86,11 @@ export function KPICard({
     <Card
       className={cn(
         "relative overflow-hidden touch-manipulation",
-        isClickable && "cursor-pointer hover:bg-accent/50 transition-colors",
+        isClickable && "cursor-pointer hover:bg-accent/50 transition-all duration-200",
+        isClicked && "scale-95 bg-accent",
         className
       )}
-      onClick={onClick}
+      onClick={handleClick}
     >
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start justify-between gap-2">
