@@ -177,6 +177,17 @@ export async function GET(
         console.log('GA Property from DB:', JSON.stringify(gaProperty))
         console.log('Property ID being used:', propertyId)
         console.log('Date range:', { startDate, endDate, previousStartDate, previousEndDate })
+        
+        // Validate OAuth token scopes
+        const tokenData = await OAuthTokenService.getTokens(gaOwnerUserId)
+        if (tokenData) {
+          console.log('GA OAuth token scopes:', tokenData.scope)
+          const hasAnalyticsScope = tokenData.scope.includes('analytics.readonly')
+          console.log('Has analytics.readonly scope:', hasAnalyticsScope)
+          if (!hasAnalyticsScope) {
+            throw new Error('OAuth token missing required Google Analytics scope: analytics.readonly')
+          }
+        }
 
         const [
           gaMetrics,
@@ -233,8 +244,25 @@ export async function GET(
         // Check if this is a token refresh failure that requires re-authentication
         if (errorMessage.includes('TOKEN_REFRESH_FAILED') || errorMessage.includes('NO_TOKENS')) {
           results.gaRequiresReauth = true
+          results.gaErrorType = 'auth_required'
           console.log('[Analytics] GA requires re-authentication for user')
+        } else if (errorMessage.includes('missing required Google Analytics scope')) {
+          results.gaErrorType = 'scope_missing'
+        } else {
+          results.gaErrorType = 'api_error'
         }
+        
+        // Set GA metrics to null when there's an error
+        results.gaMetrics = null
+        results.gaWeeklyData = []
+        results.gaChannelData = []
+        results.gaTrafficShare = []
+        results.gaSourcePerformance = []
+        results.gaLandingPages = []
+        results.gaRegions = []
+        results.gaDevices = []
+        results.gaGender = []
+        results.gaAge = []
       }
     }
 
@@ -243,6 +271,23 @@ export async function GET(
       try {
         const gscSite = gscMappings.gsc_sites as { site_url: string; user_id: string }
         const gscOwnerUserId = gscSite.user_id  // Use the integration owner's user_id
+        
+        console.log('=== GSC FETCH DEBUG ===')
+        console.log('Logged-in User ID:', user.id)
+        console.log('GSC Owner User ID:', gscOwnerUserId)
+        console.log('GSC Site URL:', gscSite.site_url)
+        console.log('Date range:', { startDate, endDate, previousStartDate, previousEndDate })
+        
+        // Validate OAuth token scopes
+        const tokenData = await OAuthTokenService.getTokens(gscOwnerUserId)
+        if (tokenData) {
+          console.log('GSC OAuth token scopes:', tokenData.scope)
+          const hasWebmastersScope = tokenData.scope.includes('webmasters.readonly')
+          console.log('Has webmasters.readonly scope:', hasWebmastersScope)
+          if (!hasWebmastersScope) {
+            throw new Error('OAuth token missing required Google Search Console scope: webmasters.readonly')
+          }
+        }
         const [
           gscMetrics,
           gscWeeklyData,
@@ -358,8 +403,22 @@ export async function GET(
         // Check if this is a token refresh failure that requires re-authentication
         if (errorMessage.includes('TOKEN_REFRESH_FAILED') || errorMessage.includes('NO_TOKENS')) {
           results.gscRequiresReauth = true
+          results.gscErrorType = 'auth_required'
           console.log('[Analytics] GSC requires re-authentication for user')
+        } else if (errorMessage.includes('missing required Google Search Console scope')) {
+          results.gscErrorType = 'scope_missing'
+        } else {
+          results.gscErrorType = 'api_error'
         }
+        
+        // Set GSC metrics to null when there's an error
+        results.gscMetrics = null
+        results.gscWeeklyData = []
+        results.gscKeywords = []
+        results.gscCountries = []
+        results.gscDevices = []
+        results.gscIndexData = []
+        results.gscLandingPages = []
       }
     }
 
@@ -554,11 +613,23 @@ export async function GET(
       }
     }
 
-    // If still no data, use mock data
+    // If still no data, indicate no LinkedIn data available
     if (!linkedInDataFetched) {
-      console.log('[LinkedIn] No data source available, using mock data')
-      addLinkedInMockData(results)
-      results.liDataSource = 'mock'
+      console.log('[LinkedIn] No data source available for company:', companyId)
+      results.liError = 'No LinkedIn data configured for this company'
+      results.liDataSource = 'none'
+      // Set all LinkedIn metrics to null to indicate no data
+      results.liVisitorMetrics = null
+      results.liFollowerMetrics = null
+      results.liContentMetrics = null
+      results.liVisitorDaily = []
+      results.liFollowerDaily = []
+      results.liImpressionDaily = []
+      results.liIndustryDemographics = []
+      results.liSeniorityDemographics = []
+      results.liJobFunctionDemographics = []
+      results.liCompanySizeDemographics = []
+      results.liUpdates = []
     }
 
     // Cache the results (1 hour expiry)

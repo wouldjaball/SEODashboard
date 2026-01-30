@@ -8,7 +8,8 @@ import { UpdatesTable } from "./updates-table"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Linkedin } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertTriangle, Linkedin, RefreshCw, Settings } from "lucide-react"
 import Link from "next/link"
 import type {
   LIVisitorMetrics,
@@ -33,6 +34,8 @@ interface LIReportProps {
   jobFunctionDemographics: LIDemographic[]
   companySizeDemographics: LIDemographic[]
   updates: LIUpdate[]
+  error?: string
+  dataSource?: 'api' | 'sheets' | 'mock' | 'none'
 }
 
 export function LIReport({
@@ -47,7 +50,33 @@ export function LIReport({
   jobFunctionDemographics,
   companySizeDemographics,
   updates,
+  error,
+  dataSource,
 }: LIReportProps) {
+  // Show error state if there's an error
+  if (error && dataSource === 'none') {
+    return (
+      <div className="space-y-4">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            No LinkedIn data configured for this company. Please set up LinkedIn integration in the Integrations page.
+          </AlertDescription>
+        </Alert>
+        <div className="flex justify-center">
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.reload()}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   // Show setup message if no LinkedIn data is available
   if (!visitorMetrics && !followerMetrics && !contentMetrics) {
     return (

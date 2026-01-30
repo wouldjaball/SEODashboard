@@ -318,6 +318,13 @@ export interface Company {
   ytLikesSparkline: number[]
   ytError?: string  // Error message if YouTube fetch failed
   ytIsPublicDataOnly?: boolean  // True if using public Data API fallback (limited metrics)
+  // Error states for each service
+  gaError?: string
+  gaErrorType?: 'auth_required' | 'scope_missing' | 'api_error'
+  gscError?: string
+  gscErrorType?: 'auth_required' | 'scope_missing' | 'api_error'
+  liError?: string
+  liDataSource?: 'api' | 'sheets' | 'mock' | 'none'
   // LinkedIn
   liVisitorMetrics: LIVisitorMetrics
   liFollowerMetrics: LIFollowerMetrics

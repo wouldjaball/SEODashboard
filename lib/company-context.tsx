@@ -133,6 +133,14 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         ytSharesSparkline: data.ytSharesSparkline || [],
         ytLikesSparkline: data.ytLikesSparkline || [],
         ytError: data.ytError || undefined,
+        ytIsPublicDataOnly: data.ytIsPublicDataOnly || false,
+        // Error states for each service
+        gaError: data.gaError || undefined,
+        gaErrorType: data.gaErrorType || undefined,
+        gscError: data.gscError || undefined,
+        gscErrorType: data.gscErrorType || undefined,
+        liError: data.liError || undefined,
+        liDataSource: data.liDataSource || undefined,
         // LinkedIn data from Power My Analytics sheets
         liVisitorMetrics: data.liVisitorMetrics || null,
         liFollowerMetrics: data.liFollowerMetrics || null,

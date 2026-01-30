@@ -126,6 +126,8 @@ export default function DashboardPage() {
             gender={company.gaGender}
             age={company.gaAge}
             dateRange={dateRange}
+            error={company.gaError}
+            errorType={company.gaErrorType}
           />
         </TabsContent>
 
@@ -170,6 +172,8 @@ export default function DashboardPage() {
             jobFunctionDemographics={company.liJobFunctionDemographics}
             companySizeDemographics={company.liCompanySizeDemographics}
             updates={company.liUpdates}
+            error={company.liError}
+            dataSource={company.liDataSource}
           />
         </TabsContent>
       </Tabs>

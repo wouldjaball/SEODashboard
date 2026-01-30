@@ -1,6 +1,9 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertTriangle, RefreshCw, Settings } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { GAKPIOverview } from "./ga-kpi-overview"
 import { WeeklyPerformanceChart } from "./weekly-performance-chart"
 import { TrafficShareChart } from "./traffic-share-chart"
@@ -43,6 +46,8 @@ interface GAReportProps {
   gender: GADemographic[]
   age: GADemographic[]
   dateRange?: { from: Date; to: Date }
+  error?: string
+  errorType?: 'auth_required' | 'scope_missing' | 'api_error'
 }
 
 export function GAReport({
@@ -57,7 +62,56 @@ export function GAReport({
   gender,
   age,
   dateRange,
+  error,
+  errorType,
 }: GAReportProps) {
+  // Show error state if there's an error
+  if (error) {
+    const getErrorMessage = () => {
+      switch (errorType) {
+        case 'auth_required':
+          return 'Google Analytics connection expired. Please reconnect your account in the Integrations page.'
+        case 'scope_missing':
+          return 'Google Analytics permissions missing. Please reconnect your account with full Analytics access.'
+        case 'api_error':
+          return `Google Analytics API error: ${error}`
+        default:
+          return `Google Analytics error: ${error}`
+      }
+    }
+
+    const getErrorIcon = () => {
+      switch (errorType) {
+        case 'auth_required':
+        case 'scope_missing':
+          return <Settings className="h-4 w-4" />
+        default:
+          return <AlertTriangle className="h-4 w-4" />
+      }
+    }
+
+    return (
+      <div className="space-y-4">
+        <Alert variant="destructive">
+          {getErrorIcon()}
+          <AlertDescription>
+            {getErrorMessage()}
+          </AlertDescription>
+        </Alert>
+        <div className="flex justify-center">
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.reload()}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   // Filter state - empty arrays mean "all selected"
   const [filters, setFilters] = useState<GAFilters>({
     landingPages: [],
