@@ -180,7 +180,13 @@ export class GoogleSearchConsoleService {
       rowLimit: 25000 // Max allowed by API
     })
 
-    return (data.rows || []).length
+    // Count unique queries only (deduplicate in case API returns duplicates)
+    const uniqueQueries = new Set<string>()
+    for (const row of (data.rows || [])) {
+      uniqueQueries.add(row.keys[0]) // First key is the query
+    }
+
+    return uniqueQueries.size
   }
 
   // Get total count of indexed pages (unique pages with impressions)
@@ -197,7 +203,13 @@ export class GoogleSearchConsoleService {
       rowLimit: 25000 // Max allowed by API
     })
 
-    return (data.rows || []).length
+    // Count unique pages only (deduplicate in case API returns duplicates)
+    const uniquePages = new Set<string>()
+    for (const row of (data.rows || [])) {
+      uniquePages.add(row.keys[0]) // First key is the page URL
+    }
+
+    return uniquePages.size
   }
 
   static async fetchCountries(
@@ -275,10 +287,14 @@ export class GoogleSearchConsoleService {
     ])
 
     // Count unique queries per date as proxy for ranking keywords
-    const queryCountByDate: Record<string, number> = {}
+    const queryCountByDate: Record<string, Set<string>> = {}
     for (const row of (keywordData.rows || [])) {
       const date = row.keys[0]
-      queryCountByDate[date] = (queryCountByDate[date] || 0) + 1
+      const query = row.keys[1]
+      if (!queryCountByDate[date]) {
+        queryCountByDate[date] = new Set()
+      }
+      queryCountByDate[date].add(query)
     }
 
     // Count unique pages per date (pages that appeared in search results that day)
@@ -291,7 +307,7 @@ export class GoogleSearchConsoleService {
     return (dateData.rows || []).map((row: any) => ({
       date: row.keys[0],
       indexedPages: pageCountByDate[row.keys[0]] || 0, // Pages that appeared in search results that day
-      rankingKeywords: queryCountByDate[row.keys[0]] || 0
+      rankingKeywords: queryCountByDate[row.keys[0]]?.size || 0
     }))
   }
 

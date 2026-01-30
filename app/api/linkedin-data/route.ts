@@ -47,8 +47,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // For now, let's return empty data until we can create the table
-    // This ensures the API endpoint works and the UI can load
+    // Use analytics_cache table to store manual LinkedIn data temporarily
+    // Look for manual data stored with data_type = 'linkedin_manual'
+    const { data: cacheData, error: cacheError } = await supabase
+      .from('analytics_cache')
+      .select('data')
+      .eq('company_id', companyId)
+      .eq('data_type', 'linkedin_manual')
+      .eq('start_date', startDate)
+      .eq('end_date', endDate)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (cacheError) {
+      console.error('Error fetching manual LinkedIn data from cache:', cacheError)
+    }
+
+    // Default empty data structure
     const emptyData: ManualLinkedInData = {
       visitorMetrics: {
         pageViews: 0,
@@ -86,6 +102,12 @@ export async function GET(request: Request) {
       jobFunctionDemographics: [],
       companySizeDemographics: [],
       updates: []
+    }
+
+    if (cacheData?.data) {
+      // Return cached manual data
+      const manualData = cacheData.data as ManualLinkedInData
+      return NextResponse.json({ data: manualData, hasManualData: true })
     }
 
     return NextResponse.json({ data: emptyData, hasManualData: false })
@@ -152,11 +174,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // For now, just return success until we can create the table
-    console.log('Manual LinkedIn data save request:', { companyId, dateRangeStart, dateRangeEnd })
-    console.log('Data:', JSON.stringify(data, null, 2))
-    
-    return NextResponse.json({ success: true, message: 'Data saved successfully (simulated)' })
+    // Save manual data to analytics_cache table with data_type = 'linkedin_manual'
+    // First, delete any existing manual data for this company and date range
+    const { error: deleteError } = await supabase
+      .from('analytics_cache')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('data_type', 'linkedin_manual')
+      .eq('start_date', dateRangeStart)
+      .eq('end_date', dateRangeEnd)
+
+    if (deleteError) {
+      console.error('Error deleting existing manual LinkedIn data:', deleteError)
+    }
+
+    // Insert new manual data
+    const { error: insertError } = await supabase
+      .from('analytics_cache')
+      .insert({
+        company_id: companyId,
+        data_type: 'linkedin_manual',
+        start_date: dateRangeStart,
+        end_date: dateRangeEnd,
+        data: data,
+        created_at: new Date().toISOString()
+      })
+
+    if (insertError) {
+      console.error('Error saving manual LinkedIn data:', insertError)
+      return NextResponse.json({ error: 'Failed to save data' }, { status: 500 })
+    }
+
+    console.log('✅ Manual LinkedIn data saved successfully for company:', companyId)
+    return NextResponse.json({ success: true, message: 'Data saved successfully' })
 
     // TODO: Uncomment when table is created
     /*
@@ -226,8 +276,21 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // For now, just return success
-    return NextResponse.json({ success: true, message: 'Data removed successfully (simulated)' })
+    // Delete manual data from analytics_cache
+    const { error } = await supabase
+      .from('analytics_cache')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('data_type', 'linkedin_manual')
+      .eq('start_date', startDate)
+      .eq('end_date', endDate)
+
+    if (error) {
+      console.error('Error deleting manual LinkedIn data:', error)
+      return NextResponse.json({ error: 'Failed to delete data' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, message: 'Manual LinkedIn data removed successfully' })
 
     // TODO: Uncomment when table is created
     /*

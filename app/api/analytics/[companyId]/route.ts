@@ -681,6 +681,49 @@ export async function GET(
       }
     }
 
+    // If no API or sheets data, check for manual LinkedIn data
+    if (!linkedInDataFetched) {
+      try {
+        console.log('[LinkedIn] Checking for manual data for company:', companyId)
+        
+        // Check for manual LinkedIn data in analytics_cache
+        const { data: manualData, error: manualError } = await supabase
+          .from('analytics_cache')
+          .select('data')
+          .eq('company_id', companyId)
+          .eq('data_type', 'linkedin_manual')
+          .eq('start_date', startDate)
+          .eq('end_date', endDate)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (!manualError && manualData?.data) {
+          console.log('[LinkedIn] Found manual data for company:', companyId)
+          const manualLinkedInData = manualData.data
+          
+          results.liVisitorMetrics = manualLinkedInData.visitorMetrics
+          results.liFollowerMetrics = manualLinkedInData.followerMetrics
+          results.liContentMetrics = manualLinkedInData.contentMetrics
+          results.liVisitorDaily = manualLinkedInData.visitorDaily || []
+          results.liFollowerDaily = manualLinkedInData.followerDaily || []
+          results.liImpressionDaily = manualLinkedInData.impressionDaily || []
+          results.liIndustryDemographics = manualLinkedInData.industryDemographics || []
+          results.liSeniorityDemographics = manualLinkedInData.seniorityDemographics || []
+          results.liJobFunctionDemographics = manualLinkedInData.jobFunctionDemographics || []
+          results.liCompanySizeDemographics = manualLinkedInData.companySizeDemographics || []
+          results.liUpdates = manualLinkedInData.updates || []
+          results.liDataSource = 'manual'
+          linkedInDataFetched = true
+          console.log('[LinkedIn] Successfully loaded manual data - Visitors:', manualLinkedInData.visitorMetrics?.pageViews || 0)
+        } else if (manualError) {
+          console.error('[LinkedIn] Error fetching manual data:', manualError)
+        }
+      } catch (error) {
+        console.error('[LinkedIn] Manual data check failed:', error)
+      }
+    }
+
     // If still no data, indicate no LinkedIn data available
     if (!linkedInDataFetched) {
       console.log('[LinkedIn] No data source available for company:', companyId)
