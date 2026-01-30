@@ -175,6 +175,7 @@ export default function DashboardPage() {
             error={company.liError}
             errorType={company.liErrorType}
             dataSource={company.liDataSource}
+            dateRange={dateRange}
           />
         </TabsContent>
       </Tabs>

@@ -9,8 +9,11 @@ import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle, Linkedin, RefreshCw, Settings } from "lucide-react"
+import { AlertTriangle, Linkedin, RefreshCw, Settings, Edit3, Database } from "lucide-react"
 import Link from "next/link"
+import { useState } from "react"
+import { LinkedInDataEditor } from "./linkedin-data-editor"
+import { useCompany } from "@/lib/company-context"
 import type {
   LIVisitorMetrics,
   LIFollowerMetrics,
@@ -36,7 +39,8 @@ interface LIReportProps {
   updates: LIUpdate[]
   error?: string
   errorType?: 'auth_required' | 'scope_missing' | 'api_error'
-  dataSource?: 'api' | 'sheets' | 'mock' | 'none'
+  dataSource?: 'api' | 'sheets' | 'mock' | 'none' | 'manual'
+  dateRange?: { from: Date; to: Date }
 }
 
 export function LIReport({
@@ -54,7 +58,38 @@ export function LIReport({
   error,
   errorType,
   dataSource,
+  dateRange,
 }: LIReportProps) {
+  const { company } = useCompany()
+  const [showDataEditor, setShowDataEditor] = useState(false)
+  
+  const handleSaveManualData = async (manualData: any) => {
+    if (!dateRange) return
+    
+    try {
+      const response = await fetch('/api/linkedin-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          dateRangeStart: dateRange.from.toISOString().split('T')[0],
+          dateRangeEnd: dateRange.to.toISOString().split('T')[0],
+          data: manualData
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to save data')
+      }
+      
+      // Trigger data refresh - you might want to emit an event or call a refresh function
+      alert('LinkedIn data saved successfully! Refreshing dashboard...')
+      window.location.reload()
+    } catch (error) {
+      console.error('Failed to save manual LinkedIn data:', error)
+      throw error
+    }
+  }
   // Show error state if there's an error
   if (error) {
     const getErrorMessage = () => {
@@ -123,11 +158,21 @@ export function LIReport({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4 pt-4">
-          <Button asChild variant="ghost">
-            <Link href="/dashboard">
-              Back to Dashboard
-            </Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => setShowDataEditor(true)}
+              variant="outline"
+              className="gap-2"
+            >
+              <Edit3 className="h-4 w-4" />
+              Add Manual Data
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href="/dashboard">
+                Back to Dashboard
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )
@@ -135,6 +180,26 @@ export function LIReport({
 
   return (
     <div className="space-y-8">
+      {/* LinkedIn Data Header with Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Data Source: {dataSource === 'manual' ? 'Manual Entry' : dataSource === 'api' ? 'LinkedIn API' : dataSource || 'Unknown'}
+            </span>
+          </div>
+        </div>
+        <Button
+          onClick={() => setShowDataEditor(true)}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <Edit3 className="h-4 w-4" />
+          Edit Data
+        </Button>
+      </div>
       {/* Visitor Analytics */}
       {visitorMetrics && (
         <VisitorAnalytics metrics={visitorMetrics} dailyData={visitorDaily} />
@@ -168,6 +233,31 @@ export function LIReport({
 
       {/* Updates Table */}
       {updates.length > 0 && <UpdatesTable data={updates} />}
+      
+      {/* Data Editor Dialog */}
+      {dateRange && (
+        <LinkedInDataEditor
+          open={showDataEditor}
+          onOpenChange={setShowDataEditor}
+          companyId={company.id}
+          companyName={company.name}
+          dateRange={dateRange}
+          currentData={{
+            visitorMetrics: visitorMetrics || undefined,
+            followerMetrics: followerMetrics || undefined,
+            contentMetrics: contentMetrics || undefined,
+            visitorDaily,
+            followerDaily,
+            impressionDaily,
+            industryDemographics,
+            seniorityDemographics,
+            jobFunctionDemographics,
+            companySizeDemographics,
+            updates
+          }}
+          onSave={handleSaveManualData}
+        />
+      )}
     </div>
   )
 }
