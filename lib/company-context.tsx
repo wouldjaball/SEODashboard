@@ -140,6 +140,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         gscError: data.gscError || undefined,
         gscErrorType: data.gscErrorType || undefined,
         liError: data.liError || undefined,
+        liErrorType: data.liErrorType || undefined,
         liDataSource: data.liDataSource || undefined,
         // LinkedIn data from Power My Analytics sheets
         liVisitorMetrics: data.liVisitorMetrics || null,

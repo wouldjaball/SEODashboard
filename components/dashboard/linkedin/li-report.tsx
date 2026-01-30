@@ -35,6 +35,7 @@ interface LIReportProps {
   companySizeDemographics: LIDemographic[]
   updates: LIUpdate[]
   error?: string
+  errorType?: 'auth_required' | 'scope_missing' | 'api_error'
   dataSource?: 'api' | 'sheets' | 'mock' | 'none'
 }
 
@@ -51,16 +52,44 @@ export function LIReport({
   companySizeDemographics,
   updates,
   error,
+  errorType,
   dataSource,
 }: LIReportProps) {
   // Show error state if there's an error
-  if (error && dataSource === 'none') {
+  if (error) {
+    const getErrorMessage = () => {
+      if (dataSource === 'none') {
+        return 'No LinkedIn data configured for this company. Please set up LinkedIn integration in the Integrations page.'
+      }
+      
+      switch (errorType) {
+        case 'auth_required':
+          return 'LinkedIn connection expired. Please reconnect your account in the Integrations page.'
+        case 'scope_missing':
+          return 'LinkedIn permissions missing. Please reconnect your account with full LinkedIn access.'
+        case 'api_error':
+          return `LinkedIn API error: ${error}`
+        default:
+          return `LinkedIn error: ${error}`
+      }
+    }
+
+    const getErrorIcon = () => {
+      switch (errorType) {
+        case 'auth_required':
+        case 'scope_missing':
+          return <Settings className="h-4 w-4" />
+        default:
+          return <AlertTriangle className="h-4 w-4" />
+      }
+    }
+    
     return (
       <div className="space-y-4">
         <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
+          {getErrorIcon()}
           <AlertDescription>
-            No LinkedIn data configured for this company. Please set up LinkedIn integration in the Integrations page.
+            {getErrorMessage()}
           </AlertDescription>
         </Alert>
         <div className="flex justify-center">

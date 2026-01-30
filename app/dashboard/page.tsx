@@ -173,6 +173,7 @@ export default function DashboardPage() {
             companySizeDemographics={company.liCompanySizeDemographics}
             updates={company.liUpdates}
             error={company.liError}
+            errorType={company.liErrorType}
             dataSource={company.liDataSource}
           />
         </TabsContent>

@@ -324,6 +324,7 @@ export interface Company {
   gscError?: string
   gscErrorType?: 'auth_required' | 'scope_missing' | 'api_error'
   liError?: string
+  liErrorType?: 'auth_required' | 'scope_missing' | 'api_error'
   liDataSource?: 'api' | 'sheets' | 'mock' | 'none'
   // LinkedIn
   liVisitorMetrics: LIVisitorMetrics

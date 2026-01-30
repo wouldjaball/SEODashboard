@@ -516,6 +516,20 @@ export async function GET(
             console.log('Logged-in User ID:', user.id)
             console.log('LinkedIn Owner User ID:', liOwnerUserId)
             console.log('Organization ID:', linkedinPage.page_id)
+            
+            // Validate LinkedIn OAuth token scopes
+            const tokenData = await OAuthTokenService.getLinkedInTokens(liOwnerUserId)
+            if (tokenData) {
+              console.log('LinkedIn OAuth token scopes:', tokenData.scope)
+              const requiredScopes = ['r_organization_social', 'r_organization_followers']
+              const hasRequiredScopes = requiredScopes.every(scope => 
+                tokenData.scope.includes(scope)
+              )
+              console.log('Has required LinkedIn scopes:', hasRequiredScopes)
+              if (!hasRequiredScopes) {
+                throw new Error(`LinkedIn OAuth token missing required scopes: ${requiredScopes.join(', ')}`)
+              }
+            }
 
             const linkedInData = await LinkedInAnalyticsService.fetchAllMetrics(
               liOwnerUserId,
@@ -539,13 +553,26 @@ export async function GET(
             results.liUpdates = linkedInData.updates
             results.liDataSource = 'api'
             linkedInDataFetched = true
-            console.log('[LinkedIn] Successfully fetched data from Community Management API')
+            console.log('[LinkedIn] Successfully fetched data from Community Management API for company:', companyId)
+            console.log('[LinkedIn] Data summary - Visitors:', linkedInData.visitorMetrics?.pageViews || 0, 'Followers:', linkedInData.followerMetrics?.totalFollowers || 0)
           }
         }
       }
     } catch (error: unknown) {
       const err = error as Error | undefined
-      console.error('LinkedIn API fetch error:', err?.message || error)
+      const errorMessage = err?.message || String(error) || 'Unknown error'
+      console.error('LinkedIn API fetch error for company', companyId + ':', errorMessage)
+      
+      // Set specific error information
+      results.liError = errorMessage
+      if (errorMessage.includes('missing required scopes')) {
+        results.liErrorType = 'scope_missing'
+      } else if (errorMessage.includes('TOKEN_REFRESH_FAILED') || errorMessage.includes('NO_TOKENS')) {
+        results.liErrorType = 'auth_required'
+      } else {
+        results.liErrorType = 'api_error'
+      }
+      
       // Continue to try other sources
     }
 

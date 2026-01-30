@@ -599,17 +599,10 @@ export class LinkedInAnalyticsService {
     companySizeDemographics: LIDemographic[]
     updates: LIUpdate[]
   }> {
-    // Fetch all data in parallel
-    const [
-      visitorMetrics,
-      followerMetrics,
-      contentMetrics,
-      visitorDaily,
-      followerDaily,
-      impressionDaily,
-      demographics,
-      updates
-    ] = await Promise.all([
+    console.log('[LinkedIn] Fetching all metrics for organization:', organizationId)
+    
+    // Fetch all data in parallel using allSettled to handle partial failures
+    const results = await Promise.allSettled([
       this.fetchPageStatistics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
       this.fetchFollowerMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
       this.fetchShareStatistics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
@@ -619,6 +612,43 @@ export class LinkedInAnalyticsService {
       this.fetchDemographics(userId, organizationId),
       this.fetchPosts(userId, organizationId, 20)
     ])
+
+    // Extract successful results and log failed ones
+    const [
+      visitorResult,
+      followerResult, 
+      contentResult,
+      visitorDailyResult,
+      followerDailyResult,
+      impressionDailyResult,
+      demographicsResult,
+      updatesResult
+    ] = results
+
+    // Log any failed API calls
+    const apiNames = [
+      'PageStatistics', 'FollowerMetrics', 'ShareStatistics', 
+      'VisitorDaily', 'FollowerDaily', 'ImpressionDaily', 
+      'Demographics', 'Posts'
+    ]
+    
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`[LinkedIn] ${apiNames[index]} API failed:`, result.reason)
+      } else {
+        console.log(`[LinkedIn] ${apiNames[index]} API succeeded`)
+      }
+    })
+
+    // Use successful results or provide fallbacks
+    const visitorMetrics = visitorResult.status === 'fulfilled' ? visitorResult.value : this.getEmptyVisitorMetrics()
+    const followerMetrics = followerResult.status === 'fulfilled' ? followerResult.value : this.getEmptyFollowerMetrics()
+    const contentMetrics = contentResult.status === 'fulfilled' ? contentResult.value : this.getEmptyContentMetrics()
+    const visitorDaily = visitorDailyResult.status === 'fulfilled' ? visitorDailyResult.value : []
+    const followerDaily = followerDailyResult.status === 'fulfilled' ? followerDailyResult.value : []
+    const impressionDaily = impressionDailyResult.status === 'fulfilled' ? impressionDailyResult.value : []
+    const demographics = demographicsResult.status === 'fulfilled' ? demographicsResult.value : this.getEmptyDemographics()
+    const updates = updatesResult.status === 'fulfilled' ? updatesResult.value : []
 
     return {
       visitorMetrics,
@@ -632,6 +662,58 @@ export class LinkedInAnalyticsService {
       jobFunctionDemographics: demographics.jobFunction,
       companySizeDemographics: demographics.companySize,
       updates
+    }
+  }
+
+  // Fallback methods for failed API calls
+  private static getEmptyVisitorMetrics(): LIVisitorMetrics {
+    return {
+      pageViews: 0,
+      uniqueVisitors: 0,
+      customButtonClicks: 0,
+      previousPeriod: {
+        pageViews: 0,
+        uniqueVisitors: 0,
+        customButtonClicks: 0
+      }
+    }
+  }
+
+  private static getEmptyFollowerMetrics(): LIFollowerMetrics {
+    return {
+      totalFollowers: 0,
+      newFollowers: 0,
+      previousPeriod: {
+        totalFollowers: 0,
+        newFollowers: 0
+      }
+    }
+  }
+
+  private static getEmptyContentMetrics(): LIContentMetrics {
+    return {
+      reactions: 0,
+      comments: 0,
+      reposts: 0,
+      previousPeriod: {
+        reactions: 0,
+        comments: 0,
+        reposts: 0
+      }
+    }
+  }
+
+  private static getEmptyDemographics(): {
+    industry: LIDemographic[]
+    seniority: LIDemographic[]
+    jobFunction: LIDemographic[]
+    companySize: LIDemographic[]
+  } {
+    return {
+      industry: [],
+      seniority: [],
+      jobFunction: [],
+      companySize: []
     }
   }
 }
