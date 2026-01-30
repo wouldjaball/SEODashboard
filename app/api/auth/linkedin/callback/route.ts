@@ -133,11 +133,11 @@ export async function GET(request: Request) {
 
     console.log('LinkedIn tokens saved successfully with organization:', identityInfo?.linkedinOrganizationId)
 
-    // If we have a target company and an organization, auto-add and map it
+    // Always save LinkedIn page to database when we have organization info
     let organizationMapped = false
-    if (oauthState.companyId && identityInfo?.linkedinOrganizationId && identityInfo?.linkedinOrganizationName) {
+    if (identityInfo?.linkedinOrganizationId && identityInfo?.linkedinOrganizationName) {
       try {
-        console.log(`Auto-mapping LinkedIn organization ${identityInfo.linkedinOrganizationId} to company ${oauthState.companyId}`)
+        console.log(`Saving LinkedIn organization ${identityInfo.linkedinOrganizationId} to linkedin_pages`)
 
         // Use service client to bypass RLS for this operation
         const serviceClient = createServiceClient()
@@ -177,29 +177,32 @@ export async function GET(request: Request) {
           console.log('Created new LinkedIn page:', pageDbId)
         }
 
-        // Delete any existing mapping for this company
-        await serviceClient
-          .from('company_linkedin_mappings')
-          .delete()
-          .eq('company_id', oauthState.companyId)
+        // If we also have a target company, create the mapping
+        if (oauthState.companyId) {
+          // Delete any existing mapping for this company
+          await serviceClient
+            .from('company_linkedin_mappings')
+            .delete()
+            .eq('company_id', oauthState.companyId)
 
-        // Create the mapping
-        const { error: mappingError } = await serviceClient
-          .from('company_linkedin_mappings')
-          .insert({
-            company_id: oauthState.companyId,
-            linkedin_page_id: pageDbId
-          })
+          // Create the mapping
+          const { error: mappingError } = await serviceClient
+            .from('company_linkedin_mappings')
+            .insert({
+              company_id: oauthState.companyId,
+              linkedin_page_id: pageDbId
+            })
 
-        if (mappingError) {
-          console.error('Failed to create LinkedIn mapping:', mappingError)
-          throw mappingError
+          if (mappingError) {
+            console.error('Failed to create LinkedIn mapping:', mappingError)
+            throw mappingError
+          }
+
+          console.log(`Successfully mapped LinkedIn page ${pageDbId} to company ${oauthState.companyId}`)
+          organizationMapped = true
         }
-
-        console.log(`Successfully mapped LinkedIn page ${pageDbId} to company ${oauthState.companyId}`)
-        organizationMapped = true
-      } catch (mappingError) {
-        console.error('Failed to auto-map LinkedIn organization:', mappingError)
+      } catch (pageError) {
+        console.error('Failed to save LinkedIn organization:', pageError)
         // Continue anyway - tokens are saved
       }
     }
