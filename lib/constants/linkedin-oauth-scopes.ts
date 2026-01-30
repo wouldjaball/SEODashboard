@@ -1,9 +1,10 @@
 // LinkedIn OAuth 2.0 scopes for Community Management API
 export const LINKEDIN_OAUTH_SCOPES = [
-  'r_organization_social',      // Read organization posts/content
-  'r_organization_admin',       // Admin access to organization
-  'w_member_social',            // Write posts (future capability)
-  'rw_organization_admin'       // Read/write organization admin
+  'r_basicprofile',             // Basic profile info
+  'r_organization_social',      // Read organization posts/engagement data
+  'rw_organization_admin',      // Manage organization pages and reporting data
+  'r_organization_followers',   // Access follower data
+  'w_organization_social'       // Create/modify organization posts
 ]
 
 export const LINKEDIN_OAUTH_SCOPES_STRING = LINKEDIN_OAUTH_SCOPES.join(' ')
