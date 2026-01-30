@@ -1,4 +1,4 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
 import { LINKEDIN_API_VERSION } from '@/lib/constants/linkedin-oauth-scopes'
@@ -147,89 +147,21 @@ export async function GET(request: Request) {
 
     console.log('LinkedIn tokens saved successfully with organization:', identityInfo?.linkedinOrganizationId)
 
-    // Always save LinkedIn page to database when we have organization info
-    let organizationMapped = false
-    if (identityInfo?.linkedinOrganizationId && identityInfo?.linkedinOrganizationName) {
-      try {
-        console.log(`Saving LinkedIn organization ${identityInfo.linkedinOrganizationId} to linkedin_pages`)
-
-        // Use service client to bypass RLS for this operation
-        const serviceClient = createServiceClient()
-
-        // Check if this organization already exists for this user
-        const { data: existingPage } = await serviceClient
-          .from('linkedin_pages')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('page_id', identityInfo.linkedinOrganizationId)
-          .maybeSingle()
-
-        let pageDbId: string
-
-        if (existingPage) {
-          pageDbId = existingPage.id
-          console.log('LinkedIn page already exists in database:', pageDbId)
-        } else {
-          // Insert the LinkedIn page
-          const { data: newPage, error: pageError } = await serviceClient
-            .from('linkedin_pages')
-            .insert({
-              user_id: user.id,
-              page_id: identityInfo.linkedinOrganizationId,
-              page_name: identityInfo.linkedinOrganizationName,
-              is_active: true
-            })
-            .select('id')
-            .single()
-
-          if (pageError) {
-            console.error('Failed to insert LinkedIn page:', pageError)
-            throw pageError
-          }
-
-          pageDbId = newPage.id
-          console.log('Created new LinkedIn page:', pageDbId)
-        }
-
-        // If we also have a target company, create the mapping
-        if (oauthState.companyId) {
-          // Delete any existing mapping for this company
-          await serviceClient
-            .from('company_linkedin_mappings')
-            .delete()
-            .eq('company_id', oauthState.companyId)
-
-          // Create the mapping
-          const { error: mappingError } = await serviceClient
-            .from('company_linkedin_mappings')
-            .insert({
-              company_id: oauthState.companyId,
-              linkedin_page_id: pageDbId
-            })
-
-          if (mappingError) {
-            console.error('Failed to create LinkedIn mapping:', mappingError)
-            throw mappingError
-          }
-
-          console.log(`Successfully mapped LinkedIn page ${pageDbId} to company ${oauthState.companyId}`)
-          organizationMapped = true
-        }
-      } catch (pageError) {
-        console.error('Failed to save LinkedIn organization:', pageError)
-        // Continue anyway - tokens are saved
-      }
-    }
-
     // Determine redirect URL
     const successParams = new URLSearchParams({ success: 'true', provider: 'linkedin' })
 
-    if (identityInfo?.linkedinOrganizationName) {
+    // If we have a target company, redirect to org selection dialog instead of auto-mapping
+    // This lets the user choose which LinkedIn organization to map to the company
+    if (oauthState.companyId) {
+      successParams.set('pendingMapping', 'true')
+      successParams.set('companyId', oauthState.companyId)
+      if (oauthState.companyName) {
+        successParams.set('companyName', oauthState.companyName)
+      }
+      console.log(`LinkedIn OAuth complete - redirecting to org selection for company ${oauthState.companyId}`)
+    } else if (identityInfo?.linkedinOrganizationName) {
+      // General connection (no company target) - just show success message
       successParams.set('organization', identityInfo.linkedinOrganizationName)
-    }
-    if (organizationMapped && oauthState.companyName) {
-      successParams.set('mapped', 'true')
-      successParams.set('company', oauthState.companyName)
     }
 
     return NextResponse.redirect(`${origin}${returnUrl}?${successParams}`)

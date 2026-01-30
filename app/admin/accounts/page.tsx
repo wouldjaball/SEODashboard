@@ -139,6 +139,17 @@ export default function AdminAccountsPage() {
   const [selectedOrgIds, setSelectedOrgIds] = useState<Set<string>>(new Set())
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
   const [isSavingOrgs, setIsSavingOrgs] = useState(false)
+  // For company-specific LinkedIn org mapping (after OAuth redirect)
+  const [pendingMappingCompanyId, setPendingMappingCompanyId] = useState<string | null>(null)
+  const [pendingMappingCompanyName, setPendingMappingCompanyName] = useState<string | null>(null)
+
+  // Open org selection dialog when we have a pending mapping and data is loaded
+  useEffect(() => {
+    if (pendingMappingCompanyId && !isLoading && isLinkedInConnected) {
+      setShowLinkedInOrgDialog(true)
+      fetchLinkedInOrganizations()
+    }
+  }, [pendingMappingCompanyId, isLoading, isLinkedInConnected])
 
   useEffect(() => {
     fetchData()
@@ -153,9 +164,18 @@ export default function AdminAccountsPage() {
       const company = params.get('company')
 
       if (provider === 'linkedin') {
-        // LinkedIn OAuth success
-        if (mapped === 'true' && company && organization) {
-          alert(`Successfully connected LinkedIn organization "${organization}" to ${company}!`)
+        // Check if this is a pending mapping (user needs to select org for a company)
+        const pendingMapping = params.get('pendingMapping')
+        const pendingCompanyId = params.get('companyId')
+        const pendingCompanyName = params.get('companyName')
+
+        if (pendingMapping === 'true' && pendingCompanyId) {
+          // Open org selection dialog for the target company
+          setPendingMappingCompanyId(pendingCompanyId)
+          setPendingMappingCompanyName(pendingCompanyName)
+          // Dialog will be opened after data is fetched
+          // Don't clean up URL yet - will be done when dialog closes
+          return
         } else if (organization) {
           alert(`Successfully connected LinkedIn organization "${organization}"!`)
         } else {
@@ -651,6 +671,48 @@ export default function AdminAccountsPage() {
   async function handleSaveSelectedOrganizations() {
     setIsSavingOrgs(true)
     try {
+      // If we're mapping to a specific company, handle that case
+      if (pendingMappingCompanyId) {
+        // Get the selected organization (should be exactly one)
+        const selectedOrgId = Array.from(selectedOrgIds).find(id => {
+          const org = availableLinkedInOrgs.find(o => o.id === id)
+          return org && !org.alreadySaved
+        }) || Array.from(selectedOrgIds)[0]
+
+        const selectedOrg = availableLinkedInOrgs.find(o => o.id === selectedOrgId)
+
+        if (!selectedOrg) {
+          alert('Please select a LinkedIn organization to map.')
+          return
+        }
+
+        // Save the organization with the company ID to create the mapping
+        const response = await fetch('/api/integrations/linkedin/organizations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            organizationId: selectedOrg.id,
+            organizationName: selectedOrg.name,
+            companyId: pendingMappingCompanyId
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to create mapping')
+        }
+
+        // Refresh data and close dialog
+        await fetchData()
+        setShowLinkedInOrgDialog(false)
+        setPendingMappingCompanyId(null)
+        setPendingMappingCompanyName(null)
+        // Clean up URL params
+        window.history.replaceState({}, '', '/admin/accounts')
+        alert(`Successfully mapped "${selectedOrg.name}" to ${pendingMappingCompanyName || 'the company'}!`)
+        return
+      }
+
+      // Regular flow: just add orgs to the available list (no company mapping)
       // Find newly selected orgs (not already saved)
       const savedPageIds = new Set(linkedinPages.map(p => p.page_id))
       const newOrgsToSave = availableLinkedInOrgs.filter(
@@ -1644,12 +1706,26 @@ export default function AdminAccountsPage() {
       </Dialog>
 
       {/* LinkedIn Organization Selection Dialog */}
-      <Dialog open={showLinkedInOrgDialog} onOpenChange={setShowLinkedInOrgDialog}>
+      <Dialog open={showLinkedInOrgDialog} onOpenChange={(open) => {
+        setShowLinkedInOrgDialog(open)
+        if (!open) {
+          // Clear pending mapping state when dialog is closed
+          setPendingMappingCompanyId(null)
+          setPendingMappingCompanyName(null)
+          window.history.replaceState({}, '', '/admin/accounts')
+        }
+      }}>
         <DialogContent className="max-w-lg max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>Manage LinkedIn Organizations</DialogTitle>
+            <DialogTitle>
+              {pendingMappingCompanyId
+                ? `Select LinkedIn Organization for ${pendingMappingCompanyName || 'Company'}`
+                : 'Manage LinkedIn Organizations'}
+            </DialogTitle>
             <DialogDescription>
-              Select the LinkedIn organizations you want to make available for company assignments.
+              {pendingMappingCompanyId
+                ? 'Choose which LinkedIn organization to connect to this company.'
+                : 'Select the LinkedIn organizations you want to make available for company assignments.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1718,17 +1794,27 @@ export default function AdminAccountsPage() {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowLinkedInOrgDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowLinkedInOrgDialog(false)
+              setPendingMappingCompanyId(null)
+              setPendingMappingCompanyName(null)
+              window.history.replaceState({}, '', '/admin/accounts')
+            }}>
               Cancel
             </Button>
             <Button
               onClick={handleSaveSelectedOrganizations}
-              disabled={isSavingOrgs || isLoadingOrgs}
+              disabled={isSavingOrgs || isLoadingOrgs || selectedOrgIds.size === 0}
             >
               {isSavingOrgs ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Saving...
+                </>
+              ) : pendingMappingCompanyId ? (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Connect Selected Organization
                 </>
               ) : (
                 <>
