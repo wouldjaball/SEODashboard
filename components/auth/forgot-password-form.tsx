@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 
-interface ForgotPasswordFormProps extends React.ComponentProps<"div"> {}
+interface ForgotPasswordFormProps extends React.ComponentProps<"div"> {
+  // Intentionally empty - extends div props only
+}
 
 export function ForgotPasswordForm({ className, ...props }: ForgotPasswordFormProps) {
   const [email, setEmail] = React.useState("")

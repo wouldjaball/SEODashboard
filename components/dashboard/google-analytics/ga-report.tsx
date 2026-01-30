@@ -65,6 +65,26 @@ export function GAReport({
   error,
   errorType,
 }: GAReportProps) {
+  // Filter state - empty arrays mean "all selected"
+  const [filters, setFilters] = useState<GAFilters>({
+    landingPages: [],
+    deviceCategories: [],
+    channels: [],
+  })
+
+  // Apply filters to all data
+  const filteredData = useMemo(() => ({
+    metrics: calculateFilteredMetrics(metrics, landingPages, devices, trafficShare, filters),
+    landingPages: filterLandingPages(landingPages, filters),
+    sourcePerformance: filterSourcePerformance(sourcePerformance, filters),
+    devices: filterDevices(devices, filters),
+    channelData: filterChannelData(channelData, filters),
+    trafficShare: filterTrafficShare(trafficShare, filters),
+    regions: regions, // No region filtering for now
+    gender: gender,   // No gender filtering for now
+    age: age,         // No age filtering for now
+  }), [metrics, landingPages, sourcePerformance, devices, channelData, trafficShare, regions, gender, age, filters])
+
   // Show error state if there's an error
   if (error) {
     const getErrorMessage = () => {
@@ -111,23 +131,6 @@ export function GAReport({
       </div>
     )
   }
-
-  // Filter state - empty arrays mean "all selected"
-  const [filters, setFilters] = useState<GAFilters>({
-    landingPages: [],
-    deviceCategories: [],
-    channels: [],
-  })
-
-  // Apply filters to all data
-  const filteredData = useMemo(() => ({
-    metrics: calculateFilteredMetrics(metrics, landingPages, devices, trafficShare, filters),
-    landingPages: filterLandingPages(landingPages, filters),
-    sourcePerformance: filterSourcePerformance(sourcePerformance, filters),
-    devices: filterDevices(devices, filters),
-    channelData: filterChannelData(channelData, filters),
-    trafficShare: filterTrafficShare(trafficShare, filters),
-  }), [metrics, landingPages, devices, trafficShare, sourcePerformance, channelData, filters])
 
   return (
     <div className="space-y-4 sm:space-y-6">

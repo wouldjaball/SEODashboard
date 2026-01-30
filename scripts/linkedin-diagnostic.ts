@@ -188,8 +188,8 @@ class LinkedInDiagnostic {
     const result = await this.step4_testTokenRefresh()
     if (!result) return null
 
-    const { linkedInPage, refreshedToken } = result
-    const accessToken = refreshedToken
+    const { linkedInPage } = result
+    const accessToken = 'refreshedToken' in result ? result.refreshedToken : null
 
     if (!accessToken) {
       this.log('LinkedIn API', 'error', 'No valid access token available for API testing')
@@ -308,20 +308,21 @@ class LinkedInDiagnostic {
       .select('*')
       .eq('company_id', company.id)
 
-    if (!sheetConfig) {
+    if (!sheetConfig || sheetConfig.length === 0) {
       this.log('Sheet Config', 'info', 'No Google Sheets configuration found (this is optional)')
       return
     }
 
-    const hasAnySheet = !!(sheetConfig.page_analytics_sheet_id || 
-                          sheetConfig.post_analytics_sheet_id || 
-                          sheetConfig.campaign_analytics_sheet_id)
+    const config = sheetConfig[0]
+    const hasAnySheet = !!(config.page_analytics_sheet_id || 
+                          config.post_analytics_sheet_id || 
+                          config.campaign_analytics_sheet_id)
 
     this.log('Sheet Config', hasAnySheet ? 'success' : 'warning', 
       hasAnySheet ? 'Google Sheets configuration found' : 'Google Sheets configuration exists but no sheet IDs set', {
-      pageAnalyticsSheet: sheetConfig.page_analytics_sheet_id || 'Not set',
-      postAnalyticsSheet: sheetConfig.post_analytics_sheet_id || 'Not set',
-      campaignAnalyticsSheet: sheetConfig.campaign_analytics_sheet_id || 'Not set'
+      pageAnalyticsSheet: config.page_analytics_sheet_id || 'Not set',
+      postAnalyticsSheet: config.post_analytics_sheet_id || 'Not set',
+      campaignAnalyticsSheet: config.campaign_analytics_sheet_id || 'Not set'
     })
   }
 

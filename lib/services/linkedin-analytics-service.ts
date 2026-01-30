@@ -1,4 +1,4 @@
-import { OAuthTokenService, type TokenRefreshResult } from './oauth-token-service'
+import { OAuthTokenService } from './oauth-token-service'
 import { LINKEDIN_API_VERSION, LINKEDIN_API_BASE } from '@/lib/constants/linkedin-oauth-scopes'
 import type {
   LIVisitorMetrics,

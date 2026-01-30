@@ -604,7 +604,7 @@ export async function GET(
       results.liError = errorMessage
       if (errorMessage.includes('missing required scopes')) {
         results.liErrorType = 'scope_missing'
-      } else if (errorMessage.includes('TOKEN_REFRESH_FAILED') || 
+      } else if (errorMessage.includes('REFRESH_FAILED') || 
                  errorMessage.includes('NO_TOKENS') ||
                  errorMessage.includes('refresh token is invalid') ||
                  errorMessage.includes('Please reconnect')) {

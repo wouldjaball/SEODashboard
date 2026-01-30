@@ -64,9 +64,9 @@ const emptyCompany: Company = {
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const useRealData = process.env.NEXT_PUBLIC_USE_REAL_DATA === 'true'
 
-  // Use empty placeholder when using real data (to avoid flash of mock data)
-  const [company, setCompanyState] = React.useState<Company>(useRealData ? emptyCompany : defaultCompany)
-  const [companies, setCompanies] = React.useState<Company[]>(useRealData ? [] : mockCompanies)
+  // Always use empty placeholder initially - only real data will be shown
+  const [company, setCompanyState] = React.useState<Company>(emptyCompany)
+  const [companies, setCompanies] = React.useState<Company[]>([])
   const [isLoading, setIsLoading] = React.useState(useRealData) // Start loading if using real data
   const [error, setError] = React.useState<string | null>(null)
   const [comparisonEnabled, setComparisonEnabled] = React.useState(false)
@@ -164,10 +164,9 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   }
 
   React.useEffect(() => {
-    if (useRealData) {
-      fetchCompanies()
-    }
-  }, [useRealData])
+    // Always fetch real companies - no mock data mode
+    fetchCompanies()
+  }, [])
 
   async function fetchCompanies() {
     try {
@@ -252,19 +251,19 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
           fetchAnalyticsForCompany(firstCompany.id, defaultDateRange)
         }
       } else {
-        // No companies found - use mock data as fallback
-        console.log('[CompanyContext] No companies found in database, using mock data')
-        setCompanies(mockCompanies)
-        setCompanyState(defaultCompany)
-        setError(null)
+        // No companies found - show error instead of mock data
+        console.log('[CompanyContext] No companies found in database')
+        setCompanies([])
+        setCompanyState(emptyCompany)
+        setError('No companies available. Please contact support.')
       }
     } catch (err) {
       console.error('[CompanyContext] Failed to fetch companies:', err)
       setError('Failed to load companies. Please sign in or contact support.')
-      // Fallback to mock data on error
-      console.log('[CompanyContext] Falling back to mock data due to error')
-      setCompanies(mockCompanies)
-      setCompanyState(defaultCompany)
+      // Show empty state instead of mock data
+      console.log('[CompanyContext] Setting empty state due to error')
+      setCompanies([])
+      setCompanyState(emptyCompany)
     } finally {
       setIsLoading(false)
     }
@@ -273,13 +272,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   async function refetchData(companyId: string, dateRange: { from: Date; to: Date }) {
     console.log('[CompanyContext] refetchData called with:', { companyId, dateRange })
 
-    // Only fetch if using real data
-    if (!useRealData) {
-      console.log('[CompanyContext] Skipping - useRealData is false')
-      return
-    }
-
-    // Delegate to the helper function
+    // Always fetch real data - no mock data fallback
     await fetchAnalyticsForCompany(companyId, dateRange)
   }
 

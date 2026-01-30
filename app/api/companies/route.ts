@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   try {
     const supabase = await createClient()
+    const serviceClient = createServiceClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -22,6 +23,57 @@ export async function GET() {
 
     if (error) {
       throw error
+    }
+
+    // If user has no company assignments, auto-assign them to all available companies
+    if (!userCompanies || userCompanies.length === 0) {
+      console.log('[Companies API] User has no company assignments, auto-assigning to all companies')
+      
+      // Get all companies
+      const { data: allCompanies, error: allCompaniesError } = await serviceClient
+        .from('companies')
+        .select('id')
+
+      if (allCompaniesError) {
+        throw allCompaniesError
+      }
+
+      if (allCompanies && allCompanies.length > 0) {
+        // Create assignments for all companies with viewer role
+        const assignments = allCompanies.map(company => ({
+          user_id: user.id,
+          company_id: company.id,
+          role: 'viewer'
+        }))
+
+        const { error: assignError } = await serviceClient
+          .from('user_companies')
+          .insert(assignments)
+
+        if (assignError) {
+          console.error('[Companies API] Failed to auto-assign user to companies:', assignError)
+        } else {
+          console.log('[Companies API] Successfully auto-assigned user to', allCompanies.length, 'companies')
+          
+          // Re-fetch user companies after assignment
+          const { data: newUserCompanies, error: refetchError } = await supabase
+            .from('user_companies')
+            .select(`
+              company_id,
+              role,
+              companies (*)
+            `)
+            .eq('user_id', user.id)
+
+          if (!refetchError && newUserCompanies) {
+            const companies = newUserCompanies.map(uc => ({
+              ...uc.companies,
+              role: uc.role
+            }))
+            return NextResponse.json({ companies })
+          }
+        }
+      }
     }
 
     const companies = userCompanies?.map(uc => ({
