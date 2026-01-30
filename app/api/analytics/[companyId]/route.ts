@@ -604,8 +604,12 @@ export async function GET(
       results.liError = errorMessage
       if (errorMessage.includes('missing required scopes')) {
         results.liErrorType = 'scope_missing'
-      } else if (errorMessage.includes('TOKEN_REFRESH_FAILED') || errorMessage.includes('NO_TOKENS')) {
+      } else if (errorMessage.includes('TOKEN_REFRESH_FAILED') || 
+                 errorMessage.includes('NO_TOKENS') ||
+                 errorMessage.includes('refresh token is invalid') ||
+                 errorMessage.includes('Please reconnect')) {
         results.liErrorType = 'auth_required'
+        console.log('[LinkedIn] Authentication required - user needs to reconnect LinkedIn account')
       } else {
         results.liErrorType = 'api_error'
       }

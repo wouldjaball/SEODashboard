@@ -64,6 +64,9 @@ export function LIReport({
       
       switch (errorType) {
         case 'auth_required':
+          if (error?.includes('refresh token is invalid') || error?.includes('Please reconnect')) {
+            return 'LinkedIn authorization has expired. Your LinkedIn connection needs to be refreshed. Please go to the Integrations page and reconnect your LinkedIn account to restore data access.'
+          }
           return 'LinkedIn connection expired. Please reconnect your account in the Integrations page.'
         case 'scope_missing':
           return 'LinkedIn permissions missing. Please reconnect your account with full LinkedIn access.'

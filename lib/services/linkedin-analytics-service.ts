@@ -1,4 +1,4 @@
-import { OAuthTokenService } from './oauth-token-service'
+import { OAuthTokenService, type TokenRefreshResult } from './oauth-token-service'
 import { LINKEDIN_API_VERSION, LINKEDIN_API_BASE } from '@/lib/constants/linkedin-oauth-scopes'
 import type {
   LIVisitorMetrics,
@@ -21,9 +21,10 @@ export class LinkedInAnalyticsService {
     endpoint: string,
     params: Record<string, string> = {}
   ): Promise<unknown> {
-    const accessToken = await OAuthTokenService.refreshLinkedInAccessToken(userId, organizationId)
-    if (!accessToken) {
-      throw new Error('No valid LinkedIn access token')
+    const tokenResult = await OAuthTokenService.refreshLinkedInAccessTokenWithDetails(userId, organizationId)
+    if (!tokenResult.success) {
+      console.error('[LinkedIn] Token refresh failed:', tokenResult.error, tokenResult.details)
+      throw new Error(`LinkedIn authentication failed: ${tokenResult.details}`)
     }
 
     const queryParams = new URLSearchParams(params)
@@ -33,7 +34,7 @@ export class LinkedInAnalyticsService {
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${tokenResult.accessToken}`,
         'LinkedIn-Version': LINKEDIN_API_VERSION,
         'X-Restli-Protocol-Version': '2.0.0'
       }

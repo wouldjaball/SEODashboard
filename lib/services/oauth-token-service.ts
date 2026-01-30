@@ -460,16 +460,33 @@ export class OAuthTokenService {
   }
 
   static async refreshLinkedInAccessToken(userId: string, organizationId?: string): Promise<string | null> {
+    const result = await this.refreshLinkedInAccessTokenWithDetails(userId, organizationId)
+    return result.success ? result.accessToken : null
+  }
+
+  /**
+   * Refresh LinkedIn access token with detailed error information.
+   * Use this method when you need to know WHY a LinkedIn refresh failed.
+   */
+  static async refreshLinkedInAccessTokenWithDetails(userId: string, organizationId?: string): Promise<TokenRefreshResult> {
+    console.log('[OAuthTokenService] refreshLinkedInAccessToken called for user:', userId, organizationId ? `(org: ${organizationId})` : '')
+
     const tokens = await this.getLinkedInTokens(userId, organizationId)
-    if (!tokens) return null
+    if (!tokens) {
+      console.error('[OAuthTokenService] No LinkedIn tokens available for user:', userId)
+      return { success: false, error: 'NO_TOKENS', details: 'No LinkedIn OAuth tokens found for this user' }
+    }
 
     // Check if token is expired (with 5 minute buffer)
     const now = new Date()
     const expiryWithBuffer = new Date(tokens.expiresAt.getTime() - 5 * 60 * 1000)
 
     if (now < expiryWithBuffer) {
-      return tokens.accessToken
+      console.log('[OAuthTokenService] LinkedIn token still valid for', Math.round((tokens.expiresAt.getTime() - now.getTime()) / (60 * 1000)), 'minutes')
+      return { success: true, accessToken: tokens.accessToken }
     }
+
+    console.log('[OAuthTokenService] LinkedIn token expired, attempting refresh...')
 
     // LinkedIn tokens typically have long expiration (60 days for access, 365 days for refresh)
     // If we have a refresh token, try to refresh
@@ -487,11 +504,25 @@ export class OAuthTokenService {
         })
 
         if (!response.ok) {
-          console.error('LinkedIn token refresh failed:', await response.text())
-          return null
+          const errorText = await response.text()
+          console.error('[OAuthTokenService] LinkedIn token refresh failed:', response.status, errorText)
+          
+          // Parse error to provide better feedback
+          try {
+            const errorData = JSON.parse(errorText)
+            if (errorData.error === 'invalid_grant') {
+              console.error('[OAuthTokenService] LinkedIn refresh token is invalid/expired - user needs to re-authenticate')
+              return { success: false, error: 'TOKEN_REFRESH_FAILED', details: 'LinkedIn refresh token is invalid or expired. Please reconnect your LinkedIn account.' }
+            }
+          } catch (e) {
+            // Error text is not JSON
+          }
+          
+          return { success: false, error: 'TOKEN_REFRESH_FAILED', details: `LinkedIn token refresh failed: ${errorText}` }
         }
 
         const data = await response.json()
+        console.log('[OAuthTokenService] LinkedIn token refresh successful')
 
         // Save new tokens
         await this.saveLinkedInTokens(userId, {
@@ -504,16 +535,16 @@ export class OAuthTokenService {
           linkedinOrganizationName: tokens.linkedinOrganizationName
         } : undefined)
 
-        return data.access_token
+        return { success: true, accessToken: data.access_token }
       } catch (error) {
-        console.error('Failed to refresh LinkedIn token:', error)
-        return null
+        console.error('[OAuthTokenService] Failed to refresh LinkedIn token:', error)
+        return { success: false, error: 'TOKEN_REFRESH_FAILED', details: `Network error during LinkedIn token refresh: ${error}` }
       }
     }
 
     // No refresh token and token expired - user needs to re-authenticate
-    console.log('LinkedIn token expired and no refresh token available')
-    return null
+    console.log('[OAuthTokenService] LinkedIn token expired and no refresh token available')
+    return { success: false, error: 'TOKEN_REFRESH_FAILED', details: 'LinkedIn token expired and no refresh token available. Please reconnect your LinkedIn account.' }
   }
 
   static async listLinkedInConnections(userId: string): Promise<LinkedInConnection[]> {
