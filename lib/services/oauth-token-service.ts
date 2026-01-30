@@ -30,6 +30,11 @@ export interface GoogleConnection {
   createdAt: Date
 }
 
+// Structured result type for token refresh operations
+export type TokenRefreshResult =
+  | { success: true; accessToken: string }
+  | { success: false; error: 'NO_TOKENS' | 'REFRESH_FAILED' | 'DECRYPTION_FAILED' | 'DB_ERROR'; details?: string }
+
 export interface LinkedInConnection {
   id: string
   linkedinOrganizationId: string
@@ -141,7 +146,15 @@ export class OAuthTokenService {
     // Get the first matching token (or specific identity if provided)
     const { data, error } = await query.limit(1).maybeSingle()
 
-    if (error || !data) return null
+    if (error) {
+      console.error('[OAuthTokenService] Database error fetching tokens for user:', userId, error)
+      return null
+    }
+
+    if (!data) {
+      console.log('[OAuthTokenService] No tokens found for user:', userId, googleIdentity ? `(identity: ${googleIdentity})` : '')
+      return null
+    }
 
     try {
       return {
@@ -221,18 +234,36 @@ export class OAuthTokenService {
   }
 
   static async refreshAccessToken(userId: string, googleIdentity?: string): Promise<string | null> {
+    const result = await this.refreshAccessTokenWithDetails(userId, googleIdentity)
+    return result.success ? result.accessToken : null
+  }
+
+  /**
+   * Refresh access token with detailed error information.
+   * Use this method when you need to know WHY a refresh failed.
+   */
+  static async refreshAccessTokenWithDetails(userId: string, googleIdentity?: string): Promise<TokenRefreshResult> {
+    console.log('[OAuthTokenService] refreshAccessToken called for user:', userId, googleIdentity ? `(identity: ${googleIdentity})` : '')
+
     const tokens = await this.getTokens(userId, googleIdentity)
-    if (!tokens) return null
+    if (!tokens) {
+      console.error('[OAuthTokenService] No tokens available for user:', userId)
+      return { success: false, error: 'NO_TOKENS', details: 'No OAuth tokens found for this user' }
+    }
 
     // Check if token is expired (with 5 minute buffer)
     const now = new Date()
     const expiryWithBuffer = new Date(tokens.expiresAt.getTime() - 5 * 60 * 1000)
 
     if (now < expiryWithBuffer) {
-      return tokens.accessToken
+      const minutesUntilExpiry = Math.round((tokens.expiresAt.getTime() - now.getTime()) / (60 * 1000))
+      console.log('[OAuthTokenService] Token still valid, expires in', minutesUntilExpiry, 'minutes')
+      return { success: true, accessToken: tokens.accessToken }
     }
 
-    // Refresh the token
+    // Token is expired, attempt refresh
+    console.log('[OAuthTokenService] Token expired, attempting refresh. Expired at:', tokens.expiresAt.toISOString())
+
     try {
       const response = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -246,11 +277,29 @@ export class OAuthTokenService {
       })
 
       if (!response.ok) {
-        console.error('Token refresh failed:', await response.text())
-        return null
+        const errorText = await response.text()
+        console.error('[OAuthTokenService] Token refresh failed with status:', response.status)
+        console.error('[OAuthTokenService] Google OAuth error response:', errorText)
+
+        // Parse error for common cases
+        let errorDetails = `Google OAuth error (${response.status}): ${errorText}`
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.error === 'invalid_grant') {
+            errorDetails = 'Refresh token has been revoked or expired. User needs to re-authenticate.'
+          } else if (errorJson.error === 'invalid_client') {
+            errorDetails = 'OAuth client credentials are invalid. Check GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.'
+          }
+        } catch {
+          // Keep original error text if not JSON
+        }
+
+        return { success: false, error: 'REFRESH_FAILED', details: errorDetails }
       }
 
       const data = await response.json()
+      const newExpiresAt = new Date(Date.now() + data.expires_in * 1000)
+      console.log('[OAuthTokenService] Token refresh successful. New expiry:', newExpiresAt.toISOString())
 
       // Save new tokens, preserving identity info
       await this.saveTokens(userId, {
@@ -265,10 +314,11 @@ export class OAuthTokenService {
         youtubeChannelName: tokens.youtubeChannelName
       } : undefined)
 
-      return data.access_token
+      return { success: true, accessToken: data.access_token }
     } catch (error) {
-      console.error('Failed to refresh token:', error)
-      return null
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error('[OAuthTokenService] Token refresh exception:', errorMessage)
+      return { success: false, error: 'REFRESH_FAILED', details: `Network or unexpected error: ${errorMessage}` }
     }
   }
 

@@ -230,6 +230,11 @@ export async function GET(
           stack: err?.stack,
           name: err?.name
         }
+        // Check if this is a token refresh failure that requires re-authentication
+        if (errorMessage.includes('TOKEN_REFRESH_FAILED') || errorMessage.includes('NO_TOKENS')) {
+          results.gaRequiresReauth = true
+          console.log('[Analytics] GA requires re-authentication for user')
+        }
       }
     }
 
@@ -345,9 +350,16 @@ export async function GET(
         results.gscDevices = gscDevices
         results.gscIndexData = gscIndexData
         results.gscLandingPages = gscLandingPages
-      } catch (error) {
-        console.error('GSC fetch error:', error)
-        results.gscError = 'Failed to fetch GSC data'
+      } catch (error: unknown) {
+        const err = error as Error | undefined
+        const errorMessage = err?.message || String(error) || 'Unknown error'
+        console.error('GSC fetch error:', errorMessage)
+        results.gscError = errorMessage
+        // Check if this is a token refresh failure that requires re-authentication
+        if (errorMessage.includes('TOKEN_REFRESH_FAILED') || errorMessage.includes('NO_TOKENS')) {
+          results.gscRequiresReauth = true
+          console.log('[Analytics] GSC requires re-authentication for user')
+        }
       }
     }
 
@@ -407,6 +419,11 @@ export async function GET(
         const errorMessage = err?.message || String(error) || 'Unknown error'
         console.error('YouTube fetch error:', errorMessage)
         results.ytError = errorMessage
+        // Check if this is a token refresh failure that requires re-authentication
+        if (errorMessage.includes('TOKEN_REFRESH_FAILED') || errorMessage.includes('NO_TOKENS')) {
+          results.ytRequiresReauth = true
+          console.log('[Analytics] YouTube requires re-authentication for user')
+        }
       }
     }
 

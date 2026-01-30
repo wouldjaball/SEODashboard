@@ -1,4 +1,4 @@
-import { OAuthTokenService } from './oauth-token-service'
+import { OAuthTokenService, TokenRefreshResult } from './oauth-token-service'
 import { parseISO, format, getISOWeek, startOfWeek, endOfWeek } from 'date-fns'
 import type {
   GAMetrics,
@@ -21,10 +21,15 @@ export class GoogleAnalyticsService {
   ) {
     console.log('[GA Service] makeRequest called:', { userId, propertyId, endpoint })
 
-    const accessToken = await OAuthTokenService.refreshAccessToken(userId)
-    console.log('[GA Service] Access token obtained:', accessToken ? 'Yes (length: ' + accessToken.length + ')' : 'No')
+    const tokenResult = await OAuthTokenService.refreshAccessTokenWithDetails(userId)
+    console.log('[GA Service] Token refresh result:', tokenResult.success ? 'Success' : `Failed: ${tokenResult.error}`)
 
-    if (!accessToken) throw new Error('No valid access token - token refresh failed')
+    if (!tokenResult.success) {
+      const errorPrefix = tokenResult.error === 'NO_TOKENS' ? 'NO_TOKENS' : 'TOKEN_REFRESH_FAILED'
+      throw new Error(`${errorPrefix}: ${tokenResult.details || 'Unknown error'}`)
+    }
+
+    const accessToken = tokenResult.accessToken
 
     const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}${endpoint}`
     console.log('[GA Service] Calling GA API:', url)

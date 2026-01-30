@@ -1,4 +1,4 @@
-import { OAuthTokenService } from './oauth-token-service'
+import { OAuthTokenService, TokenRefreshResult } from './oauth-token-service'
 import { format, parseISO, getISOWeek, startOfWeek, endOfWeek } from 'date-fns'
 import type {
   GSCMetrics,
@@ -40,8 +40,15 @@ export class GoogleSearchConsoleService {
     siteUrl: string,
     body: any
   ) {
-    const accessToken = await OAuthTokenService.refreshAccessToken(userId)
-    if (!accessToken) throw new Error('No valid access token')
+    const tokenResult = await OAuthTokenService.refreshAccessTokenWithDetails(userId)
+    console.log('[GSC Service] Token refresh result:', tokenResult.success ? 'Success' : `Failed: ${tokenResult.error}`)
+
+    if (!tokenResult.success) {
+      const errorPrefix = tokenResult.error === 'NO_TOKENS' ? 'NO_TOKENS' : 'TOKEN_REFRESH_FAILED'
+      throw new Error(`${errorPrefix}: ${tokenResult.details || 'Unknown error'}`)
+    }
+
+    const accessToken = tokenResult.accessToken
 
     const encodedSiteUrl = encodeURIComponent(siteUrl)
     const response = await fetch(

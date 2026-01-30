@@ -1,4 +1,4 @@
-import { OAuthTokenService } from './oauth-token-service'
+import { OAuthTokenService, TokenRefreshResult } from './oauth-token-service'
 import type { YTMetrics, YTVideo, YTDailyData } from '@/lib/types'
 
 // Extended types for public-only data
@@ -49,7 +49,10 @@ export class YouTubeAnalyticsService {
     // Try to get a token specifically for this YouTube channel (e.g., Brand Account token)
     // This is critical for accessing analytics of channels owned by Brand Accounts
     const accessToken = await OAuthTokenService.refreshAccessTokenForChannel(userId, channelId)
-    if (!accessToken) throw new Error('No valid access token')
+    if (!accessToken) {
+      console.error('[YouTube Service] No valid access token for channel:', channelId)
+      throw new Error('TOKEN_REFRESH_FAILED: No valid access token for YouTube channel')
+    }
 
     const queryParams = new URLSearchParams({
       ids: `channel==${channelId}`,
@@ -83,7 +86,10 @@ export class YouTubeAnalyticsService {
     const accessToken = channelId
       ? await OAuthTokenService.refreshAccessTokenForChannel(userId, channelId)
       : await OAuthTokenService.refreshAccessToken(userId)
-    if (!accessToken) throw new Error('No valid access token')
+    if (!accessToken) {
+      console.error('[YouTube Service] No valid access token for endpoint:', endpoint, channelId ? `(channel: ${channelId})` : '')
+      throw new Error('TOKEN_REFRESH_FAILED: No valid access token for YouTube API')
+    }
 
     const queryParams = new URLSearchParams(params)
 
