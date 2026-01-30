@@ -36,6 +36,22 @@ export async function GET(
     }
 
     const { companyId } = await params
+
+    // Verify user has access to this company
+    const { data: userCompanyAccess } = await supabase
+      .from('user_companies')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+    if (!userCompanyAccess) {
+      return NextResponse.json({
+        error: 'Access denied',
+        message: 'You do not have access to this company'
+      }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('startDate') || format(subDays(new Date(), 30), 'yyyy-MM-dd')
     const endDate = searchParams.get('endDate') || format(new Date(), 'yyyy-MM-dd')
@@ -151,11 +167,13 @@ export async function GET(
     // Fetch GA data if mapped
     if (gaMappings && gaMappings.ga_properties) {
       try {
-        const gaProperty = gaMappings.ga_properties as { property_id: string }
+        const gaProperty = gaMappings.ga_properties as { property_id: string; user_id: string }
         const propertyId = gaProperty.property_id
+        const gaOwnerUserId = gaProperty.user_id  // Use the integration owner's user_id
 
         console.log('=== GA FETCH DEBUG ===')
-        console.log('User ID:', user.id)
+        console.log('Logged-in User ID:', user.id)
+        console.log('GA Owner User ID:', gaOwnerUserId)
         console.log('GA Property from DB:', JSON.stringify(gaProperty))
         console.log('Property ID being used:', propertyId)
         console.log('Date range:', { startDate, endDate, previousStartDate, previousEndDate })
@@ -173,22 +191,22 @@ export async function GET(
           gaAge
         ] = await Promise.all([
           GoogleAnalyticsService.fetchMetrics(
-            user.id,
+            gaOwnerUserId,
             propertyId,
             startDate,
             endDate,
             previousStartDate,
             previousEndDate
           ),
-          GoogleAnalyticsService.fetchWeeklyData(user.id, propertyId, startDate, endDate),
-          GoogleAnalyticsService.fetchChannelData(user.id, propertyId, startDate, endDate),
-          GoogleAnalyticsService.fetchTrafficShare(user.id, propertyId, startDate, endDate),
-          GoogleAnalyticsService.fetchSourcePerformance(user.id, propertyId, startDate, endDate),
-          GoogleAnalyticsService.fetchLandingPages(user.id, propertyId, startDate, endDate),
-          GoogleAnalyticsService.fetchRegions(user.id, propertyId, startDate, endDate),
-          GoogleAnalyticsService.fetchDevices(user.id, propertyId, startDate, endDate),
-          GoogleAnalyticsService.fetchGender(user.id, propertyId, startDate, endDate),
-          GoogleAnalyticsService.fetchAge(user.id, propertyId, startDate, endDate)
+          GoogleAnalyticsService.fetchWeeklyData(gaOwnerUserId, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchChannelData(gaOwnerUserId, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchTrafficShare(gaOwnerUserId, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchSourcePerformance(gaOwnerUserId, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchLandingPages(gaOwnerUserId, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchRegions(gaOwnerUserId, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchDevices(gaOwnerUserId, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchGender(gaOwnerUserId, propertyId, startDate, endDate),
+          GoogleAnalyticsService.fetchAge(gaOwnerUserId, propertyId, startDate, endDate)
         ])
 
         results.gaMetrics = gaMetrics
@@ -218,7 +236,8 @@ export async function GET(
     // Fetch GSC data if mapped
     if (gscMappings && gscMappings.gsc_sites) {
       try {
-        const gscSite = gscMappings.gsc_sites as { site_url: string }
+        const gscSite = gscMappings.gsc_sites as { site_url: string; user_id: string }
+        const gscOwnerUserId = gscSite.user_id  // Use the integration owner's user_id
         const [
           gscMetrics,
           gscWeeklyData,
@@ -233,7 +252,7 @@ export async function GET(
           prevIndexedPages
         ] = await Promise.all([
           GoogleSearchConsoleService.fetchMetrics(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate,
@@ -241,39 +260,39 @@ export async function GET(
             previousEndDate
           ),
           GoogleSearchConsoleService.fetchWeeklyData(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate
           ),
           GoogleSearchConsoleService.fetchKeywords(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate,
             10
           ),
           GoogleSearchConsoleService.fetchCountries(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate,
             10
           ),
           GoogleSearchConsoleService.fetchDevices(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate
           ),
           GoogleSearchConsoleService.fetchIndexData(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate
           ),
           GoogleSearchConsoleService.fetchLandingPages(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate,
@@ -281,26 +300,26 @@ export async function GET(
           ),
           // Fetch total counts for KPI cards
           GoogleSearchConsoleService.fetchKeywordCount(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate
           ),
           GoogleSearchConsoleService.fetchIndexedPageCount(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             startDate,
             endDate
           ),
           // Fetch previous period counts for comparison
           GoogleSearchConsoleService.fetchKeywordCount(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             previousStartDate,
             previousEndDate
           ),
           GoogleSearchConsoleService.fetchIndexedPageCount(
-            user.id,
+            gscOwnerUserId,
             gscSite.site_url,
             previousStartDate,
             previousEndDate
@@ -335,18 +354,20 @@ export async function GET(
     // Fetch YouTube data if mapped
     if (ytMappings && ytMappings.youtube_channels) {
       try {
-        const ytChannel = ytMappings.youtube_channels as { channel_id: string }
+        const ytChannel = ytMappings.youtube_channels as { channel_id: string; user_id: string }
         const channelId = ytChannel.channel_id
+        const ytOwnerUserId = ytChannel.user_id  // Use the integration owner's user_id
 
         console.log('=== YouTube FETCH DEBUG ===')
-        console.log('User ID:', user.id)
+        console.log('Logged-in User ID:', user.id)
+        console.log('YouTube Owner User ID:', ytOwnerUserId)
         console.log('YouTube Channel from DB:', JSON.stringify(ytChannel))
         console.log('Channel ID being used:', channelId)
 
         // Use fallback methods that try Analytics API first, then fall back to public Data API
         const [ytMetrics, ytVideos, ytDailyData] = await Promise.all([
           YouTubeAnalyticsService.fetchMetricsWithFallback(
-            user.id,
+            ytOwnerUserId,
             channelId,
             startDate,
             endDate,
@@ -354,14 +375,14 @@ export async function GET(
             previousEndDate
           ),
           YouTubeAnalyticsService.fetchTopVideosWithFallback(
-            user.id,
+            ytOwnerUserId,
             channelId,
             startDate,
             endDate,
             10
           ),
           YouTubeAnalyticsService.fetchDailyDataWithFallback(
-            user.id,
+            ytOwnerUserId,
             channelId,
             startDate,
             endDate
@@ -409,16 +430,19 @@ export async function GET(
           .single()
 
         if (linkedinPage?.page_id) {
-          // Check if user has LinkedIn OAuth tokens
-          const hasLinkedInTokens = await OAuthTokenService.hasValidLinkedInTokens(user.id)
+          const liOwnerUserId = linkedinPage.user_id  // Use the integration owner's user_id
+
+          // Check if the integration owner has LinkedIn OAuth tokens
+          const hasLinkedInTokens = await OAuthTokenService.hasValidLinkedInTokens(liOwnerUserId)
 
           if (hasLinkedInTokens) {
             console.log('=== LinkedIn API FETCH DEBUG ===')
-            console.log('User ID:', user.id)
+            console.log('Logged-in User ID:', user.id)
+            console.log('LinkedIn Owner User ID:', liOwnerUserId)
             console.log('Organization ID:', linkedinPage.page_id)
 
             const linkedInData = await LinkedInAnalyticsService.fetchAllMetrics(
-              user.id,
+              liOwnerUserId,
               linkedinPage.page_id,
               startDate,
               endDate,
@@ -462,11 +486,23 @@ export async function GET(
 
         if (linkedinSheetConfig &&
             (linkedinSheetConfig.page_analytics_sheet_id || linkedinSheetConfig.post_analytics_sheet_id)) {
+          // Find the company owner's user_id to use their Google OAuth tokens
+          const { data: companyOwner } = await supabase
+            .from('user_companies')
+            .select('user_id')
+            .eq('company_id', companyId)
+            .eq('role', 'owner')
+            .limit(1)
+            .maybeSingle()
+
+          const sheetsOwnerUserId = companyOwner?.user_id || user.id  // Fallback to current user
+
           console.log('=== LinkedIn Sheets FETCH DEBUG ===')
-          console.log('User ID:', user.id)
+          console.log('Logged-in User ID:', user.id)
+          console.log('Sheets Owner User ID:', sheetsOwnerUserId)
           console.log('Config:', JSON.stringify(linkedinSheetConfig))
 
-          const linkedInData = await LinkedInSheetsService.fetchAllLinkedInData(user.id, {
+          const linkedInData = await LinkedInSheetsService.fetchAllLinkedInData(sheetsOwnerUserId, {
             id: linkedinSheetConfig.id,
             companyId: linkedinSheetConfig.company_id,
             pageAnalyticsSheetId: linkedinSheetConfig.page_analytics_sheet_id,

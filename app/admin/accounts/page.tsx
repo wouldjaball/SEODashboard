@@ -117,6 +117,8 @@ export default function AdminAccountsPage() {
   const [isSavingSheetConfig, setIsSavingSheetConfig] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [isLookingUp, setIsLookingUp] = useState(false)
+  const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [isLookingUpLinkedIn, setIsLookingUpLinkedIn] = useState(false)
   const [isClearingCache, setIsClearingCache] = useState(false)
 
   // Google connection state
@@ -344,10 +346,75 @@ export default function AdminAccountsPage() {
       if (response.ok) {
         await fetchData()
         setLinkedinForm({ page_id: '', page_name: '', page_url: '' })
+        setLinkedinUrl('')
         setShowLinkedInForm(false)
       }
     } catch (error) {
       console.error('Failed to add LinkedIn page:', error)
+    }
+  }
+
+  // Parse LinkedIn organization ID from URL
+  function parseLinkedInOrgId(url: string): string | null {
+    // Patterns:
+    // https://www.linkedin.com/company/21579434/
+    // https://www.linkedin.com/company/21579434/admin/dashboard/
+    // https://linkedin.com/company/companyname/
+    const patterns = [
+      /linkedin\.com\/company\/(\d+)/i,  // Numeric ID
+      /linkedin\.com\/company\/([^\/\?]+)/i  // Vanity name (will need lookup)
+    ]
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match && match[1]) {
+        return match[1]
+      }
+    }
+    return null
+  }
+
+  async function handleLookupLinkedInOrg() {
+    if (!linkedinUrl.trim()) return
+
+    const orgIdOrName = parseLinkedInOrgId(linkedinUrl)
+    if (!orgIdOrName) {
+      alert('Could not parse LinkedIn URL. Please enter a valid LinkedIn company page URL.')
+      return
+    }
+
+    setIsLookingUpLinkedIn(true)
+    try {
+      const response = await fetch(`/api/integrations/linkedin/lookup?id=${encodeURIComponent(orgIdOrName)}`)
+
+      if (response.ok) {
+        const data = await response.json()
+        setLinkedinForm({
+          page_id: data.id || orgIdOrName,
+          page_name: data.name || '',
+          page_url: linkedinUrl.split('?')[0]  // Clean URL without query params
+        })
+      } else {
+        const errorData = await response.json()
+        // If lookup fails, still set the ID so user can enter name manually
+        setLinkedinForm({
+          ...linkedinForm,
+          page_id: orgIdOrName,
+          page_url: linkedinUrl.split('?')[0]
+        })
+        alert(errorData.error || 'Could not lookup organization name. Please enter the name manually.')
+      }
+    } catch (error) {
+      console.error('Failed to lookup LinkedIn organization:', error)
+      // Still set the ID
+      setLinkedinForm({
+        ...linkedinForm,
+        page_id: orgIdOrName,
+        page_url: linkedinUrl.split('?')[0]
+      })
+      alert('Could not lookup organization. Please enter the name manually.')
+    } finally {
+      setIsLookingUpLinkedIn(false)
     }
   }
 
@@ -1292,37 +1359,78 @@ export default function AdminAccountsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {showLinkedInForm && (
-                <form onSubmit={handleAddLinkedInPage} className="border rounded-lg p-4 space-y-4">
+                <div className="border rounded-lg p-4 space-y-4">
+                  {/* URL Lookup Section */}
                   <div className="space-y-2">
-                    <Label htmlFor="li-id">Page ID *</Label>
-                    <Input
-                      id="li-id"
-                      value={linkedinForm.page_id}
-                      onChange={(e) => setLinkedinForm({ ...linkedinForm, page_id: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="li-url-lookup">Quick Add - Paste LinkedIn Company URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="li-url-lookup"
+                        value={linkedinUrl}
+                        onChange={(e) => setLinkedinUrl(e.target.value)}
+                        placeholder="https://linkedin.com/company/21579434 or https://linkedin.com/company/yourcompany"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleLookupLinkedInOrg}
+                        disabled={isLookingUpLinkedIn || !linkedinUrl.trim()}
+                      >
+                        {isLookingUpLinkedIn ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lookup'}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Go to your LinkedIn company page admin dashboard and copy the URL from your browser
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="li-name">Page Name *</Label>
-                    <Input
-                      id="li-name"
-                      value={linkedinForm.page_name}
-                      onChange={(e) => setLinkedinForm({ ...linkedinForm, page_name: e.target.value })}
-                      required
-                    />
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or enter manually</span>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="li-url">Page URL</Label>
-                    <Input
-                      id="li-url"
-                      type="url"
-                      value={linkedinForm.page_url}
-                      onChange={(e) => setLinkedinForm({ ...linkedinForm, page_url: e.target.value })}
-                      placeholder="https://linkedin.com/company/..."
-                    />
-                  </div>
-                  <Button type="submit">Add Page</Button>
-                </form>
+
+                  <form onSubmit={handleAddLinkedInPage} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="li-id">Organization ID *</Label>
+                      <Input
+                        id="li-id"
+                        value={linkedinForm.page_id}
+                        onChange={(e) => setLinkedinForm({ ...linkedinForm, page_id: e.target.value })}
+                        placeholder="21579434"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        The numeric ID from the URL (e.g., linkedin.com/company/<strong>21579434</strong>)
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="li-name">Organization Name *</Label>
+                      <Input
+                        id="li-name"
+                        value={linkedinForm.page_name}
+                        onChange={(e) => setLinkedinForm({ ...linkedinForm, page_name: e.target.value })}
+                        placeholder="Company Name"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="li-url">Page URL</Label>
+                      <Input
+                        id="li-url"
+                        type="url"
+                        value={linkedinForm.page_url}
+                        onChange={(e) => setLinkedinForm({ ...linkedinForm, page_url: e.target.value })}
+                        placeholder="https://linkedin.com/company/..."
+                      />
+                    </div>
+                    <Button type="submit">Add Page</Button>
+                  </form>
+                </div>
               )}
 
               {linkedinPages.length === 0 ? (
