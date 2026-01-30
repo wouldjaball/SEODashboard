@@ -186,6 +186,7 @@ export class GoogleSearchConsoleService {
       uniqueQueries.add(row.keys[0]) // First key is the query
     }
 
+    console.log(`[GSC] fetchKeywordCount: Raw rows: ${(data.rows || []).length}, Unique queries: ${uniqueQueries.size}, Date range: ${startDate} to ${endDate}`)
     return uniqueQueries.size
   }
 
@@ -209,6 +210,7 @@ export class GoogleSearchConsoleService {
       uniquePages.add(row.keys[0]) // First key is the page URL
     }
 
+    console.log(`[GSC] fetchIndexedPageCount: Raw rows: ${(data.rows || []).length}, Unique pages: ${uniquePages.size}, Date range: ${startDate} to ${endDate}`)
     return uniquePages.size
   }
 
@@ -266,7 +268,7 @@ export class GoogleSearchConsoleService {
   ): Promise<GSCIndexData[]> {
     // Fetch daily data grouped by date to show trends
     // Note: GSC API doesn't provide indexed pages directly, so we count unique pages per day
-    const [dateData, keywordData, pageData] = await Promise.all([
+    const [dateData, keywordData, pageData, totalKeywordData] = await Promise.all([
       this.makeRequest(userId, siteUrl, {
         startDate,
         endDate,
@@ -283,6 +285,13 @@ export class GoogleSearchConsoleService {
         endDate,
         dimensions: ['date', 'page'],
         rowLimit: 25000 // Get pages per day
+      }),
+      // Also try fetching without date dimension to get total unique queries
+      this.makeRequest(userId, siteUrl, {
+        startDate,
+        endDate,
+        dimensions: ['query'],
+        rowLimit: 25000
       })
     ])
 
@@ -297,6 +306,18 @@ export class GoogleSearchConsoleService {
       queryCountByDate[date].add(query)
     }
 
+    // Also count total unique queries across all dates for comparison
+    const totalUniqueQueries = new Set<string>()
+    for (const row of (totalKeywordData.rows || [])) {
+      totalUniqueQueries.add(row.keys[0])
+    }
+
+    console.log(`[GSC] fetchIndexData: Query data rows: ${(keywordData.rows || []).length}, Unique dates: ${Object.keys(queryCountByDate).length}`)
+    console.log(`[GSC] fetchIndexData: Total keyword data rows: ${(totalKeywordData.rows || []).length}, Total unique queries: ${totalUniqueQueries.size}`)
+    console.log(`[GSC] fetchIndexData: Sample daily keyword counts:`, 
+      Object.entries(queryCountByDate).slice(0, 3).map(([date, queries]) => ({ date, count: queries.size }))
+    )
+
     // Count unique pages per date (pages that appeared in search results that day)
     const pageCountByDate: Record<string, number> = {}
     for (const row of (pageData.rows || [])) {
@@ -304,11 +325,15 @@ export class GoogleSearchConsoleService {
       pageCountByDate[date] = (pageCountByDate[date] || 0) + 1
     }
 
-    return (dateData.rows || []).map((row: any) => ({
+    const result = (dateData.rows || []).map((row: any) => ({
       date: row.keys[0],
       indexedPages: pageCountByDate[row.keys[0]] || 0, // Pages that appeared in search results that day
       rankingKeywords: queryCountByDate[row.keys[0]]?.size || 0
     }))
+
+    console.log(`[GSC] fetchIndexData: Final result sample:`, result.slice(0, 3))
+    console.log(`[GSC] fetchIndexData: Total result rows: ${result.length}, Date range: ${startDate} to ${endDate}`)
+    return result
   }
 
   static async fetchLandingPages(
