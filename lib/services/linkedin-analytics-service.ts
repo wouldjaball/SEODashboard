@@ -181,7 +181,7 @@ export class LinkedInAnalyticsService {
               organizationalEntity: `urn:li:organization:${organizationId}`,
               timeIntervals: `(timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}),timeGranularityType:DAY)`
             }
-          )
+          ) as { elements?: Array<{ followerGains?: { organicFollowerGain?: number } }> }
 
           if (previousTimeRangeData?.elements) {
             previousNewFollowers = previousTimeRangeData.elements.reduce((sum: number, elem: any) => {
@@ -290,7 +290,7 @@ export class LinkedInAnalyticsService {
                 organization: `urn:li:organization:${organizationId}`,
                 timeIntervals: `(timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}),timeGranularityType:DAY)`
               }
-            )
+            ) as { elements?: Array<{ totalPageStatistics?: { views?: { allPageViews?: number }, clicks?: { mobileCustomButtonClickCounts?: number, desktopCustomButtonClickCounts?: number } } }> }
             previousData = previousTimeBoundData
           } catch (prevError) {
             console.log('[LinkedIn Page Stats] Previous period fetch failed, using empty data')
