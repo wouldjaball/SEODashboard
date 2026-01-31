@@ -58,7 +58,13 @@ const emptyCompany: Company = {
   liSeniorityDemographics: [],
   liJobFunctionDemographics: [],
   liCompanySizeDemographics: [],
-  liUpdates: []
+  liUpdates: [],
+  // Enhanced LinkedIn metrics
+  liVideoMetrics: undefined,
+  liEmployeeAdvocacyMetrics: undefined,
+  liContentBreakdown: undefined,
+  liSocialListening: undefined,
+  liVideoDaily: []
 }
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
@@ -142,7 +148,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         liError: data.liError || undefined,
         liErrorType: data.liErrorType || undefined,
         liDataSource: data.liDataSource || undefined,
-        // LinkedIn data from Power My Analytics sheets
+        // LinkedIn core metrics
         liVisitorMetrics: data.liVisitorMetrics || null,
         liFollowerMetrics: data.liFollowerMetrics || null,
         liContentMetrics: data.liContentMetrics || null,
@@ -153,7 +159,14 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         liSeniorityDemographics: data.liSeniorityDemographics || [],
         liJobFunctionDemographics: data.liJobFunctionDemographics || [],
         liCompanySizeDemographics: data.liCompanySizeDemographics || [],
-        liUpdates: data.liUpdates || []
+        liUpdates: data.liUpdates || [],
+        
+        // LinkedIn enhanced metrics (new)
+        liVideoMetrics: data.liVideoMetrics || undefined,
+        liEmployeeAdvocacyMetrics: data.liEmployeeAdvocacyMetrics || undefined,
+        liContentBreakdown: data.liContentBreakdown || undefined,
+        liSocialListening: data.liSocialListening || undefined,
+        liVideoDaily: data.liVideoDaily || []
       }))
     } catch (err) {
       console.error('[CompanyContext] Failed to fetch analytics:', err)

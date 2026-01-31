@@ -596,7 +596,22 @@ export async function GET(
             console.log('- Unique Visitors:', linkedInData.visitorMetrics?.uniqueVisitors || 0)
             console.log('- Custom Button Clicks:', linkedInData.visitorMetrics?.customButtonClicks || 0)
             console.log('- Total Followers:', linkedInData.followerMetrics?.totalFollowers || 0)
+            
+            // Enhanced metrics logging
+            if (linkedInData.videoMetrics) {
+              console.log('- Video Views:', linkedInData.videoMetrics.totalViews || 0)
+              console.log('- Video Watch Time:', linkedInData.videoMetrics.totalWatchTime || 0)
+            }
+            if (linkedInData.employeeAdvocacyMetrics) {
+              console.log('- Employee Shares:', linkedInData.employeeAdvocacyMetrics.employeeShares || 0)
+              console.log('- Employee Engagement:', linkedInData.employeeAdvocacyMetrics.employeeEngagement || 0)
+            }
+            if (linkedInData.contentBreakdown) {
+              console.log('- Organic Posts:', linkedInData.contentBreakdown.organicPosts || 0)
+              console.log('- Sponsored Posts:', linkedInData.contentBreakdown.sponsoredPosts || 0)
+            }
 
+            // Core LinkedIn metrics
             results.liVisitorMetrics = linkedInData.visitorMetrics
             results.liFollowerMetrics = linkedInData.followerMetrics
             results.liContentMetrics = linkedInData.contentMetrics
@@ -608,6 +623,24 @@ export async function GET(
             results.liJobFunctionDemographics = linkedInData.jobFunctionDemographics
             results.liCompanySizeDemographics = linkedInData.companySizeDemographics
             results.liUpdates = linkedInData.updates
+            
+            // Enhanced LinkedIn metrics (new)
+            if (linkedInData.videoMetrics) {
+              results.liVideoMetrics = linkedInData.videoMetrics
+            }
+            if (linkedInData.employeeAdvocacyMetrics) {
+              results.liEmployeeAdvocacyMetrics = linkedInData.employeeAdvocacyMetrics
+            }
+            if (linkedInData.contentBreakdown) {
+              results.liContentBreakdown = linkedInData.contentBreakdown
+            }
+            if (linkedInData.socialListening) {
+              results.liSocialListening = linkedInData.socialListening
+            }
+            if (linkedInData.videoDaily) {
+              results.liVideoDaily = linkedInData.videoDaily
+            }
+            
             results.liDataSource = 'api'
             linkedInDataFetched = true
             console.log('[LinkedIn] Successfully fetched data from Community Management API for company:', companyId)
@@ -678,6 +711,7 @@ export async function GET(
           })
 
           if (linkedInData) {
+            // Core LinkedIn metrics from sheets
             results.liVisitorMetrics = linkedInData.visitorMetrics
             results.liFollowerMetrics = linkedInData.followerMetrics
             results.liContentMetrics = linkedInData.contentMetrics
@@ -689,6 +723,24 @@ export async function GET(
             results.liJobFunctionDemographics = linkedInData.jobFunctionDemographics
             results.liCompanySizeDemographics = linkedInData.companySizeDemographics
             results.liUpdates = linkedInData.updates
+            
+            // Enhanced metrics from sheets (if available - sheets service may not support these yet)
+            if ('videoMetrics' in linkedInData && linkedInData.videoMetrics) {
+              results.liVideoMetrics = linkedInData.videoMetrics
+            }
+            if ('employeeAdvocacyMetrics' in linkedInData && linkedInData.employeeAdvocacyMetrics) {
+              results.liEmployeeAdvocacyMetrics = linkedInData.employeeAdvocacyMetrics
+            }
+            if ('contentBreakdown' in linkedInData && linkedInData.contentBreakdown) {
+              results.liContentBreakdown = linkedInData.contentBreakdown
+            }
+            if ('socialListening' in linkedInData && linkedInData.socialListening) {
+              results.liSocialListening = linkedInData.socialListening
+            }
+            if ('videoDaily' in linkedInData && linkedInData.videoDaily) {
+              results.liVideoDaily = linkedInData.videoDaily
+            }
+            
             results.liDataSource = 'sheets'
             linkedInDataFetched = true
             console.log('[LinkedIn] Successfully fetched data from Google Sheets')
@@ -722,6 +774,7 @@ export async function GET(
           console.log('[LinkedIn] Found manual data for company:', companyId)
           const manualLinkedInData = manualData.data
           
+          // Core manual LinkedIn metrics
           results.liVisitorMetrics = manualLinkedInData.visitorMetrics
           results.liFollowerMetrics = manualLinkedInData.followerMetrics
           results.liContentMetrics = manualLinkedInData.contentMetrics
@@ -733,6 +786,24 @@ export async function GET(
           results.liJobFunctionDemographics = manualLinkedInData.jobFunctionDemographics || []
           results.liCompanySizeDemographics = manualLinkedInData.companySizeDemographics || []
           results.liUpdates = manualLinkedInData.updates || []
+          
+          // Enhanced manual metrics (if available - manual data may not include these yet)
+          if ('videoMetrics' in manualLinkedInData && manualLinkedInData.videoMetrics) {
+            results.liVideoMetrics = manualLinkedInData.videoMetrics
+          }
+          if ('employeeAdvocacyMetrics' in manualLinkedInData && manualLinkedInData.employeeAdvocacyMetrics) {
+            results.liEmployeeAdvocacyMetrics = manualLinkedInData.employeeAdvocacyMetrics
+          }
+          if ('contentBreakdown' in manualLinkedInData && manualLinkedInData.contentBreakdown) {
+            results.liContentBreakdown = manualLinkedInData.contentBreakdown
+          }
+          if ('socialListening' in manualLinkedInData && manualLinkedInData.socialListening) {
+            results.liSocialListening = manualLinkedInData.socialListening
+          }
+          if ('videoDaily' in manualLinkedInData && manualLinkedInData.videoDaily) {
+            results.liVideoDaily = manualLinkedInData.videoDaily
+          }
+          
           results.liDataSource = 'manual'
           linkedInDataFetched = true
           console.log('[LinkedIn] Successfully loaded manual data - Visitors:', manualLinkedInData.visitorMetrics?.pageViews || 0)

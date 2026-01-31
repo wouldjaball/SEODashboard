@@ -5,6 +5,7 @@ import { VisitorDemographics } from "./visitor-demographics"
 import { FollowerAnalytics } from "./follower-analytics"
 import { ContentAnalytics } from "./content-analytics"
 import { UpdatesTable } from "./updates-table"
+import { EnhancedLinkedInAnalytics } from "./enhanced-linkedin-analytics"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,10 @@ import type {
   LIUpdate,
   LIFollowerDaily,
   LIImpressionDaily,
+  LIVideoMetrics,
+  LIEmployeeAdvocacyMetrics,
+  LIContentBreakdown,
+  LISocialListeningMention,
 } from "@/lib/types"
 
 interface LIReportProps {
@@ -41,6 +46,11 @@ interface LIReportProps {
   errorType?: 'auth_required' | 'scope_missing' | 'api_error'
   dataSource?: 'api' | 'sheets' | 'mock' | 'none' | 'manual'
   dateRange?: { from: Date; to: Date }
+  // Enhanced LinkedIn metrics
+  videoMetrics?: LIVideoMetrics
+  employeeAdvocacyMetrics?: LIEmployeeAdvocacyMetrics
+  contentBreakdown?: LIContentBreakdown
+  socialListening?: LISocialListeningMention[]
 }
 
 export function LIReport({
@@ -59,6 +69,10 @@ export function LIReport({
   errorType,
   dataSource,
   dateRange,
+  videoMetrics,
+  employeeAdvocacyMetrics,
+  contentBreakdown,
+  socialListening,
 }: LIReportProps) {
   const { company } = useCompany()
   const [showDataEditor, setShowDataEditor] = useState(false)
@@ -200,6 +214,14 @@ export function LIReport({
           Edit Data
         </Button>
       </div>
+
+      {/* Enhanced LinkedIn Analytics */}
+      <EnhancedLinkedInAnalytics
+        videoMetrics={videoMetrics}
+        employeeAdvocacyMetrics={employeeAdvocacyMetrics}
+        contentBreakdown={contentBreakdown}
+        socialListening={socialListening}
+      />
       {/* Visitor Analytics */}
       {visitorMetrics && (
         <VisitorAnalytics metrics={visitorMetrics} dailyData={visitorDaily} />

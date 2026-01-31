@@ -177,6 +177,10 @@ export default function DashboardPage() {
             errorType={company.liErrorType}
             dataSource={company.liDataSource}
             dateRange={dateRange}
+            videoMetrics={company.liVideoMetrics}
+            employeeAdvocacyMetrics={company.liEmployeeAdvocacyMetrics}
+            contentBreakdown={company.liContentBreakdown}
+            socialListening={company.liSocialListening}
           />
         </TabsContent>
       </Tabs>

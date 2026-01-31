@@ -110,7 +110,7 @@ export class LinkedInAnalyticsService {
       const totalFollowers = lifetimeData.elements?.[0]?.followerCounts?.organicFollowerCount || 0
       const paidFollowers = lifetimeData.elements?.[0]?.followerCounts?.paidFollowerCount || 0
 
-      // Fetch time-bound follower gains
+      // Fetch time-bound follower gains - Fixed parameter format
       const timeRangeData = await this.makeRequest(
         userId,
         organizationId,
@@ -118,9 +118,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organizationalEntity',
           organizationalEntity: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(startDate),
-          'timeIntervals.timeRange.end': this.formatDate(endDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
         }
       ) as { elements?: Array<{ followerGains?: { organicFollowerGain?: number } }> }
 
@@ -132,7 +130,7 @@ export class LinkedInAnalyticsService {
         }, 0)
       }
 
-      // Fetch previous period for comparison
+      // Fetch previous period for comparison - Fixed parameter format
       const previousTimeRangeData = await this.makeRequest(
         userId,
         organizationId,
@@ -140,9 +138,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organizationalEntity',
           organizationalEntity: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(previousStartDate),
-          'timeIntervals.timeRange.end': this.formatDate(previousEndDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
         }
       ) as { elements?: Array<{ followerGains?: { organicFollowerGain?: number } }> }
 
@@ -182,7 +178,7 @@ export class LinkedInAnalyticsService {
     previousEndDate: string
   ): Promise<LIVisitorMetrics> {
     try {
-      // Fetch page statistics for current period
+      // Fetch page statistics for current period - Fixed parameter format
       const currentData = await this.makeRequest(
         userId,
         organizationId,
@@ -190,9 +186,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organization',
           organization: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(startDate),
-          'timeIntervals.timeRange.end': this.formatDate(endDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
         }
       ) as { elements?: Array<{ totalPageStatistics?: { views?: { allPageViews?: number }, clicks?: { mobileCustomButtonClickCounts?: number, desktopCustomButtonClickCounts?: number } } }> }
 
@@ -207,7 +201,7 @@ export class LinkedInAnalyticsService {
         }
       }
 
-      // Fetch previous period
+      // Fetch previous period - Fixed parameter format
       const previousData = await this.makeRequest(
         userId,
         organizationId,
@@ -215,9 +209,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organization',
           organization: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(previousStartDate),
-          'timeIntervals.timeRange.end': this.formatDate(previousEndDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
         }
       ) as { elements?: Array<{ totalPageStatistics?: { views?: { allPageViews?: number }, clicks?: { mobileCustomButtonClickCounts?: number, desktopCustomButtonClickCounts?: number } } }> }
 
@@ -264,7 +256,7 @@ export class LinkedInAnalyticsService {
     previousEndDate: string
   ): Promise<LIContentMetrics> {
     try {
-      // Fetch share statistics for current period
+      // Fetch share statistics for current period - Fixed parameter format
       const currentData = await this.makeRequest(
         userId,
         organizationId,
@@ -272,9 +264,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organizationalEntity',
           organizationalEntity: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(startDate),
-          'timeIntervals.timeRange.end': this.formatDate(endDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
         }
       ) as { elements?: Array<{ totalShareStatistics?: { likeCount?: number, commentCount?: number, shareCount?: number } }> }
 
@@ -290,7 +280,7 @@ export class LinkedInAnalyticsService {
         }
       }
 
-      // Fetch previous period
+      // Fetch previous period - Fixed parameter format
       const previousData = await this.makeRequest(
         userId,
         organizationId,
@@ -298,9 +288,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organizationalEntity',
           organizationalEntity: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(previousStartDate),
-          'timeIntervals.timeRange.end': this.formatDate(previousEndDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
         }
       ) as { elements?: Array<{ totalShareStatistics?: { likeCount?: number, commentCount?: number, shareCount?: number } }> }
 
@@ -333,7 +321,7 @@ export class LinkedInAnalyticsService {
   }
 
   /**
-   * Fetch recent posts from the organization
+   * Fetch recent posts from the organization with detailed performance metrics
    */
   static async fetchPosts(
     userId: string,
@@ -361,34 +349,182 @@ export class LinkedInAnalyticsService {
 
       if (!data.elements) return []
 
-      return data.elements
-        .filter(post => post.lifecycleState === 'PUBLISHED')
-        .map(post => {
-          // Extract post ID from URN
-          const postId = post.id?.split(':').pop() || ''
-          const commentary = post.commentary || ''
-          // Truncate title from commentary
-          const title = commentary.length > 100 ? commentary.substring(0, 100) + '...' : commentary
+      // Fetch detailed metrics for each post
+      const postsWithMetrics = await Promise.all(
+        data.elements
+          .filter(post => post.lifecycleState === 'PUBLISHED')
+          .map(async (post) => {
+            const postId = post.id?.split(':').pop() || ''
+            const commentary = post.commentary || ''
+            const title = commentary.length > 100 ? commentary.substring(0, 100) + '...' : commentary
 
-          return {
-            id: postId,
-            title: title || 'Untitled Post',
-            publishedAt: post.publishedAt ? new Date(post.publishedAt).toISOString() : new Date().toISOString(),
-            imageUrl: post.content?.article?.thumbnail,
-            linkUrl: `https://www.linkedin.com/feed/update/urn:li:share:${postId}`,
-            impressions: 0, // Would need separate API call for post-level stats
-            videoViews: 0,
-            clicks: 0,
-            ctr: 0,
-            reactions: 0,
-            comments: 0,
-            shares: 0,
-            engagementRate: 0
-          }
-        })
+            // Fetch individual post metrics
+            let metrics = {
+              impressions: 0,
+              videoViews: 0,
+              clicks: 0,
+              reactions: 0,
+              comments: 0,
+              shares: 0
+            }
+
+            try {
+              if (post.id) {
+                const postMetrics = await this.makeRequest(
+                  userId,
+                  organizationId,
+                  '/socialMetadata',
+                  {
+                    ids: post.id
+                  }
+                ) as { elements?: Array<{
+                  totalShareStatistics?: {
+                    impressionCount?: number,
+                    clickCount?: number,
+                    likeCount?: number,
+                    commentCount?: number,
+                    shareCount?: number
+                  },
+                  totalVideoStatistics?: {
+                    viewCount?: number
+                  }
+                }> }
+
+                if (postMetrics.elements && postMetrics.elements[0]) {
+                  const stats = postMetrics.elements[0]
+                  metrics = {
+                    impressions: stats.totalShareStatistics?.impressionCount || 0,
+                    videoViews: stats.totalVideoStatistics?.viewCount || 0,
+                    clicks: stats.totalShareStatistics?.clickCount || 0,
+                    reactions: stats.totalShareStatistics?.likeCount || 0,
+                    comments: stats.totalShareStatistics?.commentCount || 0,
+                    shares: stats.totalShareStatistics?.shareCount || 0
+                  }
+                }
+              }
+            } catch (postMetricsError) {
+              console.warn('Failed to fetch metrics for post', postId, postMetricsError)
+            }
+
+            const totalEngagement = metrics.reactions + metrics.comments + metrics.shares
+            const engagementRate = metrics.impressions > 0 ? (totalEngagement / metrics.impressions) * 100 : 0
+            const ctr = metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0
+
+            return {
+              id: postId,
+              title: title || 'Untitled Post',
+              publishedAt: post.publishedAt ? new Date(post.publishedAt).toISOString() : new Date().toISOString(),
+              imageUrl: post.content?.article?.thumbnail,
+              linkUrl: `https://www.linkedin.com/feed/update/urn:li:share:${postId}`,
+              impressions: metrics.impressions,
+              videoViews: metrics.videoViews,
+              clicks: metrics.clicks,
+              ctr: Number(ctr.toFixed(2)),
+              reactions: metrics.reactions,
+              comments: metrics.comments,
+              shares: metrics.shares,
+              engagementRate: Number(engagementRate.toFixed(2))
+            }
+          })
+      )
+
+      return postsWithMetrics
     } catch (error) {
       console.error('Failed to fetch LinkedIn posts:', error)
       return []
+    }
+  }
+
+  /**
+   * Fetch organic vs sponsored content breakdown
+   */
+  static async fetchContentBreakdown(
+    userId: string,
+    organizationId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<{
+    organicPosts: number
+    sponsoredPosts: number
+    organicImpressions: number
+    sponsoredImpressions: number
+    organicEngagement: number
+    sponsoredEngagement: number
+  }> {
+    try {
+      console.log('[LinkedIn Content] Fetching organic vs sponsored breakdown for organization:', organizationId)
+      
+      const data = await this.makeRequest(
+        userId,
+        organizationId,
+        '/organizationalEntityShareStatistics',
+        {
+          q: 'organizationalEntity',
+          organizationalEntity: `urn:li:organization:${organizationId}`,
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`,
+          breakdown: 'SPONSORSHIP_TYPE'
+        }
+      ) as { elements?: Array<{
+        shareStatisticsBySponsorship?: Array<{
+          sponsorshipType?: 'ORGANIC' | 'SPONSORED',
+          shareStatistics?: {
+            shareCount?: number,
+            impressionCount?: number,
+            likeCount?: number,
+            commentCount?: number,
+            clickCount?: number
+          }
+        }>
+      }> }
+
+      let organicPosts = 0
+      let sponsoredPosts = 0
+      let organicImpressions = 0
+      let sponsoredImpressions = 0
+      let organicEngagement = 0
+      let sponsoredEngagement = 0
+
+      if (data.elements) {
+        for (const elem of data.elements) {
+          if (elem.shareStatisticsBySponsorship) {
+            for (const sponsorshipData of elem.shareStatisticsBySponsorship) {
+              const stats = sponsorshipData.shareStatistics
+              if (!stats) continue
+
+              const engagement = (stats.likeCount || 0) + (stats.commentCount || 0) + (stats.clickCount || 0)
+
+              if (sponsorshipData.sponsorshipType === 'ORGANIC') {
+                organicPosts += stats.shareCount || 0
+                organicImpressions += stats.impressionCount || 0
+                organicEngagement += engagement
+              } else if (sponsorshipData.sponsorshipType === 'SPONSORED') {
+                sponsoredPosts += stats.shareCount || 0
+                sponsoredImpressions += stats.impressionCount || 0
+                sponsoredEngagement += engagement
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        organicPosts,
+        sponsoredPosts,
+        organicImpressions,
+        sponsoredImpressions,
+        organicEngagement,
+        sponsoredEngagement
+      }
+    } catch (error) {
+      console.error('Failed to fetch LinkedIn content breakdown:', error)
+      return {
+        organicPosts: 0,
+        sponsoredPosts: 0,
+        organicImpressions: 0,
+        sponsoredImpressions: 0,
+        organicEngagement: 0,
+        sponsoredEngagement: 0
+      }
     }
   }
 
@@ -409,9 +545,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organization',
           organization: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(startDate),
-          'timeIntervals.timeRange.end': this.formatDate(endDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
         }
       ) as { elements?: Array<{
         timeRange?: { start?: number },
@@ -467,9 +601,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organizationalEntity',
           organizationalEntity: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(startDate),
-          'timeIntervals.timeRange.end': this.formatDate(endDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
         }
       ) as { elements?: Array<{
         timeRange?: { start?: number },
@@ -512,9 +644,7 @@ export class LinkedInAnalyticsService {
         {
           q: 'organizationalEntity',
           organizationalEntity: `urn:li:organization:${organizationId}`,
-          'timeIntervals.timeGranularityType': 'DAY',
-          'timeIntervals.timeRange.start': this.formatDate(startDate),
-          'timeIntervals.timeRange.end': this.formatDate(endDate)
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
         }
       ) as { elements?: Array<{
         timeRange?: { start?: number },
@@ -606,7 +736,455 @@ export class LinkedInAnalyticsService {
   }
 
   /**
-   * Fetch all LinkedIn metrics in one call
+   * Fetch video analytics for the organization
+   */
+  static async fetchVideoAnalytics(
+    userId: string,
+    organizationId: string,
+    startDate: string,
+    endDate: string,
+    previousStartDate: string,
+    previousEndDate: string
+  ): Promise<{
+    totalWatchTime: number
+    totalViews: number
+    totalViewers: number
+    averageWatchTime: number
+    previousPeriod: {
+      totalWatchTime: number
+      totalViews: number
+      totalViewers: number
+      averageWatchTime: number
+    }
+  }> {
+    try {
+      console.log('[LinkedIn Video] Fetching video analytics for organization:', organizationId)
+      
+      // Fetch video statistics for current period
+      const currentData = await this.makeRequest(
+        userId,
+        organizationId,
+        '/organizationalEntityVideoStatistics',
+        {
+          q: 'organizationalEntity',
+          organizationalEntity: `urn:li:organization:${organizationId}`,
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
+        }
+      ) as { elements?: Array<{ 
+        totalVideoStatistics?: { 
+          watchTime?: number,
+          views?: number,
+          viewers?: number
+        } 
+      }> }
+
+      let totalWatchTime = 0
+      let totalViews = 0
+      let totalViewers = 0
+
+      if (currentData.elements) {
+        for (const elem of currentData.elements) {
+          totalWatchTime += elem.totalVideoStatistics?.watchTime || 0
+          totalViews += elem.totalVideoStatistics?.views || 0
+          totalViewers += elem.totalVideoStatistics?.viewers || 0
+        }
+      }
+
+      // Fetch previous period
+      const previousData = await this.makeRequest(
+        userId,
+        organizationId,
+        '/organizationalEntityVideoStatistics',
+        {
+          q: 'organizationalEntity',
+          organizationalEntity: `urn:li:organization:${organizationId}`,
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
+        }
+      ) as { elements?: Array<{ 
+        totalVideoStatistics?: { 
+          watchTime?: number,
+          views?: number,
+          viewers?: number
+        } 
+      }> }
+
+      let previousTotalWatchTime = 0
+      let previousTotalViews = 0
+      let previousTotalViewers = 0
+
+      if (previousData.elements) {
+        for (const elem of previousData.elements) {
+          previousTotalWatchTime += elem.totalVideoStatistics?.watchTime || 0
+          previousTotalViews += elem.totalVideoStatistics?.views || 0
+          previousTotalViewers += elem.totalVideoStatistics?.viewers || 0
+        }
+      }
+
+      const averageWatchTime = totalViews > 0 ? totalWatchTime / totalViews : 0
+      const previousAverageWatchTime = previousTotalViews > 0 ? previousTotalWatchTime / previousTotalViews : 0
+
+      return {
+        totalWatchTime,
+        totalViews,
+        totalViewers,
+        averageWatchTime,
+        previousPeriod: {
+          totalWatchTime: previousTotalWatchTime,
+          totalViews: previousTotalViews,
+          totalViewers: previousTotalViewers,
+          averageWatchTime: previousAverageWatchTime
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch LinkedIn video analytics:', error)
+      // Return empty metrics on error
+      return {
+        totalWatchTime: 0,
+        totalViews: 0,
+        totalViewers: 0,
+        averageWatchTime: 0,
+        previousPeriod: {
+          totalWatchTime: 0,
+          totalViews: 0,
+          totalViewers: 0,
+          averageWatchTime: 0
+        }
+      }
+    }
+  }
+
+  /**
+   * Fetch daily video analytics data for charts
+   */
+  static async fetchVideoDaily(
+    userId: string,
+    organizationId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<Array<{
+    date: string
+    watchTime: number
+    views: number
+    viewers: number
+  }>> {
+    try {
+      const data = await this.makeRequest(
+        userId,
+        organizationId,
+        '/organizationalEntityVideoStatistics',
+        {
+          q: 'organizationalEntity',
+          organizationalEntity: `urn:li:organization:${organizationId}`,
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
+        }
+      ) as { elements?: Array<{
+        timeRange?: { start?: number },
+        totalVideoStatistics?: { 
+          watchTime?: number,
+          views?: number,
+          viewers?: number
+        }
+      }> }
+
+      if (!data.elements) return []
+
+      return data.elements.map(elem => {
+        const date = elem.timeRange?.start
+          ? new Date(elem.timeRange.start).toISOString().split('T')[0]
+          : ''
+
+        return {
+          date,
+          watchTime: elem.totalVideoStatistics?.watchTime || 0,
+          views: elem.totalVideoStatistics?.views || 0,
+          viewers: elem.totalVideoStatistics?.viewers || 0
+        }
+      }).filter(d => d.date)
+    } catch (error) {
+      console.error('Failed to fetch LinkedIn daily video data:', error)
+      return []
+    }
+  }
+
+  /**
+   * Fetch employee advocacy metrics for the organization
+   */
+  static async fetchEmployeeAdvocacyMetrics(
+    userId: string,
+    organizationId: string,
+    startDate: string,
+    endDate: string,
+    previousStartDate: string,
+    previousEndDate: string
+  ): Promise<{
+    employeeShares: number
+    employeeEngagement: number
+    contentAmplification: number
+    employeeReach: number
+    previousPeriod: {
+      employeeShares: number
+      employeeEngagement: number
+      contentAmplification: number
+      employeeReach: number
+    }
+  }> {
+    try {
+      console.log('[LinkedIn Employee Advocacy] Fetching advocacy metrics for organization:', organizationId)
+      
+      // Fetch employee activity statistics for current period
+      const currentData = await this.makeRequest(
+        userId,
+        organizationId,
+        '/organizationalEntityEmployeeStatistics',
+        {
+          q: 'organizationalEntity',
+          organizationalEntity: `urn:li:organization:${organizationId}`,
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
+        }
+      ) as { elements?: Array<{ 
+        employeeActivityStatistics?: { 
+          shares?: number,
+          engagement?: number,
+          amplification?: number,
+          reach?: number
+        } 
+      }> }
+
+      let employeeShares = 0
+      let employeeEngagement = 0
+      let contentAmplification = 0
+      let employeeReach = 0
+
+      if (currentData.elements) {
+        for (const elem of currentData.elements) {
+          employeeShares += elem.employeeActivityStatistics?.shares || 0
+          employeeEngagement += elem.employeeActivityStatistics?.engagement || 0
+          contentAmplification += elem.employeeActivityStatistics?.amplification || 0
+          employeeReach += elem.employeeActivityStatistics?.reach || 0
+        }
+      }
+
+      // Fetch previous period
+      const previousData = await this.makeRequest(
+        userId,
+        organizationId,
+        '/organizationalEntityEmployeeStatistics',
+        {
+          q: 'organizationalEntity',
+          organizationalEntity: `urn:li:organization:${organizationId}`,
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
+        }
+      ) as { elements?: Array<{ 
+        employeeActivityStatistics?: { 
+          shares?: number,
+          engagement?: number,
+          amplification?: number,
+          reach?: number
+        } 
+      }> }
+
+      let previousEmployeeShares = 0
+      let previousEmployeeEngagement = 0
+      let previousContentAmplification = 0
+      let previousEmployeeReach = 0
+
+      if (previousData.elements) {
+        for (const elem of previousData.elements) {
+          previousEmployeeShares += elem.employeeActivityStatistics?.shares || 0
+          previousEmployeeEngagement += elem.employeeActivityStatistics?.engagement || 0
+          previousContentAmplification += elem.employeeActivityStatistics?.amplification || 0
+          previousEmployeeReach += elem.employeeActivityStatistics?.reach || 0
+        }
+      }
+
+      return {
+        employeeShares,
+        employeeEngagement,
+        contentAmplification,
+        employeeReach,
+        previousPeriod: {
+          employeeShares: previousEmployeeShares,
+          employeeEngagement: previousEmployeeEngagement,
+          contentAmplification: previousContentAmplification,
+          employeeReach: previousEmployeeReach
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch LinkedIn employee advocacy metrics:', error)
+      // Return empty metrics on error
+      return {
+        employeeShares: 0,
+        employeeEngagement: 0,
+        contentAmplification: 0,
+        employeeReach: 0,
+        previousPeriod: {
+          employeeShares: 0,
+          employeeEngagement: 0,
+          contentAmplification: 0,
+          employeeReach: 0
+        }
+      }
+    }
+  }
+
+  /**
+   * Fetch company mention and social listening data
+   */
+  static async fetchSocialListeningMetrics(
+    userId: string,
+    organizationId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<Array<{
+    date: string
+    mentions: number
+    sentiment: 'positive' | 'negative' | 'neutral'
+    reach: number
+    engagement: number
+    mentionType: 'post' | 'comment' | 'share'
+    memberInfo?: {
+      name: string
+      headline: string
+      profileUrl: string
+    }
+  }>> {
+    try {
+      console.log('[LinkedIn Social Listening] Fetching mentions for organization:', organizationId)
+      
+      const data = await this.makeRequest(
+        userId,
+        organizationId,
+        '/organizationSocialMetadata',
+        {
+          q: 'organization',
+          organization: `urn:li:organization:${organizationId}`,
+          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
+        }
+      ) as { elements?: Array<{
+        timeRange?: { start?: number },
+        socialActions?: Array<{
+          type?: string,
+          sentiment?: string,
+          reach?: number,
+          engagement?: number,
+          member?: {
+            name?: string,
+            headline?: string,
+            profileUrl?: string
+          }
+        }>
+      }> }
+
+      if (!data.elements) return []
+
+      const mentions: Array<{
+        date: string
+        mentions: number
+        sentiment: 'positive' | 'negative' | 'neutral'
+        reach: number
+        engagement: number
+        mentionType: 'post' | 'comment' | 'share'
+        memberInfo?: {
+          name: string
+          headline: string
+          profileUrl: string
+        }
+      }> = []
+
+      data.elements.forEach(elem => {
+        const date = elem.timeRange?.start
+          ? new Date(elem.timeRange.start).toISOString().split('T')[0]
+          : ''
+
+        if (elem.socialActions) {
+          elem.socialActions.forEach(action => {
+            mentions.push({
+              date,
+              mentions: 1,
+              sentiment: (action.sentiment as 'positive' | 'negative' | 'neutral') || 'neutral',
+              reach: action.reach || 0,
+              engagement: action.engagement || 0,
+              mentionType: (action.type as 'post' | 'comment' | 'share') || 'post',
+              memberInfo: action.member ? {
+                name: action.member.name || 'Unknown',
+                headline: action.member.headline || '',
+                profileUrl: action.member.profileUrl || ''
+              } : undefined
+            })
+          })
+        }
+      })
+
+      return mentions.filter(m => m.date)
+    } catch (error) {
+      console.error('Failed to fetch LinkedIn social listening data:', error)
+      return []
+    }
+  }
+
+  /**
+   * Add rate limiting to API requests
+   */
+  private static requestQueue: Array<() => Promise<any>> = []
+  private static isProcessing = false
+  private static lastRequestTime = 0
+  private static readonly RATE_LIMIT_DELAY = 200 // 200ms between requests (5 requests/second)
+
+  private static async processQueue(): Promise<void> {
+    if (this.isProcessing || this.requestQueue.length === 0) return
+    
+    this.isProcessing = true
+    
+    while (this.requestQueue.length > 0) {
+      const now = Date.now()
+      const timeSinceLastRequest = now - this.lastRequestTime
+      
+      if (timeSinceLastRequest < this.RATE_LIMIT_DELAY) {
+        await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY - timeSinceLastRequest))
+      }
+      
+      const request = this.requestQueue.shift()!
+      this.lastRequestTime = Date.now()
+      
+      try {
+        await request()
+      } catch (error) {
+        console.error('[LinkedIn Rate Limiter] Request failed:', error)
+      }
+    }
+    
+    this.isProcessing = false
+  }
+
+  private static async queueRequest<T>(requestFn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.requestQueue.push(async () => {
+        try {
+          const result = await requestFn()
+          resolve(result)
+        } catch (error) {
+          reject(error)
+        }
+      })
+      
+      this.processQueue()
+    })
+  }
+
+  /**
+   * Enhanced makeRequest with rate limiting and better error handling
+   */
+  private static async makeRequestWithRateLimit(
+    userId: string,
+    organizationId: string,
+    endpoint: string,
+    params: Record<string, string> = {}
+  ): Promise<unknown> {
+    return this.queueRequest(() => this.makeRequest(userId, organizationId, endpoint, params))
+  }
+
+  /**
+   * Fetch all LinkedIn metrics in one call with enhanced capabilities
    */
   static async fetchAllMetrics(
     userId: string,
@@ -619,19 +1197,71 @@ export class LinkedInAnalyticsService {
     visitorMetrics: LIVisitorMetrics
     followerMetrics: LIFollowerMetrics
     contentMetrics: LIContentMetrics
+    videoMetrics?: {
+      totalWatchTime: number
+      totalViews: number
+      totalViewers: number
+      averageWatchTime: number
+      previousPeriod: {
+        totalWatchTime: number
+        totalViews: number
+        totalViewers: number
+        averageWatchTime: number
+      }
+    }
+    employeeAdvocacyMetrics?: {
+      employeeShares: number
+      employeeEngagement: number
+      contentAmplification: number
+      employeeReach: number
+      previousPeriod: {
+        employeeShares: number
+        employeeEngagement: number
+        contentAmplification: number
+        employeeReach: number
+      }
+    }
+    contentBreakdown?: {
+      organicPosts: number
+      sponsoredPosts: number
+      organicImpressions: number
+      sponsoredImpressions: number
+      organicEngagement: number
+      sponsoredEngagement: number
+    }
+    socialListening?: Array<{
+      date: string
+      mentions: number
+      sentiment: 'positive' | 'negative' | 'neutral'
+      reach: number
+      engagement: number
+      mentionType: 'post' | 'comment' | 'share'
+      memberInfo?: {
+        name: string
+        headline: string
+        profileUrl: string
+      }
+    }>
     visitorDaily: LIVisitorDaily[]
     followerDaily: LIFollowerDaily[]
     impressionDaily: LIImpressionDaily[]
+    videoDaily?: Array<{
+      date: string
+      watchTime: number
+      views: number
+      viewers: number
+    }>
     industryDemographics: LIDemographic[]
     seniorityDemographics: LIDemographic[]
     jobFunctionDemographics: LIDemographic[]
     companySizeDemographics: LIDemographic[]
     updates: LIUpdate[]
   }> {
-    console.log('[LinkedIn] Fetching all metrics for organization:', organizationId)
+    console.log('[LinkedIn] Fetching enhanced metrics for organization:', organizationId)
     
     // Fetch all data in parallel using allSettled to handle partial failures
     const results = await Promise.allSettled([
+      // Core metrics (existing)
       this.fetchPageStatistics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
       this.fetchFollowerMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
       this.fetchShareStatistics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
@@ -639,7 +1269,14 @@ export class LinkedInAnalyticsService {
       this.fetchFollowerDaily(userId, organizationId, startDate, endDate),
       this.fetchImpressionDaily(userId, organizationId, startDate, endDate),
       this.fetchDemographics(userId, organizationId),
-      this.fetchPosts(userId, organizationId, 20)
+      this.fetchPosts(userId, organizationId, 20),
+      
+      // Enhanced metrics (new)
+      this.fetchVideoAnalytics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
+      this.fetchEmployeeAdvocacyMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
+      this.fetchContentBreakdown(userId, organizationId, startDate, endDate),
+      this.fetchSocialListeningMetrics(userId, organizationId, startDate, endDate),
+      this.fetchVideoDaily(userId, organizationId, startDate, endDate)
     ])
 
     // Extract successful results and log failed ones
@@ -651,14 +1288,20 @@ export class LinkedInAnalyticsService {
       followerDailyResult,
       impressionDailyResult,
       demographicsResult,
-      updatesResult
+      updatesResult,
+      videoMetricsResult,
+      employeeAdvocacyResult,
+      contentBreakdownResult,
+      socialListeningResult,
+      videoDailyResult
     ] = results
 
     // Log any failed API calls
     const apiNames = [
       'PageStatistics', 'FollowerMetrics', 'ShareStatistics', 
       'VisitorDaily', 'FollowerDaily', 'ImpressionDaily', 
-      'Demographics', 'Posts'
+      'Demographics', 'Posts', 'VideoAnalytics', 'EmployeeAdvocacy',
+      'ContentBreakdown', 'SocialListening', 'VideoDaily'
     ]
     
     results.forEach((result, index) => {
@@ -679,13 +1322,29 @@ export class LinkedInAnalyticsService {
     const demographics = demographicsResult.status === 'fulfilled' ? demographicsResult.value : this.getEmptyDemographics()
     const updates = updatesResult.status === 'fulfilled' ? updatesResult.value : []
 
+    // Enhanced metrics (optional - include only if successful)
+    const videoMetrics = videoMetricsResult.status === 'fulfilled' ? videoMetricsResult.value : undefined
+    const employeeAdvocacyMetrics = employeeAdvocacyResult.status === 'fulfilled' ? employeeAdvocacyResult.value : undefined
+    const contentBreakdown = contentBreakdownResult.status === 'fulfilled' ? contentBreakdownResult.value : undefined
+    const socialListening = socialListeningResult.status === 'fulfilled' ? socialListeningResult.value : undefined
+    const videoDaily = videoDailyResult.status === 'fulfilled' ? videoDailyResult.value : undefined
+
+    console.log('[LinkedIn] Enhanced metrics summary:')
+    console.log('- Core metrics loaded:', { visitors: !!visitorMetrics, followers: !!followerMetrics, content: !!contentMetrics })
+    console.log('- Enhanced metrics:', { video: !!videoMetrics, advocacy: !!employeeAdvocacyMetrics, breakdown: !!contentBreakdown, listening: !!socialListening })
+
     return {
       visitorMetrics,
       followerMetrics,
       contentMetrics,
+      videoMetrics,
+      employeeAdvocacyMetrics,
+      contentBreakdown,
+      socialListening,
       visitorDaily,
       followerDaily,
       impressionDaily,
+      videoDaily,
       industryDemographics: demographics.industry,
       seniorityDemographics: demographics.seniority,
       jobFunctionDemographics: demographics.jobFunction,

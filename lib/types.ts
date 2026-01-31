@@ -264,6 +264,87 @@ export interface LIImpressionDaily {
   impressions: number
 }
 
+// Enhanced LinkedIn Types for Community Management API
+
+export interface LIVideoMetrics {
+  totalWatchTime: number
+  totalViews: number
+  totalViewers: number
+  averageWatchTime: number
+  previousPeriod: {
+    totalWatchTime: number
+    totalViews: number
+    totalViewers: number
+    averageWatchTime: number
+  }
+}
+
+export interface LIVideoDaily {
+  date: string
+  watchTime: number
+  views: number
+  viewers: number
+}
+
+export interface LIEmployeeAdvocacyMetrics {
+  employeeShares: number
+  employeeEngagement: number
+  contentAmplification: number
+  employeeReach: number
+  previousPeriod: {
+    employeeShares: number
+    employeeEngagement: number
+    contentAmplification: number
+    employeeReach: number
+  }
+}
+
+export interface LIContentBreakdown {
+  organicPosts: number
+  sponsoredPosts: number
+  organicImpressions: number
+  sponsoredImpressions: number
+  organicEngagement: number
+  sponsoredEngagement: number
+}
+
+export interface LISocialListeningMention {
+  date: string
+  mentions: number
+  sentiment: 'positive' | 'negative' | 'neutral'
+  reach: number
+  engagement: number
+  mentionType: 'post' | 'comment' | 'share'
+  memberInfo?: {
+    name: string
+    headline: string
+    profileUrl: string
+  }
+}
+
+// Enhanced LinkedIn Analytics Response
+export interface LIEnhancedMetrics {
+  // Core metrics (existing)
+  visitorMetrics: LIVisitorMetrics
+  followerMetrics: LIFollowerMetrics
+  contentMetrics: LIContentMetrics
+  visitorDaily: LIVisitorDaily[]
+  followerDaily: LIFollowerDaily[]
+  impressionDaily: LIImpressionDaily[]
+  industryDemographics: LIDemographic[]
+  seniorityDemographics: LIDemographic[]
+  jobFunctionDemographics: LIDemographic[]
+  companySizeDemographics: LIDemographic[]
+  updates: LIUpdate[]
+  
+  // Enhanced metrics (new)
+  videoMetrics?: LIVideoMetrics
+  employeeAdvocacyMetrics?: LIEmployeeAdvocacyMetrics
+  contentBreakdown?: LIContentBreakdown
+  socialListening?: LISocialListeningMention[]
+  videoDaily?: LIVideoDaily[]
+}
+
 // Common types
 export interface DateRange {
   from: Date
@@ -326,7 +407,7 @@ export interface Company {
   liError?: string
   liErrorType?: 'auth_required' | 'scope_missing' | 'api_error'
   liDataSource?: 'api' | 'sheets' | 'mock' | 'none'
-  // LinkedIn
+  // LinkedIn - Core metrics
   liVisitorMetrics: LIVisitorMetrics
   liFollowerMetrics: LIFollowerMetrics
   liContentMetrics: LIContentMetrics
@@ -338,4 +419,11 @@ export interface Company {
   liJobFunctionDemographics: LIDemographic[]
   liCompanySizeDemographics: LIDemographic[]
   liUpdates: LIUpdate[]
+  
+  // LinkedIn - Enhanced metrics
+  liVideoMetrics?: LIVideoMetrics
+  liEmployeeAdvocacyMetrics?: LIEmployeeAdvocacyMetrics
+  liContentBreakdown?: LIContentBreakdown
+  liSocialListening?: LISocialListeningMention[]
+  liVideoDaily?: LIVideoDaily[]
 }
