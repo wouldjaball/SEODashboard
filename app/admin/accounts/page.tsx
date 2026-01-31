@@ -208,9 +208,9 @@ export default function AdminAccountsPage() {
     try {
       const [companiesRes, gaRes, gscRes, ytRes, liRes, mappingsRes, statusRes, connectionsRes, liSheetConfigsRes, liConnectionsRes] = await Promise.all([
         fetch('/api/admin/companies'),
-        fetch('/api/integrations/ga/properties?refresh=true'),
+        fetch('/api/integrations/ga/properties'),
         fetch('/api/integrations/gsc/sites'),
-        fetch('/api/integrations/youtube/channels?refresh=true'),
+        fetch('/api/integrations/youtube/channels'),
         fetch('/api/integrations/linkedin/pages'),
         fetch('/api/integrations/mappings'),
         fetch('/api/integrations/status'),
@@ -768,7 +768,7 @@ export default function AdminAccountsPage() {
     setIsRefreshing(true)
     try {
       const [propertiesRes, sitesRes, channelsRes] = await Promise.all([
-        fetch('/api/integrations/ga/properties'),
+        fetch('/api/integrations/ga/properties?refresh=true'),
         fetch('/api/integrations/gsc/sites'),
         fetch('/api/integrations/youtube/channels?refresh=true')
       ])
