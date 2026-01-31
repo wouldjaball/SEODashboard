@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle, RefreshCw, Settings } from "lucide-react"
+import { AlertTriangle, RefreshCw, Settings, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { GAKPIOverview } from "./ga-kpi-overview"
 import { WeeklyPerformanceChart } from "./weekly-performance-chart"
 import { TrafficShareChart } from "./traffic-share-chart"
@@ -48,6 +49,7 @@ interface GAReportProps {
   dateRange?: { from: Date; to: Date }
   error?: string
   errorType?: 'auth_required' | 'scope_missing' | 'api_error'
+  companyId?: string
 }
 
 export function GAReport({
@@ -64,6 +66,7 @@ export function GAReport({
   dateRange,
   error,
   errorType,
+  companyId,
 }: GAReportProps) {
   // Filter state - empty arrays mean "all selected"
   const [filters, setFilters] = useState<GAFilters>({
@@ -71,6 +74,66 @@ export function GAReport({
     deviceCategories: [],
     channels: [],
   })
+
+  // Real-time data state
+  const [isRealtimeMode, setIsRealtimeMode] = useState(false)
+  const [realtimeData, setRealtimeData] = useState<{
+    activeUsers: number
+    screenPageViews: number
+    topPages: Array<{ pagePath: string; activeUsers: number }>
+    topReferrers: Array<{ source: string; activeUsers: number }>
+    timestamp?: string
+  } | null>(null)
+  const [realtimeLoading, setRealtimeLoading] = useState(false)
+  const [realtimeError, setRealtimeError] = useState<string | null>(null)
+
+  // Fetch real-time data
+  const fetchRealtimeData = useCallback(async () => {
+    if (!companyId || realtimeLoading) return
+    
+    setRealtimeLoading(true)
+    setRealtimeError(null)
+    
+    try {
+      const response = await fetch(`/api/analytics/${companyId}/realtime`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch realtime data')
+      }
+      
+      setRealtimeData(data)
+    } catch (error) {
+      console.error('Failed to fetch realtime data:', error)
+      setRealtimeError(error instanceof Error ? error.message : 'Failed to fetch realtime data')
+    } finally {
+      setRealtimeLoading(false)
+    }
+  }, [companyId, realtimeLoading])
+
+  // Auto-refresh realtime data when in realtime mode
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    
+    if (isRealtimeMode && companyId) {
+      fetchRealtimeData() // Initial fetch
+      interval = setInterval(fetchRealtimeData, 30000) // Refresh every 30 seconds
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [isRealtimeMode, companyId, fetchRealtimeData])
+
+  const toggleRealtimeMode = () => {
+    setIsRealtimeMode(!isRealtimeMode)
+    if (!isRealtimeMode) {
+      fetchRealtimeData()
+    } else {
+      setRealtimeData(null)
+      setRealtimeError(null)
+    }
+  }
 
   // Apply filters to all data
   const filteredData = useMemo(() => ({
@@ -142,6 +205,93 @@ export function GAReport({
         filters={filters}
         onFiltersChange={setFilters}
       />
+
+      {/* Real-time Controls */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between p-4 border rounded-lg bg-muted/30">
+        <div className="flex items-center gap-3">
+          <Button
+            variant={isRealtimeMode ? "default" : "outline"}
+            size="sm"
+            onClick={toggleRealtimeMode}
+            className="gap-2"
+            disabled={realtimeLoading}
+          >
+            <Activity className={`h-4 w-4 ${isRealtimeMode ? 'animate-pulse' : ''}`} />
+            {isRealtimeMode ? 'Live Data' : 'View Live Data'}
+          </Button>
+          
+          {isRealtimeMode && (
+            <Badge variant="secondary" className="gap-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Live
+            </Badge>
+          )}
+        </div>
+
+        {/* Real-time Metrics Display */}
+        {isRealtimeMode && (
+          <div className="flex flex-wrap gap-4 text-sm">
+            {realtimeLoading && (
+              <span className="text-muted-foreground">Loading live data...</span>
+            )}
+            {realtimeError && (
+              <span className="text-red-600">Error: {realtimeError}</span>
+            )}
+            {realtimeData && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Active Users:</span>
+                  <span className="font-semibold">{realtimeData.activeUsers}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Page Views (30m):</span>
+                  <span className="font-semibold">{realtimeData.screenPageViews}</span>
+                </div>
+                {realtimeData.timestamp && (
+                  <div className="text-xs text-muted-foreground">
+                    Updated: {new Date(realtimeData.timestamp).toLocaleTimeString()}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Real-time Details Panel */}
+      {isRealtimeMode && realtimeData && !realtimeError && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/10">
+          <div>
+            <h4 className="font-medium text-sm text-muted-foreground mb-2">Top Pages (Active Users)</h4>
+            <div className="space-y-1">
+              {realtimeData.topPages.slice(0, 5).map((page, index) => (
+                <div key={index} className="flex justify-between text-sm">
+                  <span className="truncate pr-2" title={page.pagePath}>{page.pagePath}</span>
+                  <span className="font-medium text-green-600">{page.activeUsers}</span>
+                </div>
+              ))}
+              {realtimeData.topPages.length === 0 && (
+                <div className="text-sm text-muted-foreground">No active page traffic</div>
+              )}
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="font-medium text-sm text-muted-foreground mb-2">Top Sources (Active Users)</h4>
+            <div className="space-y-1">
+              {realtimeData.topReferrers.slice(0, 5).map((referrer, index) => (
+                <div key={index} className="flex justify-between text-sm">
+                  <span className="truncate pr-2" title={referrer.source}>{referrer.source}</span>
+                  <span className="font-medium text-blue-600">{referrer.activeUsers}</span>
+                </div>
+              ))}
+              {realtimeData.topReferrers.length === 0 && (
+                <div className="text-sm text-muted-foreground">No active referrer traffic</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Overview */}
       <GAKPIOverview metrics={filteredData.metrics} />

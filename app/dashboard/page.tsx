@@ -128,6 +128,7 @@ export default function DashboardPage() {
             dateRange={dateRange}
             error={company.gaError}
             errorType={company.gaErrorType}
+            companyId={company.id}
           />
         </TabsContent>
 

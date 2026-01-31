@@ -441,4 +441,70 @@ export class GoogleAnalyticsService {
       return []
     }
   }
+
+  static async fetchRealtimeMetrics(
+    userId: string,
+    propertyId: string
+  ): Promise<{
+    activeUsers: number
+    screenPageViews: number
+    topPages: Array<{ pagePath: string; activeUsers: number }>
+    topReferrers: Array<{ source: string; activeUsers: number }>
+  }> {
+    console.log('[GA Realtime] Fetching real-time metrics for property:', propertyId)
+
+    // Get overall realtime metrics
+    const [overviewData, topPagesData, topReferrersData] = await Promise.all([
+      // Overall active users and page views
+      this.makeRequest(userId, propertyId, ':runRealtimeReport', {
+        metrics: [
+          { name: 'activeUsers' },
+          { name: 'screenPageViews' }
+        ]
+      }),
+      
+      // Top pages by active users
+      this.makeRequest(userId, propertyId, ':runRealtimeReport', {
+        dimensions: [{ name: 'unifiedPageScreen' }],
+        metrics: [{ name: 'activeUsers' }],
+        orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }],
+        limit: 5
+      }),
+      
+      // Top referrers by active users
+      this.makeRequest(userId, propertyId, ':runRealtimeReport', {
+        dimensions: [{ name: 'sessionSource' }],
+        metrics: [{ name: 'activeUsers' }],
+        orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }],
+        limit: 5
+      })
+    ])
+
+    const activeUsers = parseInt(overviewData.rows?.[0]?.metricValues?.[0]?.value || '0')
+    const screenPageViews = parseInt(overviewData.rows?.[0]?.metricValues?.[1]?.value || '0')
+
+    const topPages = (topPagesData.rows || []).map((row: any) => ({
+      pagePath: row.dimensionValues[0].value,
+      activeUsers: parseInt(row.metricValues[0].value)
+    }))
+
+    const topReferrers = (topReferrersData.rows || []).map((row: any) => ({
+      source: row.dimensionValues[0].value,
+      activeUsers: parseInt(row.metricValues[0].value)
+    }))
+
+    console.log('[GA Realtime] Results:', {
+      activeUsers,
+      screenPageViews,
+      topPagesCount: topPages.length,
+      topReferrersCount: topReferrers.length
+    })
+
+    return {
+      activeUsers,
+      screenPageViews,
+      topPages,
+      topReferrers
+    }
+  }
 }
