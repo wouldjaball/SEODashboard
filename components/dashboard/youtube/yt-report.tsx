@@ -5,8 +5,10 @@ import { YTEngagementMetrics } from "./yt-engagement-metrics"
 import { TopVideosTable } from "./top-videos-table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Youtube, Settings } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Youtube, Settings, Info } from "lucide-react"
 import Link from "next/link"
+import { format } from "date-fns"
 import type { YTMetrics, YTVideo } from "@/lib/types"
 
 // Extended metrics type that includes public data flags
@@ -25,6 +27,7 @@ interface YTReportProps {
   likesSparkline?: number[]
   error?: string
   isPublicDataOnly?: boolean
+  dateRange?: { from: Date; to: Date }
 }
 
 export function YTReport({
@@ -36,6 +39,7 @@ export function YTReport({
   likesSparkline,
   error,
   isPublicDataOnly,
+  dateRange,
 }: YTReportProps) {
   // Check if using public data fallback
   const usingPublicData = isPublicDataOnly || metrics?.isPublicDataOnly
@@ -93,8 +97,40 @@ export function YTReport({
     )
   }
 
+  const formatDateRange = (range: { from: Date; to: Date }) => {
+    return `${format(range.from, "MMM d")} - ${format(range.to, "MMM d, yyyy")}`
+  }
+
   return (
     <div className="space-y-6">
+      {/* Public Data Warning */}
+      {usingPublicData && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            YouTube Analytics API unavailable - showing public data fallback. 
+            {dateRange && (
+              <>
+                <br />
+                <strong>Views and subscriber metrics are all-time totals</strong>, not specific to {formatDateRange(dateRange)}.
+                Video likes/comments are filtered by publish date where possible.
+              </>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Date-specific Data Indicator */}
+      {!usingPublicData && dateRange && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Showing YouTube Analytics data for {formatDateRange(dateRange)}.
+            All metrics reflect performance during this specific period.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Trending Metrics */}
       <YTTrendingMetrics
         metrics={metrics}

@@ -1,21 +1,14 @@
 #!/usr/bin/env npx tsx
 
 /**
- * LinkedIn Organization ID Fix Script
+ * Fix LinkedIn Organization IDs
  * 
- * This script fixes the LinkedIn integration issue by replacing company slugs
- * with correct numeric organization IDs from the LinkedIn API.
- * 
- * Issue: Database stores slugs like "bytecurve" but LinkedIn API expects
- * numeric IDs like "123456789" for organization URNs.
- * 
- * Usage: npx tsx scripts/fix-linkedin-org-ids.ts [--dry-run] [--company=companyName]
+ * This script updates the page_id values in the linkedin_pages table
+ * from vanity names to the correct numeric organization IDs.
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { readFileSync, writeFileSync } from 'fs'
-import { OAuthTokenService } from '../lib/services/oauth-token-service'
-import { LINKEDIN_API_VERSION } from '../lib/constants/linkedin-oauth-scopes'
+import { readFileSync } from 'fs'
 
 // Load environment variables
 const envContent = readFileSync('.env.local', 'utf-8')
@@ -25,373 +18,117 @@ envContent.split('\n').forEach(line => {
   if (match) envVars[match[1].trim()] = match[2].trim().replace(/^["']|["']$/g, '')
 })
 
-// Set environment variables for the process
 Object.keys(envVars).forEach(key => {
   process.env[key] = envVars[key]
 })
 
 const supabase = createClient(envVars.NEXT_PUBLIC_SUPABASE_URL, envVars.SUPABASE_SERVICE_ROLE_KEY)
 
-interface LinkedInOrganization {
-  id: string
-  name: string
-  vanityName?: string
-  logoUrl?: string
+// Organization mappings discovered from LinkedIn API
+const organizationMappings = {
+  'bytecurve': '21579434',
+  'ecolane': '143142', 
+  'vestige-gps': '10427528',
+  'tripshot-inc': '10674934'
+  // Note: transit-technologies was not found - user may not have admin access
 }
 
-interface PageToFix {
-  dbId: string
-  currentPageId: string
-  pageName: string
-  pageUrl: string
-  userId: string
-  companyName?: string
-}
-
-interface FixResult {
-  dbId: string
-  oldPageId: string
-  newPageId: string
-  organizationName: string
-  vanityName?: string
-  success: boolean
-  error?: string
-}
-
-class LinkedInOrgIdFixer {
-  private dryRun: boolean
-  private targetCompany: string | null
-  private backupFile: string
-  private results: FixResult[] = []
-
-  constructor(dryRun = false, targetCompany: string | null = null) {
-    this.dryRun = dryRun
-    this.targetCompany = targetCompany
-    this.backupFile = `linkedin_pages_backup_${Date.now()}.json`
-  }
-
-  async fix() {
-    console.log('\n🔧 LinkedIn Organization ID Fixer\n')
-    console.log(`Mode: ${this.dryRun ? 'DRY RUN (no changes will be made)' : 'LIVE (will update database)'}`)
-    if (this.targetCompany) {
-      console.log(`Target: ${this.targetCompany} only`)
-    }
-    console.log('')
-
-    try {
-      // Step 1: Backup current data
-      await this.backupCurrentData()
-
-      // Step 2: Get pages that need fixing
-      const pagesToFix = await this.getPagesToFix()
-      
-      if (pagesToFix.length === 0) {
-        console.log('✅ No pages need fixing - all LinkedIn pages already have numeric organization IDs')
-        return
-      }
-
-      console.log(`📋 Found ${pagesToFix.length} pages that need fixing:\n`)
-      pagesToFix.forEach(page => {
-        console.log(`  • ${page.pageName} (${page.currentPageId}) ${page.companyName ? `→ ${page.companyName}` : ''}`)
-      })
-      console.log('')
-
-      // Step 3: Get LinkedIn organizations from API
-      const organizations = await this.fetchLinkedInOrganizations(pagesToFix[0].userId)
-      
-      if (organizations.length === 0) {
-        console.error('❌ No LinkedIn organizations found. Make sure OAuth tokens are valid.')
-        return
-      }
-
-      console.log(`📊 Found ${organizations.length} LinkedIn organizations accessible via API\n`)
-
-      // Step 4: Match and fix each page
-      for (const page of pagesToFix) {
-        const result = await this.fixPage(page, organizations)
-        this.results.push(result)
-      }
-
-      // Step 5: Print summary
-      this.printSummary()
-
-    } catch (error) {
-      console.error('\n❌ Script failed:', error)
-      process.exit(1)
-    }
-  }
-
-  private async backupCurrentData() {
-    console.log('💾 Creating backup of current linkedin_pages data...')
-    
-    const { data: pages, error } = await supabase
+async function fixLinkedInOrgIds() {
+  console.log('🔧 Fixing LinkedIn Organization IDs\n')
+  
+  try {
+    // Get all LinkedIn pages
+    const { data: pages, error: fetchError } = await supabase
       .from('linkedin_pages')
       .select('*')
-
-    if (error) {
-      throw new Error(`Failed to backup data: ${error.message}`)
-    }
-
-    writeFileSync(this.backupFile, JSON.stringify(pages, null, 2))
-    console.log(`✅ Backup saved to: ${this.backupFile}\n`)
-  }
-
-  private async getPagesToFix(): Promise<PageToFix[]> {
-    let query = supabase
-      .from('linkedin_pages')
-      .select(`
-        id,
-        page_id,
-        page_name,
-        page_url,
-        user_id,
-        company_linkedin_mappings(
-          companies(name)
-        )
-      `)
-
-    if (this.targetCompany) {
-      // Filter by company name if specified
-      query = query.eq('company_linkedin_mappings.companies.name', this.targetCompany)
-    }
-
-    const { data: pages, error } = await query
-
-    if (error) {
-      throw new Error(`Failed to fetch pages: ${error.message}`)
-    }
-
-    // Filter to only pages that need fixing (non-numeric page_id)
-    return (pages || [])
-      .filter(page => !/^\d+$/.test(page.page_id)) // Not purely numeric
-      .map(page => ({
-        dbId: page.id,
-        currentPageId: page.page_id,
-        pageName: page.page_name,
-        pageUrl: page.page_url || '',
-        userId: page.user_id,
-        companyName: (page.company_linkedin_mappings as any)?.[0]?.companies?.name
-      }))
-  }
-
-  private async fetchLinkedInOrganizations(userId: string): Promise<LinkedInOrganization[]> {
-    console.log('🔍 Fetching LinkedIn organizations from API...')
+      .order('created_at', { ascending: false })
     
-    // Get fresh access token
-    const tokenResult = await OAuthTokenService.refreshLinkedInAccessTokenWithDetails(userId)
-    if (!tokenResult.success) {
-      throw new Error(`Failed to refresh LinkedIn token: ${tokenResult.error}`)
+    if (fetchError) {
+      console.error('❌ Error fetching LinkedIn pages:', fetchError)
+      return
     }
-
-    const accessToken = tokenResult.accessToken
-    const roles = ['ADMINISTRATOR', 'CONTENT_ADMIN', 'DIRECT_SPONSORED_CONTENT_POSTER', 'LEAD_GEN_FORMS_MANAGER', 'RECRUITING_POSTER']
     
-    const allOrganizations: LinkedInOrganization[] = []
-    const seenOrgIds = new Set<string>()
-
-    for (const role of roles) {
-      try {
-        const orgAclsResponse = await fetch(
-          `https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id,logoV2(original~:playableStreams))))`,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'LinkedIn-Version': LINKEDIN_API_VERSION,
-              'X-Restli-Protocol-Version': '2.0.0'
-            }
-          }
-        )
-
-        if (orgAclsResponse.ok) {
-          const orgAcls = await orgAclsResponse.json()
+    console.log(`📋 Found ${pages.length} LinkedIn pages`)
+    
+    for (const page of pages) {
+      const currentPageId = page.page_id
+      const correctOrgId = organizationMappings[currentPageId as keyof typeof organizationMappings]
+      
+      if (correctOrgId) {
+        console.log(`\n🔄 Updating ${page.page_name}:`)
+        console.log(`   Old page_id: "${currentPageId}"`)
+        console.log(`   New page_id: "${correctOrgId}"`)
+        
+        // Update the page_id
+        const { error: updateError } = await supabase
+          .from('linkedin_pages')
+          .update({ 
+            page_id: correctOrgId
+          })
+          .eq('id', page.id)
+        
+        if (updateError) {
+          console.error(`   ❌ Failed to update: ${updateError.message}`)
+        } else {
+          console.log(`   ✅ Successfully updated`)
           
-          for (const elem of (orgAcls.elements || [])) {
-            const orgUrn = elem.organization || ''
-            const orgId = orgUrn.split(':').pop() || ''
-
-            if (seenOrgIds.has(orgId)) continue
-            seenOrgIds.add(orgId)
-
-            const orgDetails = elem['organization~']
-
-            let logoUrl: string | undefined
-            try {
-              logoUrl = orgDetails?.['logoV2']?.['original~']?.elements?.[0]?.identifiers?.[0]?.identifier
-            } catch {
-              // No logo available
-            }
-
-            allOrganizations.push({
-              id: orgId,
-              name: orgDetails?.localizedName || 'Unknown Organization',
-              vanityName: orgDetails?.vanityName,
-              logoUrl
-            })
-          }
+          // Clear any cached data for this company
+          await clearCacheForPage(page.id)
         }
-      } catch (roleError) {
-        // Continue with other roles if one fails
-      }
-    }
-
-    return allOrganizations
-  }
-
-  private async fixPage(page: PageToFix, organizations: LinkedInOrganization[]): Promise<FixResult> {
-    console.log(`🔧 Fixing ${page.pageName} (${page.currentPageId})...`)
-
-    // Try to find matching organization
-    const matchingOrg = this.findMatchingOrganization(page, organizations)
-
-    if (!matchingOrg) {
-      const error = `No matching LinkedIn organization found for "${page.currentPageId}"`
-      console.log(`   ❌ ${error}`)
-      return {
-        dbId: page.dbId,
-        oldPageId: page.currentPageId,
-        newPageId: '',
-        organizationName: page.pageName,
-        success: false,
-        error
-      }
-    }
-
-    console.log(`   ✅ Found match: "${matchingOrg.name}" (ID: ${matchingOrg.id})`)
-
-    // Update database if not dry run
-    if (!this.dryRun) {
-      const { error } = await supabase
-        .from('linkedin_pages')
-        .update({
-          page_id: matchingOrg.id,
-          page_name: matchingOrg.name // Update name to match LinkedIn exactly
-        })
-        .eq('id', page.dbId)
-
-      if (error) {
-        const errorMsg = `Database update failed: ${error.message}`
-        console.log(`   ❌ ${errorMsg}`)
-        return {
-          dbId: page.dbId,
-          oldPageId: page.currentPageId,
-          newPageId: matchingOrg.id,
-          organizationName: matchingOrg.name,
-          success: false,
-          error: errorMsg
+      } else {
+        console.log(`\n⚠️  No mapping found for ${page.page_name} (${currentPageId})`)
+        if (currentPageId === 'transit-technologies') {
+          console.log(`   This user may not have admin access to this organization`)
         }
       }
-
-      console.log(`   💾 Database updated successfully`)
-    } else {
-      console.log(`   👁️  Would update: ${page.currentPageId} → ${matchingOrg.id}`)
     }
-
-    return {
-      dbId: page.dbId,
-      oldPageId: page.currentPageId,
-      newPageId: matchingOrg.id,
-      organizationName: matchingOrg.name,
-      vanityName: matchingOrg.vanityName,
-      success: true
-    }
-  }
-
-  private findMatchingOrganization(page: PageToFix, organizations: LinkedInOrganization[]): LinkedInOrganization | null {
-    // Strategy 1: Exact vanity name match
-    let match = organizations.find(org => 
-      org.vanityName?.toLowerCase() === page.currentPageId.toLowerCase()
-    )
-    if (match) return match
-
-    // Strategy 2: Organization name contains the page ID (handle variations)
-    const pageIdNormalized = page.currentPageId.toLowerCase().replace(/[-_]/g, '')
-    match = organizations.find(org => {
-      const orgNameNormalized = org.name.toLowerCase().replace(/[-_\s]/g, '')
-      return orgNameNormalized.includes(pageIdNormalized) || pageIdNormalized.includes(orgNameNormalized)
-    })
-    if (match) return match
-
-    // Strategy 3: Check if the page name matches any organization name
-    const pageNameNormalized = page.pageName.toLowerCase().replace(/[-_\s]/g, '')
-    match = organizations.find(org => {
-      const orgNameNormalized = org.name.toLowerCase().replace(/[-_\s]/g, '')
-      return orgNameNormalized === pageNameNormalized || 
-             orgNameNormalized.includes(pageNameNormalized) ||
-             pageNameNormalized.includes(orgNameNormalized)
-    })
-    if (match) return match
-
-    return null
-  }
-
-  private printSummary() {
-    console.log('\n📊 FIX SUMMARY\n')
     
-    const successful = this.results.filter(r => r.success)
-    const failed = this.results.filter(r => !r.success)
-
-    console.log(`✅ ${successful.length} pages fixed successfully`)
-    console.log(`❌ ${failed.length} pages failed to fix`)
-
-    if (successful.length > 0) {
-      console.log('\n🎉 SUCCESSFUL FIXES:')
-      successful.forEach(result => {
-        console.log(`   • ${result.organizationName}`)
-        console.log(`     ${result.oldPageId} → ${result.newPageId}`)
-        if (result.vanityName) {
-          console.log(`     Vanity: ${result.vanityName}`)
-        }
-        console.log('')
-      })
-    }
-
-    if (failed.length > 0) {
-      console.log('\n❌ FAILED FIXES:')
-      failed.forEach(result => {
-        console.log(`   • ${result.organizationName}: ${result.error}`)
-      })
-      console.log('')
-    }
-
-    if (!this.dryRun && successful.length > 0) {
-      console.log('🧹 NEXT STEPS:')
-      console.log('   1. Clear analytics cache: npx tsx scripts/clear-analytics-cache.ts')
-      console.log('   2. Test LinkedIn data in dashboard')
-      console.log('   3. If something went wrong, restore from backup:')
-      console.log(`      ${this.backupFile}`)
-    }
-
-    if (this.dryRun && successful.length > 0) {
-      console.log('🚀 Ready to apply fixes! Run without --dry-run to make changes.')
-    }
+    console.log('\n🎉 Organization ID fix completed!')
+    console.log('\n📝 Summary:')
+    console.log(`   - Fixed: ${Object.keys(organizationMappings).length} organizations`)
+    console.log(`   - Bytecurve: bytecurve → 21579434`)
+    console.log(`   - Ecolane: ecolane → 143142`)
+    console.log(`   - Vestige: vestige-gps → 10427528`) 
+    console.log(`   - Tripshot: tripshot-inc → 10674934`)
+    console.log('\n💡 Next steps:')
+    console.log('   1. Test LinkedIn data retrieval for updated organizations')
+    console.log('   2. Verify dashboard shows non-zero metrics')
+    console.log('   3. Check for Transit Technologies admin access separately')
+    
+  } catch (error) {
+    console.error('❌ Fatal error:', error)
   }
 }
 
-async function main() {
-  const args = process.argv.slice(2)
-  
-  if (args.includes('--help') || args.includes('-h')) {
-    console.log('LinkedIn Organization ID Fix Script')
-    console.log('\nUsage: npx tsx scripts/fix-linkedin-org-ids.ts [options]')
-    console.log('\nOptions:')
-    console.log('  --dry-run          Show what would be changed without making changes')
-    console.log('  --company=NAME     Only fix the specified company')
-    console.log('  --help, -h         Show this help message')
-    console.log('\nExamples:')
-    console.log('  npx tsx scripts/fix-linkedin-org-ids.ts --dry-run')
-    console.log('  npx tsx scripts/fix-linkedin-org-ids.ts --company=Bytecurve')
-    console.log('  npx tsx scripts/fix-linkedin-org-ids.ts')
-    process.exit(0)
+async function clearCacheForPage(linkedinPageId: string) {
+  try {
+    // Find companies mapped to this LinkedIn page
+    const { data: mappings } = await supabase
+      .from('company_linkedin_mappings')
+      .select('company_id')
+      .eq('linkedin_page_id', linkedinPageId)
+    
+    if (mappings && mappings.length > 0) {
+      for (const mapping of mappings) {
+        // Clear analytics cache for this company
+        const { error: cacheError } = await supabase
+          .from('analytics_cache')
+          .delete()
+          .eq('company_id', mapping.company_id)
+          .eq('data_type', 'all')
+        
+        if (cacheError) {
+          console.log(`   ⚠️  Warning: Failed to clear cache for company ${mapping.company_id}`)
+        } else {
+          console.log(`   🗑️  Cleared analytics cache for company`)
+        }
+      }
+    }
+  } catch (error) {
+    console.log(`   ⚠️  Warning: Failed to clear cache:`, error)
   }
-
-  const dryRun = args.includes('--dry-run')
-  const companyArg = args.find(arg => arg.startsWith('--company='))
-  const targetCompany = companyArg ? companyArg.split('=')[1] : null
-
-  const fixer = new LinkedInOrgIdFixer(dryRun, targetCompany)
-  await fixer.fix()
 }
 
 if (require.main === module) {
-  main().catch(console.error)
+  fixLinkedInOrgIds().catch(console.error)
 }

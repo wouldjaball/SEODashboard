@@ -118,6 +118,33 @@ export class YouTubeAnalyticsService {
     previousStartDate: string,
     previousEndDate: string
   ): Promise<YTMetrics> {
+    // Validate date inputs
+    const startDateObj = new Date(startDate)
+    const endDateObj = new Date(endDate)
+    const today = new Date()
+    
+    console.log('[YouTube] Date validation:', {
+      startDate,
+      endDate,
+      previousStartDate,
+      previousEndDate,
+      isStartValid: !isNaN(startDateObj.getTime()),
+      isEndValid: !isNaN(endDateObj.getTime()),
+      isEndBeforeToday: endDateObj <= today,
+      daysDifference: Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24))
+    })
+    
+    if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+      throw new Error('Invalid date format provided to YouTube Analytics API')
+    }
+    
+    if (startDateObj >= endDateObj) {
+      throw new Error('YouTube Analytics: Start date must be before end date')
+    }
+    
+    if (endDateObj > today) {
+      console.warn('[YouTube] End date is in the future, YouTube Analytics API may reject this request')
+    }
     const metrics = 'views,estimatedMinutesWatched,shares,likes,dislikes,comments,subscribersGained,averageViewDuration'
 
     const [currentData, previousData] = await Promise.all([
@@ -368,32 +395,52 @@ export class YouTubeAnalyticsService {
   /**
    * Fetch metrics using public Data API as fallback
    * Returns channel-level stats and aggregated video stats
+   * NOTE: Public data is mostly all-time and not date-specific
    */
   static async fetchPublicMetrics(
     userId: string,
-    channelId: string
+    channelId: string,
+    startDate?: string,
+    endDate?: string
   ): Promise<YTPublicMetrics> {
     console.log('[YouTube] Fetching public metrics for channel:', channelId)
+    console.log('[YouTube] Date range provided:', { startDate, endDate })
+    console.log('[YouTube] WARNING: Public Data API returns all-time stats, not date-specific data')
 
     const [channelStats, recentVideos] = await Promise.all([
       this.fetchPublicChannelStats(userId, channelId),
       this.fetchPublicVideos(userId, channelId, 50) // Get more videos for aggregation
     ])
 
-    // Aggregate likes and comments from recent videos
-    const totalLikes = recentVideos.reduce((sum, v) => sum + v.likes, 0)
-    const totalComments = recentVideos.reduce((sum, v) => sum + v.comments, 0)
+    // Try to filter videos by date if date range is provided
+    let filteredVideos = recentVideos
+    if (startDate && endDate) {
+      const startDateObj = new Date(startDate)
+      const endDateObj = new Date(endDate)
+      
+      filteredVideos = recentVideos.filter(video => {
+        if (!video.publishedAt) return false
+        const publishDate = new Date(video.publishedAt)
+        return publishDate >= startDateObj && publishDate <= endDateObj
+      })
+      
+      console.log(`[YouTube] Filtered ${recentVideos.length} videos to ${filteredVideos.length} based on publish date range`)
+    }
+
+    // Aggregate likes and comments from filtered videos
+    const totalLikes = filteredVideos.reduce((sum, v) => sum + v.likes, 0)
+    const totalComments = filteredVideos.reduce((sum, v) => sum + v.comments, 0)
 
     return {
-      views: channelStats.viewCount,           // All-time channel views
+      views: channelStats.viewCount,           // All-time channel views (NOT date-specific)
       subscriberCount: channelStats.subscriberCount,
       videoCount: channelStats.videoCount,
       totalWatchTime: 0,                       // Not available publicly
       shares: 0,                               // Not available publicly
       avgViewDuration: 0,                      // Not available publicly
-      likes: totalLikes,                       // Sum from recent videos
+      likes: totalLikes,                       // Sum from videos in date range (if date filtering applied)
       dislikes: 0,                             // No longer public
-      comments: totalComments,                 // Sum from recent videos
+      comments: totalComments,                 // Sum from videos in date range (if date filtering applied)
       subscriptions: 0,                        // Net change not available
       isPublicDataOnly: true,
       // No previous period data available for public stats
@@ -414,6 +461,7 @@ export class YouTubeAnalyticsService {
   ): Promise<YTMetrics & { isPublicDataOnly?: boolean; subscriberCount?: number; videoCount?: number }> {
     try {
       // Try Analytics API first
+      console.log('[YouTube] Attempting Analytics API for date range:', { startDate, endDate })
       const metrics = await this.fetchMetrics(
         userId,
         channelId,
@@ -422,12 +470,14 @@ export class YouTubeAnalyticsService {
         previousStartDate,
         previousEndDate
       )
+      console.log('[YouTube] Analytics API success - returning date-specific metrics')
       return { ...metrics, isPublicDataOnly: false }
     } catch (error: any) {
       console.log('[YouTube] Analytics API failed, falling back to public Data API:', error.message)
+      console.log('[YouTube] IMPORTANT: Public fallback data will be all-time stats, not date-specific')
 
-      // Fall back to public Data API
-      const publicMetrics = await this.fetchPublicMetrics(userId, channelId)
+      // Fall back to public Data API with date context for video filtering
+      const publicMetrics = await this.fetchPublicMetrics(userId, channelId, startDate, endDate)
 
       return {
         views: publicMetrics.views,
@@ -458,23 +508,40 @@ export class YouTubeAnalyticsService {
   ): Promise<YTVideo[]> {
     try {
       // Try Analytics API first
-      return await this.fetchTopVideos(userId, channelId, startDate, endDate, limit)
+      console.log('[YouTube] Attempting Analytics API for top videos in date range:', { startDate, endDate })
+      const result = await this.fetchTopVideos(userId, channelId, startDate, endDate, limit)
+      console.log('[YouTube] Analytics API success - returning date-specific top videos')
+      return result
     } catch (error: any) {
       console.log('[YouTube] Analytics API failed for videos, falling back to public Data API:', error.message)
+      console.log('[YouTube] WARNING: Public fallback will show recent videos filtered by publish date, not performance in date range')
 
       // Fall back to public Data API
-      const publicVideos = await this.fetchPublicVideos(userId, channelId, limit)
+      const publicVideos = await this.fetchPublicVideos(userId, channelId, limit * 2) // Get more to allow for date filtering
 
-      // Sort by views (most viewed first) since we can't get period-specific data
-      return publicVideos
+      // Filter by publish date if possible
+      const startDateObj = new Date(startDate)
+      const endDateObj = new Date(endDate)
+      
+      const filteredVideos = publicVideos.filter(video => {
+        if (!video.publishedAt) return true // Keep videos without publish date
+        const publishDate = new Date(video.publishedAt)
+        return publishDate >= startDateObj && publishDate <= endDateObj
+      })
+
+      console.log(`[YouTube] Filtered ${publicVideos.length} videos to ${filteredVideos.length} based on publish date range`)
+
+      // Sort by views (most viewed first) since we can't get period-specific performance data
+      return filteredVideos
         .sort((a, b) => b.views - a.views)
+        .slice(0, limit) // Respect the limit
         .map(v => ({
           id: v.id,
           title: v.title,
           thumbnailUrl: v.thumbnailUrl,
-          views: v.views,
-          avgWatchTime: 0,  // Not available
-          shares: 0         // Not available
+          views: v.views,          // All-time views, not date-specific
+          avgWatchTime: 0,         // Not available
+          shares: 0                // Not available
         }))
     }
   }
@@ -490,9 +557,13 @@ export class YouTubeAnalyticsService {
     endDate: string
   ): Promise<YTDailyData[]> {
     try {
-      return await this.fetchDailyData(userId, channelId, startDate, endDate)
+      console.log('[YouTube] Attempting Analytics API for daily data in date range:', { startDate, endDate })
+      const result = await this.fetchDailyData(userId, channelId, startDate, endDate)
+      console.log('[YouTube] Analytics API success - returning', result.length, 'daily data points')
+      return result
     } catch (error: any) {
       console.log('[YouTube] Analytics API failed for daily data, no public fallback available:', error.message)
+      console.log('[YouTube] Daily charts and sparklines will be empty when using public data fallback')
       // No public fallback - return empty array
       return []
     }

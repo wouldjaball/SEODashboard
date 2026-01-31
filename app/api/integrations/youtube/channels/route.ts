@@ -18,14 +18,23 @@ export async function GET(request: Request) {
 
     if (refresh) {
       // Fetch channels from YouTube Data API
-      console.log('Fetching YouTube channels from API for user:', user.id)
+      console.log('[YouTube Channels] Fetching YouTube channels from API for user:', user.id)
 
       try {
         const channels = await YouTubeAnalyticsService.fetchChannels(user.id)
-        console.log(`Found ${channels.length} YouTube channels`)
+        console.log(`[YouTube Channels] Found ${channels.length} YouTube channels`)
+
+        if (channels.length === 0) {
+          console.log('[YouTube Channels] No channels returned from API - this might indicate:')
+          console.log('[YouTube Channels] 1. User has no YouTube channels')
+          console.log('[YouTube Channels] 2. User channels are Brand Accounts not returned by mine=true')
+          console.log('[YouTube Channels] 3. OAuth scope insufficient for channel access')
+          console.log('[YouTube Channels] 4. Token belongs to different Google identity')
+        }
 
         // Store in database
         for (const channel of channels) {
+          console.log(`[YouTube Channels] Storing channel: ${channel.channelName} (${channel.channelId})`)
           const { error: upsertError } = await supabase
             .from('youtube_channels')
             .upsert({
@@ -41,7 +50,9 @@ export async function GET(request: Request) {
             })
 
           if (upsertError) {
-            console.error('Error upserting YouTube channel:', upsertError)
+            console.error('[YouTube Channels] Error upserting YouTube channel:', upsertError)
+          } else {
+            console.log(`[YouTube Channels] Successfully stored channel: ${channel.channelId}`)
           }
         }
 
@@ -51,8 +62,23 @@ export async function GET(request: Request) {
         // when explicitly deleted by the user.
       } catch (apiError: unknown) {
         const err = apiError as Error | undefined
-        console.error('YouTube API error:', err?.message)
-        // Return cached data if API fails
+        console.error('[YouTube Channels] YouTube API error:', err?.message)
+        console.error('[YouTube Channels] Full error details:', err)
+        
+        // Check for common error types
+        if (err?.message?.includes('403')) {
+          console.error('[YouTube Channels] 403 Forbidden - possible causes:')
+          console.error('[YouTube Channels] - YouTube Data API not enabled')
+          console.error('[YouTube Channels] - Insufficient OAuth scope')
+          console.error('[YouTube Channels] - Daily quota exceeded')
+        }
+        
+        if (err?.message?.includes('401')) {
+          console.error('[YouTube Channels] 401 Unauthorized - token may be expired or invalid')
+        }
+        
+        // Return cached data if API fails but don't throw error
+        console.log('[YouTube Channels] Continuing with cached data due to API failure')
       }
     }
 
@@ -94,10 +120,16 @@ export async function GET(request: Request) {
       thumbnailUrl: c.thumbnail_url
     }))
 
+    console.log(`[YouTube Channels] Returning ${formattedChannels.length} channels to frontend`)
     return NextResponse.json({ channels: formattedChannels })
-  } catch (error) {
-    console.error('Fetch YouTube channels error:', error)
-    return NextResponse.json({ error: 'Failed to fetch channels' }, { status: 500 })
+  } catch (error: any) {
+    console.error('[YouTube Channels] Unexpected error fetching channels:', error.message || error)
+    console.error('[YouTube Channels] Full error details:', error)
+    return NextResponse.json({ 
+      error: 'Failed to fetch channels', 
+      details: error.message || 'An unexpected error occurred while fetching YouTube channels',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 })
   }
 }
 

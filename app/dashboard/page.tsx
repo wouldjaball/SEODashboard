@@ -155,6 +155,7 @@ export default function DashboardPage() {
             likesSparkline={company.ytLikesSparkline}
             error={company.ytError}
             isPublicDataOnly={company.ytIsPublicDataOnly}
+            dateRange={dateRange}
           />
         </TabsContent>
 

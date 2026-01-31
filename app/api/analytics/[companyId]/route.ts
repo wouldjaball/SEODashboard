@@ -463,6 +463,7 @@ export async function GET(
         console.log('YouTube Owner User ID:', ytOwnerUserId)
         console.log('YouTube Channel from DB:', JSON.stringify(ytChannel))
         console.log('Channel ID being used:', channelId)
+        console.log('YouTube date range (validated):', { startDate, endDate, previousStartDate, previousEndDate })
 
         // Use fallback methods that try Analytics API first, then fall back to public Data API
         const [ytMetrics, ytVideos, ytDailyData] = await Promise.all([
@@ -499,8 +500,15 @@ export async function GET(
         results.ytSharesSparkline = ytDailyData.map(d => d.shares)
         results.ytLikesSparkline = ytDailyData.map(d => d.likes)
 
+        console.log('[YouTube] Data fetch completed:', {
+          metricsType: ytMetrics.isPublicDataOnly ? 'PUBLIC (all-time)' : 'ANALYTICS (date-specific)',
+          videosCount: ytVideos.length,
+          dailyDataPoints: ytDailyData.length,
+          dateRange: `${startDate} to ${endDate}`
+        })
+
         if (ytMetrics.isPublicDataOnly) {
-          console.log('[YouTube] Using public Data API fallback - limited metrics available')
+          console.log('[YouTube] WARNING: Using public Data API fallback - metrics are all-time, not date-specific')
         }
       } catch (error: unknown) {
         const err = error as Error | undefined
