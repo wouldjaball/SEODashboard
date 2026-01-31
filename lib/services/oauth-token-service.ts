@@ -436,8 +436,38 @@ export class OAuthTokenService {
       .eq('user_id', userId)
       .eq('provider', 'linkedin')
 
+    // Only filter by organization ID if specified AND the token has an organization ID set
+    // This handles legacy tokens that don't have linkedin_organization_id populated
     if (organizationId) {
-      query = query.eq('linkedin_organization_id', organizationId)
+      // First try to find a token with matching organization ID
+      const { data: specificToken, error: specificError } = await supabase
+        .from('oauth_tokens')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('provider', 'linkedin')
+        .eq('linkedin_organization_id', organizationId)
+        .limit(1)
+        .maybeSingle()
+
+      if (!specificError && specificToken) {
+        // Found token with specific organization ID
+        const data = specificToken
+        try {
+          return {
+            accessToken: decryptToken(data.access_token),
+            refreshToken: decryptToken(data.refresh_token),
+            expiresAt: new Date(data.expires_at),
+            scope: data.scope || ''
+          }
+        } catch (error) {
+          console.error('Failed to decrypt LinkedIn tokens:', error)
+          return null
+        }
+      }
+
+      // If no specific org token found, fall back to any LinkedIn token for this user
+      // This handles legacy tokens without organization ID
+      console.log('[OAuthTokenService] No organization-specific token found, falling back to any LinkedIn token for user')
     }
 
     const { data, error } = await query.limit(1).maybeSingle()

@@ -9,10 +9,10 @@ export const LINKEDIN_OAUTH_SCOPES = [
 
 export const LINKEDIN_OAUTH_SCOPES_STRING = LINKEDIN_OAUTH_SCOPES.join(' ')
 
-// LinkedIn API version header (dated version)
-export const LINKEDIN_API_VERSION = '202601'
+// LinkedIn API version header (disabled - using no version for compatibility)
+export const LINKEDIN_API_VERSION = ''
 
-// LinkedIn OAuth endpoints
+// LinkedIn OAuth endpoints  
 export const LINKEDIN_AUTH_URL = 'https://www.linkedin.com/oauth/v2/authorization'
 export const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken'
-export const LINKEDIN_API_BASE = 'https://api.linkedin.com/rest'
+export const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2'

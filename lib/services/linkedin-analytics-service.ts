@@ -32,13 +32,17 @@ export class LinkedInAnalyticsService {
 
     console.log('LinkedIn API request:', url)
 
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${tokenResult.accessToken}`,
-        'LinkedIn-Version': LINKEDIN_API_VERSION,
-        'X-Restli-Protocol-Version': '2.0.0'
-      }
-    })
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${tokenResult.accessToken}`,
+      'X-Restli-Protocol-Version': '2.0.0'
+    }
+    
+    // Only add LinkedIn-Version header if version is specified
+    if (LINKEDIN_API_VERSION) {
+      headers['LinkedIn-Version'] = LINKEDIN_API_VERSION
+    }
+
+    const response = await fetch(url, { headers })
 
     if (!response.ok) {
       const errorText = await response.text()
