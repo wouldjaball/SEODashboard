@@ -202,55 +202,35 @@ class LinkedInDiagnostic {
     }
 
     try {
-      // First, get the user's organizations to find the correct org ID
-      this.log('LinkedIn API', 'info', 'Fetching user organizations...')
+      // Test direct organization access with current page ID (skip organization lookup)
+      this.log('LinkedIn API', 'info', `Testing direct organization access with ID: ${linkedInPage.page_id}`)
       
-      const orgResponse = await fetch('https://api.linkedin.com/rest/organizations?q=administeredOrganization', {
+      const orgResponse = await fetch(`https://api.linkedin.com/rest/organizations/${linkedInPage.page_id}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'LinkedIn-Version': '202404',
-          'X-Restli-Protocol-Version': '2.0.0'
+          'LinkedIn-Version': '202601',
+          'X-Restli-Protocol-Version': '2.0.0',
+          'Content-Type': 'application/json'
         }
       })
 
-      if (!orgResponse.ok) {
-        const errorText = await orgResponse.text()
-        this.log('LinkedIn API', 'error', `Failed to fetch organizations: ${orgResponse.status}`, errorText)
-        return result
-      }
-
-      const orgData = await orgResponse.json()
-      this.log('LinkedIn API', 'success', `Found ${orgData.elements?.length || 0} organizations`)
-
-      if (!orgData.elements || orgData.elements.length === 0) {
-        this.log('LinkedIn API', 'warning', 'User has no administered organizations')
-        return result
-      }
-
-      // Look for the organization that matches the page
-      const matchingOrg = orgData.elements.find((org: any) => 
-        org.vanityName?.toLowerCase() === linkedInPage.page_id.toLowerCase() ||
-        org.localizedName?.toLowerCase().includes(this.companyName.toLowerCase())
-      )
-
-      if (matchingOrg) {
-        this.log('LinkedIn API', 'success', `Found matching organization: ${matchingOrg.localizedName}`, {
-          correctOrgId: matchingOrg.id,
-          vanityName: matchingOrg.vanityName,
-          currentPageId: linkedInPage.page_id
+      if (orgResponse.ok) {
+        const orgData = await orgResponse.json()
+        this.log('LinkedIn API', 'success', `Organization direct access successful: ${orgData.localizedName}`, {
+          orgId: linkedInPage.page_id,
+          vanityName: orgData.vanityName,
+          name: orgData.localizedName
         })
 
-        // Test analytics API with the correct organization ID
-        await this.testAnalyticsAPI(accessToken, matchingOrg.id)
+        // Test analytics API with the current organization ID
+        await this.testAnalyticsAPI(accessToken, linkedInPage.page_id)
       } else {
-        this.log('LinkedIn API', 'warning', 'No organization matches the configured page ID', {
-          configuredPageId: linkedInPage.page_id,
-          availableOrgs: orgData.elements.map((org: any) => ({
-            id: org.id,
-            name: org.localizedName,
-            vanity: org.vanityName
-          }))
-        })
+        const errorText = await orgResponse.text()
+        this.log('LinkedIn API', 'error', `Direct organization access failed: ${orgResponse.status}`, errorText)
+        
+        // Still try to test analytics API anyway
+        this.log('LinkedIn API', 'info', 'Proceeding with analytics test despite organization lookup failure')
+        await this.testAnalyticsAPI(accessToken, linkedInPage.page_id)
       }
 
     } catch (error) {
@@ -268,15 +248,43 @@ class LinkedInDiagnostic {
       const endDate = Date.now()
       const startDate = endDate - (30 * 24 * 60 * 60 * 1000) // 30 days ago
 
-      const apiUrl = `https://api.linkedin.com/rest/organizationPageStatistics?q=organization&organization=urn:li:organization:${organizationId}&timeIntervals.timeGranularityType=DAY&timeIntervals.timeRange.start=${startDate}&timeIntervals.timeRange.end=${endDate}`
+      // First try lifetime statistics (no time range)
+      let apiUrl = `https://api.linkedin.com/rest/organizationPageStatistics?q=organization&organization=urn:li:organization:${organizationId}`
 
-      const response = await fetch(apiUrl, {
+      let response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'LinkedIn-Version': '202404',
-          'X-Restli-Protocol-Version': '2.0.0'
+          'LinkedIn-Version': '202601',
+          'X-Restli-Protocol-Version': '2.0.0',
+          'Content-Type': 'application/json'
         }
       })
+      
+      this.log('Analytics API', 'info', `Testing lifetime page statistics first (status: ${response.status})`)
+      
+      if (!response.ok) {
+        // Try with time intervals using RestLi 1.0 format
+        const params = new URLSearchParams({
+          q: 'organization',
+          organization: `urn:li:organization:${organizationId}`,
+          'timeIntervals.timeGranularityType': 'DAY',
+          'timeIntervals.timeRange.start': startDate.toString(),
+          'timeIntervals.timeRange.end': endDate.toString()
+        })
+        
+        apiUrl = `https://api.linkedin.com/rest/organizationPageStatistics?${params.toString()}`
+        
+        response = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'LinkedIn-Version': '202601',
+            'X-Restli-Protocol-Version': '2.0.0',
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        this.log('Analytics API', 'info', `Testing time-bound page statistics (status: ${response.status})`)
+      }
 
       if (response.ok) {
         const data = await response.json()

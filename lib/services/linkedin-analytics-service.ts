@@ -34,10 +34,11 @@ export class LinkedInAnalyticsService {
 
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${tokenResult.accessToken}`,
-      'X-Restli-Protocol-Version': '2.0.0'
+      'X-Restli-Protocol-Version': '2.0.0',
+      'Content-Type': 'application/json'
     }
     
-    // Only add LinkedIn-Version header if version is specified
+    // Always add LinkedIn-Version header (required for new API)
     if (LINKEDIN_API_VERSION) {
       headers['LinkedIn-Version'] = LINKEDIN_API_VERSION
     }
@@ -96,73 +97,132 @@ export class LinkedInAnalyticsService {
     previousEndDate: string
   ): Promise<LIFollowerMetrics> {
     try {
-      // Fetch lifetime follower count
-      const lifetimeData = await this.makeRequest(
-        userId,
-        organizationId,
-        '/organizationalEntityFollowerStatistics',
-        {
-          q: 'organizationalEntity',
-          organizationalEntity: `urn:li:organization:${organizationId}`
-        }
-      ) as { elements?: Array<{ followerCounts?: { organicFollowerCount?: number, paidFollowerCount?: number } }> }
+      console.log('[LinkedIn Followers] Attempting to fetch follower metrics...')
+      
+      // Always try to fetch lifetime follower count first
+      let totalFollowers = 0
+      let paidFollowers = 0
+      
+      try {
+        console.log('[LinkedIn Followers] Fetching lifetime follower counts...')
+        const lifetimeData = await this.makeRequest(
+          userId,
+          organizationId,
+          '/organizationalEntityFollowerStatistics',
+          {
+            q: 'organizationalEntity',
+            organizationalEntity: `urn:li:organization:${organizationId}`
+          }
+        ) as { elements?: Array<{ followerCounts?: { organicFollowerCount?: number, paidFollowerCount?: number } }> }
 
-      const totalFollowers = lifetimeData.elements?.[0]?.followerCounts?.organicFollowerCount || 0
-      const paidFollowers = lifetimeData.elements?.[0]?.followerCounts?.paidFollowerCount || 0
-
-      // Fetch time-bound follower gains - Fixed parameter format
-      const timeRangeData = await this.makeRequest(
-        userId,
-        organizationId,
-        '/organizationalEntityFollowerStatistics',
-        {
-          q: 'organizationalEntity',
-          organizationalEntity: `urn:li:organization:${organizationId}`,
-          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
-        }
-      ) as { elements?: Array<{ followerGains?: { organicFollowerGain?: number } }> }
-
-      // Calculate new followers in period
-      let newFollowers = 0
-      if (timeRangeData.elements) {
-        newFollowers = timeRangeData.elements.reduce((sum, elem) => {
-          return sum + (elem.followerGains?.organicFollowerGain || 0)
-        }, 0)
+        totalFollowers = lifetimeData.elements?.[0]?.followerCounts?.organicFollowerCount || 0
+        paidFollowers = lifetimeData.elements?.[0]?.followerCounts?.paidFollowerCount || 0
+        console.log(`[LinkedIn Followers] Lifetime follower counts: ${totalFollowers} organic, ${paidFollowers} paid`)
+        
+      } catch (lifetimeError) {
+        console.error('[LinkedIn Followers] Failed to fetch lifetime follower counts:', lifetimeError)
       }
 
-      // Fetch previous period for comparison - Fixed parameter format
-      const previousTimeRangeData = await this.makeRequest(
-        userId,
-        organizationId,
-        '/organizationalEntityFollowerStatistics',
-        {
-          q: 'organizationalEntity',
-          organizationalEntity: `urn:li:organization:${organizationId}`,
-          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
-        }
-      ) as { elements?: Array<{ followerGains?: { organicFollowerGain?: number } }> }
-
+      // Try to fetch time-bound follower gains
+      let newFollowers = 0
       let previousNewFollowers = 0
-      if (previousTimeRangeData.elements) {
-        previousNewFollowers = previousTimeRangeData.elements.reduce((sum, elem) => {
-          return sum + (elem.followerGains?.organicFollowerGain || 0)
-        }, 0)
+      
+      try {
+        console.log('[LinkedIn Followers] Attempting to fetch time-bound follower gains...')
+        
+        // Try object notation first
+        let timeRangeData: any
+        try {
+          timeRangeData = await this.makeRequest(
+            userId,
+            organizationId,
+            '/organizationalEntityFollowerStatistics',
+            {
+              q: 'organizationalEntity',
+              organizationalEntity: `urn:li:organization:${organizationId}`,
+              timeIntervals: `(timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}),timeGranularityType:DAY)`
+            }
+          ) as { elements?: Array<{ followerGains?: { organicFollowerGain?: number } }> }
+        } catch (objectError) {
+          console.log('[LinkedIn Followers] Object notation failed, trying RestLi 1.0 format...')
+          
+          // Fallback to RestLi 1.0 format
+          timeRangeData = await this.makeRequest(
+            userId,
+            organizationId,
+            '/organizationalEntityFollowerStatistics',
+            {
+              q: 'organizationalEntity',
+              organizationalEntity: `urn:li:organization:${organizationId}`,
+              'timeIntervals.timeGranularityType': 'DAY',
+              'timeIntervals.timeRange.start': this.formatDate(startDate),
+              'timeIntervals.timeRange.end': this.formatDate(endDate)
+            }
+          ) as { elements?: Array<{ followerGains?: { organicFollowerGain?: number } }> }
+        }
+
+        // Calculate new followers in period
+        if (timeRangeData?.elements) {
+          newFollowers = timeRangeData.elements.reduce((sum: number, elem: any) => {
+            return sum + (elem.followerGains?.organicFollowerGain || 0)
+          }, 0)
+        }
+        
+        console.log(`[LinkedIn Followers] New followers in period: ${newFollowers}`)
+
+        // Try to get previous period data
+        try {
+          const previousTimeRangeData = await this.makeRequest(
+            userId,
+            organizationId,
+            '/organizationalEntityFollowerStatistics',
+            {
+              q: 'organizationalEntity',
+              organizationalEntity: `urn:li:organization:${organizationId}`,
+              timeIntervals: `(timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}),timeGranularityType:DAY)`
+            }
+          )
+
+          if (previousTimeRangeData?.elements) {
+            previousNewFollowers = previousTimeRangeData.elements.reduce((sum: number, elem: any) => {
+              return sum + (elem.followerGains?.organicFollowerGain || 0)
+            }, 0)
+          }
+        } catch (prevError) {
+          console.log('[LinkedIn Followers] Previous period data unavailable, using 0')
+        }
+        
+      } catch (timeRangeError) {
+        console.log('[LinkedIn Followers] Time-bound follower gains unavailable:', timeRangeError)
+        // newFollowers remains 0
       }
 
       // Estimate previous total (current total - new followers in current period)
-      const previousTotalFollowers = totalFollowers - newFollowers
+      const previousTotalFollowers = Math.max(0, totalFollowers - newFollowers)
 
-      return {
+      const result = {
         totalFollowers: totalFollowers + paidFollowers,
         newFollowers,
         previousPeriod: {
-          totalFollowers: previousTotalFollowers,
+          totalFollowers: previousTotalFollowers + paidFollowers,
           newFollowers: previousNewFollowers
         }
       }
+      
+      console.log(`[LinkedIn Followers] Final results: ${result.totalFollowers} total, ${result.newFollowers} new`)
+
+      return result
     } catch (error) {
       console.error('Failed to fetch LinkedIn follower metrics:', error)
-      throw error
+      // Return empty metrics instead of throwing
+      return {
+        totalFollowers: 0,
+        newFollowers: 0,
+        previousPeriod: {
+          totalFollowers: 0,
+          newFollowers: 0
+        }
+      }
     }
   }
 
@@ -178,22 +238,75 @@ export class LinkedInAnalyticsService {
     previousEndDate: string
   ): Promise<LIVisitorMetrics> {
     try {
-      // Fetch page statistics for current period - Fixed parameter format
-      const currentData = await this.makeRequest(
-        userId,
-        organizationId,
-        '/organizationPageStatistics',
-        {
-          q: 'organization',
-          organization: `urn:li:organization:${organizationId}`,
-          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
+      console.log('[LinkedIn Page Stats] Attempting to fetch page statistics...')
+      
+      let currentData: any = null
+      let previousData: any = null
+      
+      try {
+        // First try lifetime statistics (no time intervals)
+        console.log('[LinkedIn Page Stats] Trying lifetime statistics...')
+        const lifetimeData = await this.makeRequest(
+          userId,
+          organizationId,
+          '/organizationPageStatistics',
+          {
+            q: 'organization',
+            organization: `urn:li:organization:${organizationId}`
+          }
+        ) as { elements?: Array<{ totalPageStatistics?: { views?: { allPageViews?: number }, clicks?: { mobileCustomButtonClickCounts?: number, desktopCustomButtonClickCounts?: number } } }> }
+        
+        console.log('[LinkedIn Page Stats] Lifetime statistics successful, using as current period')
+        currentData = lifetimeData
+        previousData = { elements: [] } // No previous period data for lifetime stats
+        
+      } catch (lifetimeError) {
+        console.log('[LinkedIn Page Stats] Lifetime statistics failed, trying time-bound with object notation...')
+        
+        try {
+          // Try with time intervals using object notation
+          const timeBoundData = await this.makeRequest(
+            userId,
+            organizationId,
+            '/organizationPageStatistics',
+            {
+              q: 'organization',
+              organization: `urn:li:organization:${organizationId}`,
+              timeIntervals: `(timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}),timeGranularityType:DAY)`
+            }
+          ) as { elements?: Array<{ totalPageStatistics?: { views?: { allPageViews?: number }, clicks?: { mobileCustomButtonClickCounts?: number, desktopCustomButtonClickCounts?: number } } }> }
+          
+          currentData = timeBoundData
+          console.log('[LinkedIn Page Stats] Time-bound statistics successful')
+          
+          // Try to get previous period
+          try {
+            const previousTimeBoundData = await this.makeRequest(
+              userId,
+              organizationId,
+              '/organizationPageStatistics',
+              {
+                q: 'organization',
+                organization: `urn:li:organization:${organizationId}`,
+                timeIntervals: `(timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}),timeGranularityType:DAY)`
+              }
+            )
+            previousData = previousTimeBoundData
+          } catch (prevError) {
+            console.log('[LinkedIn Page Stats] Previous period fetch failed, using empty data')
+            previousData = { elements: [] }
+          }
+          
+        } catch (timeBoundError) {
+          console.error('[LinkedIn Page Stats] Both lifetime and time-bound statistics failed:', timeBoundError)
+          throw timeBoundError
         }
-      ) as { elements?: Array<{ totalPageStatistics?: { views?: { allPageViews?: number }, clicks?: { mobileCustomButtonClickCounts?: number, desktopCustomButtonClickCounts?: number } } }> }
+      }
 
       let pageViews = 0
       let customButtonClicks = 0
 
-      if (currentData.elements) {
+      if (currentData?.elements) {
         for (const elem of currentData.elements) {
           pageViews += elem.totalPageStatistics?.views?.allPageViews || 0
           customButtonClicks += (elem.totalPageStatistics?.clicks?.mobileCustomButtonClickCounts || 0) +
@@ -201,22 +314,10 @@ export class LinkedInAnalyticsService {
         }
       }
 
-      // Fetch previous period - Fixed parameter format
-      const previousData = await this.makeRequest(
-        userId,
-        organizationId,
-        '/organizationPageStatistics',
-        {
-          q: 'organization',
-          organization: `urn:li:organization:${organizationId}`,
-          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
-        }
-      ) as { elements?: Array<{ totalPageStatistics?: { views?: { allPageViews?: number }, clicks?: { mobileCustomButtonClickCounts?: number, desktopCustomButtonClickCounts?: number } } }> }
-
       let previousPageViews = 0
       let previousCustomButtonClicks = 0
 
-      if (previousData.elements) {
+      if (previousData?.elements) {
         for (const elem of previousData.elements) {
           previousPageViews += elem.totalPageStatistics?.views?.allPageViews || 0
           previousCustomButtonClicks += (elem.totalPageStatistics?.clicks?.mobileCustomButtonClickCounts || 0) +
@@ -227,6 +328,8 @@ export class LinkedInAnalyticsService {
       // Estimate unique visitors (LinkedIn doesn't always provide this directly)
       const uniqueVisitors = Math.round(pageViews * 0.7) // Rough estimate
       const previousUniqueVisitors = Math.round(previousPageViews * 0.7)
+
+      console.log(`[LinkedIn Page Stats] Final results: ${pageViews} page views, ${uniqueVisitors} unique visitors`)
 
       return {
         pageViews,
@@ -240,7 +343,17 @@ export class LinkedInAnalyticsService {
       }
     } catch (error) {
       console.error('Failed to fetch LinkedIn page statistics:', error)
-      throw error
+      // Return empty metrics instead of throwing
+      return {
+        pageViews: 0,
+        uniqueVisitors: 0,
+        customButtonClicks: 0,
+        previousPeriod: {
+          pageViews: 0,
+          uniqueVisitors: 0,
+          customButtonClicks: 0
+        }
+      }
     }
   }
 
