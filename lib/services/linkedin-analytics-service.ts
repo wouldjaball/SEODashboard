@@ -59,9 +59,29 @@ export class LinkedInAnalyticsService {
    * Format date for LinkedIn API (Unix timestamp in milliseconds)
    */
   private static formatDate(dateStr: string): string {
-    const timestamp = new Date(dateStr).getTime().toString()
+    // Validate input date
+    if (!dateStr || dateStr === 'undefined' || dateStr === 'null') {
+      console.error(`[LinkedIn] Invalid date parameter received: "${dateStr}". Using current date as fallback.`)
+      const fallbackDate = new Date().toISOString().split('T')[0]
+      const fallbackTimestamp = new Date(fallbackDate).getTime().toString()
+      console.log(`[LinkedIn] Fallback date: ${fallbackDate} → timestamp: ${fallbackTimestamp}`)
+      return fallbackTimestamp
+    }
+
+    const date = new Date(dateStr)
+    const timestamp = date.getTime()
+    
+    // Check if timestamp is valid (not NaN)
+    if (isNaN(timestamp)) {
+      console.error(`[LinkedIn] Invalid date format: "${dateStr}". Using current date as fallback.`)
+      const fallbackDate = new Date().toISOString().split('T')[0]
+      const fallbackTimestamp = new Date(fallbackDate).getTime().toString()
+      console.log(`[LinkedIn] Fallback date: ${fallbackDate} → timestamp: ${fallbackTimestamp}`)
+      return fallbackTimestamp
+    }
+
     console.log(`[LinkedIn] Converting date ${dateStr} to timestamp ${timestamp}`)
-    return timestamp
+    return timestamp.toString()
   }
 
   /**
