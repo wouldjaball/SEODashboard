@@ -53,33 +53,42 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url)
-    let startDate = searchParams.get('startDate') || format(subDays(new Date(), 30), 'yyyy-MM-dd')
-    let endDate = searchParams.get('endDate') || format(new Date(), 'yyyy-MM-dd')
+    // Default to 2025 dates since LinkedIn data exists there (we're in 2026 now)
+    const defaultEndDate = new Date('2025-12-31')
+    const defaultStartDate = subDays(defaultEndDate, 30)
     
-    // Validate dates - don't allow future dates beyond today (with small buffer for timezone issues)
+    let startDate = searchParams.get('startDate') || format(defaultStartDate, 'yyyy-MM-dd')
+    let endDate = searchParams.get('endDate') || format(defaultEndDate, 'yyyy-MM-dd')
+    
+    // Validate dates - since it's 2026, we need to use historical dates where LinkedIn data exists
     const today = new Date()
-    today.setDate(today.getDate() + 1) // Allow up to tomorrow to handle timezone differences
     const startDateObj = new Date(startDate)
     const endDateObj = new Date(endDate)
     
-    console.log('[Analytics API] Date validation:', { 
-      today: format(new Date(), 'yyyy-MM-dd'),
-      startDate, 
-      endDate,
-      isEndDateFuture: endDateObj > today,
-      isStartDateFuture: startDateObj > today
+    // For 2026, use 2025 data ranges since that's where LinkedIn data exists
+    const maxValidDate = new Date('2025-12-31') // Last known date with LinkedIn data
+    const currentYear = today.getFullYear()
+    
+    console.log('[Analytics API] Date validation (2026 context):', { 
+      currentYear,
+      today: format(today, 'yyyy-MM-dd'),
+      maxValidDate: format(maxValidDate, 'yyyy-MM-dd'),
+      requestedStart: startDate, 
+      requestedEnd: endDate,
+      isEndDateTooNew: endDateObj > maxValidDate,
+      isStartDateTooNew: startDateObj > maxValidDate
     })
     
-    if (endDateObj > today) {
-      const adjustedEnd = format(new Date(), 'yyyy-MM-dd')
-      console.warn('[Analytics API] End date is in the future, adjusting to today:', { originalEnd: endDate, adjustedEnd })
-      endDate = adjustedEnd
+    // Adjust end date to valid historical range
+    if (endDateObj > maxValidDate) {
+      endDate = format(maxValidDate, 'yyyy-MM-dd')
+      console.warn('[Analytics API] End date adjusted to last valid data date:', { originalEnd: format(endDateObj, 'yyyy-MM-dd'), adjustedEnd: endDate })
     }
     
-    if (startDateObj > today) {
-      const adjustedStart = format(subDays(new Date(), 30), 'yyyy-MM-dd')
-      console.warn('[Analytics API] Start date is in the future, adjusting to 30 days ago:', { originalStart: startDate, adjustedStart })
-      startDate = adjustedStart
+    // Adjust start date to valid historical range  
+    if (startDateObj > maxValidDate) {
+      startDate = format(subDays(maxValidDate, 30), 'yyyy-MM-dd')
+      console.warn('[Analytics API] Start date adjusted to historical range:', { originalStart: format(startDateObj, 'yyyy-MM-dd'), adjustedStart: startDate })
     }
 
     // Calculate previous period dates
@@ -754,7 +763,7 @@ export async function GET(
       results.liUpdates = []
     }
 
-    // Cache the results (1 hour expiry)
+    // Cache the results (1 hour expiry) - use the adjusted dates that were actually used for API calls
     await cacheData(supabase, companyId, startDate, endDate, results)
 
     return NextResponse.json(results)
