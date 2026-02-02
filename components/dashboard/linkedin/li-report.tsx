@@ -215,13 +215,13 @@ export function LIReport({
         </Button>
       </div>
 
-      {/* Enhanced LinkedIn Analytics */}
-      <EnhancedLinkedInAnalytics
-        videoMetrics={videoMetrics}
-        employeeAdvocacyMetrics={employeeAdvocacyMetrics}
-        contentBreakdown={contentBreakdown}
-        socialListening={socialListening}
-      />
+      {/* Content Performance - TOP PRIORITY */}
+      {contentMetrics && (
+        <ContentAnalytics metrics={contentMetrics} dailyData={impressionDaily} />
+      )}
+
+      {contentMetrics && visitorMetrics && <Separator />}
+
       {/* Visitor Analytics */}
       {visitorMetrics && (
         <VisitorAnalytics metrics={visitorMetrics} dailyData={visitorDaily} />
@@ -244,12 +244,13 @@ export function LIReport({
         <FollowerAnalytics metrics={followerMetrics} dailyData={followerDaily} />
       )}
 
-      {followerMetrics && contentMetrics && <Separator />}
-
-      {/* Content Analytics */}
-      {contentMetrics && (
-        <ContentAnalytics metrics={contentMetrics} dailyData={impressionDaily} />
-      )}
+      {/* Enhanced LinkedIn Analytics - only shows if data exists */}
+      <EnhancedLinkedInAnalytics
+        videoMetrics={videoMetrics}
+        employeeAdvocacyMetrics={employeeAdvocacyMetrics}
+        contentBreakdown={contentBreakdown}
+        socialListening={socialListening}
+      />
 
       {contentMetrics && updates.length > 0 && <Separator />}
 

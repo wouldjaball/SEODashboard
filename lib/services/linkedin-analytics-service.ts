@@ -441,16 +441,17 @@ export class LinkedInAnalyticsService {
           impressions += stats.impressionCount || 0
           clicks += stats.clickCount || 0
           // LinkedIn provides engagement as a decimal (0.09 = 9%)
+          // Keep as decimal - formatPercent will handle display conversion
           if (stats.engagement) {
-            engagementRate = stats.engagement * 100
+            engagementRate = stats.engagement
           }
         }
       }
 
-      // Calculate engagement rate if not provided
+      // Calculate engagement rate if not provided (as decimal for formatPercent)
       if (engagementRate === 0 && impressions > 0) {
         const totalEngagement = reactions + comments + reposts + clicks
-        engagementRate = (totalEngagement / impressions) * 100
+        engagementRate = totalEngagement / impressions  // Keep as decimal
       }
 
       // Fetch previous period for comparison
@@ -482,7 +483,7 @@ export class LinkedInAnalyticsService {
             previousImpressions += stats.impressionCount || 0
             previousClicks += stats.clickCount || 0
             if (stats.engagement) {
-              previousEngagementRate = stats.engagement * 100
+              previousEngagementRate = stats.engagement  // Keep as decimal
             }
           }
         }
@@ -496,14 +497,14 @@ export class LinkedInAnalyticsService {
         reposts,
         impressions,
         clicks,
-        engagementRate: Number(engagementRate.toFixed(2)),
+        engagementRate: Number(engagementRate.toFixed(4)),  // Keep precision for decimal
         previousPeriod: {
           reactions: previousReactions,
           comments: previousComments,
           reposts: previousReposts,
           impressions: previousImpressions,
           clicks: previousClicks,
-          engagementRate: Number(previousEngagementRate.toFixed(2))
+          engagementRate: Number(previousEngagementRate.toFixed(4))  // Keep precision for decimal
         }
       }
     } catch (error) {
