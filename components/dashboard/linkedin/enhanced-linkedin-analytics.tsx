@@ -39,8 +39,14 @@ export function EnhancedLinkedInAnalytics({
   contentBreakdown,
   socialListening
 }: EnhancedLinkedInAnalyticsProps) {
-  // Don't render if no enhanced metrics are available
-  if (!videoMetrics && !employeeAdvocacyMetrics && !contentBreakdown && !socialListening) {
+  // Check if metrics have actual data (not just zeros)
+  const hasVideoData = videoMetrics && (videoMetrics.totalViews > 0 || videoMetrics.totalWatchTime > 0)
+  const hasAdvocacyData = employeeAdvocacyMetrics && (employeeAdvocacyMetrics.employeeShares > 0 || employeeAdvocacyMetrics.employeeEngagement > 0)
+  const hasBreakdownData = contentBreakdown && (contentBreakdown.organicPosts > 0 || contentBreakdown.sponsoredPosts > 0)
+  const hasSocialData = socialListening && socialListening.length > 0
+
+  // Don't render if no enhanced metrics have actual data
+  if (!hasVideoData && !hasAdvocacyData && !hasBreakdownData && !hasSocialData) {
     return null
   }
 
@@ -55,8 +61,8 @@ export function EnhancedLinkedInAnalytics({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Video Analytics */}
-        {videoMetrics && (
+        {/* Video Analytics - only show if there's actual video data */}
+        {hasVideoData && videoMetrics && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Video Performance</CardTitle>
@@ -105,7 +111,7 @@ export function EnhancedLinkedInAnalytics({
         )}
 
         {/* Employee Advocacy */}
-        {employeeAdvocacyMetrics && (
+        {hasAdvocacyData && employeeAdvocacyMetrics && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Employee Advocacy</CardTitle>
@@ -154,7 +160,7 @@ export function EnhancedLinkedInAnalytics({
         )}
 
         {/* Content Breakdown */}
-        {contentBreakdown && (
+        {hasBreakdownData && contentBreakdown && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Content Performance</CardTitle>
@@ -197,7 +203,7 @@ export function EnhancedLinkedInAnalytics({
       </div>
 
       {/* Social Listening */}
-      {socialListening && socialListening.length > 0 && (
+      {hasSocialData && socialListening && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
