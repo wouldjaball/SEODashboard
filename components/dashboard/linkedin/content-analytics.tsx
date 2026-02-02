@@ -1,6 +1,6 @@
 "use client"
 
-import { Heart, MessageSquare, Repeat } from "lucide-react"
+import { Eye, MousePointerClick, Heart, MessageSquare, Repeat, TrendingUp } from "lucide-react"
 import {
   LineChart,
   Line,
@@ -46,9 +46,34 @@ export function ContentAnalytics({ metrics, dailyData }: ContentAnalyticsProps) 
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Content Analytics</h3>
+      <h3 className="text-lg font-semibold">Content Performance</h3>
 
-      {/* Metrics */}
+      {/* Primary Metrics - Impressions, Clicks, Engagement */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KPICard
+          title="Impressions"
+          value={metrics.impressions}
+          change={getChange(metrics.impressions, prev?.impressions)}
+          icon={Eye}
+          format="number"
+        />
+        <KPICard
+          title="Clicks"
+          value={metrics.clicks}
+          change={getChange(metrics.clicks, prev?.clicks)}
+          icon={MousePointerClick}
+          format="number"
+        />
+        <KPICard
+          title="Engagement Rate"
+          value={metrics.engagementRate}
+          change={getChange(metrics.engagementRate, prev?.engagementRate)}
+          icon={TrendingUp}
+          format="percent"
+        />
+      </div>
+
+      {/* Secondary Metrics - Reactions, Comments, Reposts */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KPICard
           title="Reactions"
@@ -73,34 +98,36 @@ export function ContentAnalytics({ metrics, dailyData }: ContentAnalyticsProps) 
         />
       </div>
 
-      {/* Impressions Chart */}
-      <ChartCard title="Impressions Over Time">
-        <ChartContainer config={chartConfig} className="h-[250px] w-full">
-          <LineChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="formattedDate"
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => formatNumber(value)}
-            />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Line
-              type="monotone"
-              dataKey="impressions"
-              stroke="var(--color-impressions)"
-              strokeWidth={2}
-              dot={{ fill: "var(--color-impressions)", strokeWidth: 2, r: 3 }}
-            />
-          </LineChart>
-        </ChartContainer>
-      </ChartCard>
+      {/* Impressions Chart - only show if we have daily data */}
+      {formattedData.length > 0 && (
+        <ChartCard title="Impressions Over Time">
+          <ChartContainer config={chartConfig} className="h-[250px] w-full">
+            <LineChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="formattedDate"
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => formatNumber(value)}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Line
+                type="monotone"
+                dataKey="impressions"
+                stroke="var(--color-impressions)"
+                strokeWidth={2}
+                dot={{ fill: "var(--color-impressions)", strokeWidth: 2, r: 3 }}
+              />
+            </LineChart>
+          </ChartContainer>
+        </ChartCard>
+      )}
     </div>
   )
 }

@@ -218,10 +218,16 @@ export interface LIContentMetrics {
   reactions: number
   comments: number
   reposts: number
+  impressions: number
+  clicks: number
+  engagementRate: number
   previousPeriod?: {
     reactions: number
     comments: number
     reposts: number
+    impressions: number
+    clicks: number
+    engagementRate: number
   }
 }
 

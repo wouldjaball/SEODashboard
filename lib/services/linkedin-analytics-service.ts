@@ -306,11 +306,39 @@ export class LinkedInAnalyticsService {
       let pageViews = 0
       let customButtonClicks = 0
 
+      // Helper to extract page views from v2 API response structure
+      // v2 API returns: pageStatisticsBySeniority[].pageStatistics.views.allPageViews.pageViews
+      // REST API returns: totalPageStatistics.views.allPageViews (number)
+      const extractPageViews = (elem: any): number => {
+        // Try REST API format first (totalPageStatistics)
+        if (elem.totalPageStatistics?.views?.allPageViews) {
+          const val = elem.totalPageStatistics.views.allPageViews
+          return typeof val === 'number' ? val : (val?.pageViews || 0)
+        }
+        
+        // Try v2 API format - get from first available breakdown (they all contain the same totals)
+        const breakdowns = ['pageStatisticsBySeniority', 'pageStatisticsByFunction', 'pageStatisticsByStaffCountRange']
+        for (const key of breakdowns) {
+          if (elem[key]?.length > 0) {
+            // Sum all views from this breakdown category
+            let total = 0
+            for (const item of elem[key]) {
+              const views = item.pageStatistics?.views?.allPageViews
+              total += typeof views === 'number' ? views : (views?.pageViews || 0)
+            }
+            if (total > 0) return total
+          }
+        }
+        return 0
+      }
+
       if (currentData?.elements) {
         for (const elem of currentData.elements) {
-          pageViews += elem.totalPageStatistics?.views?.allPageViews || 0
-          customButtonClicks += (elem.totalPageStatistics?.clicks?.mobileCustomButtonClickCounts || 0) +
-            (elem.totalPageStatistics?.clicks?.desktopCustomButtonClickCounts || 0)
+          pageViews += extractPageViews(elem)
+          // Button clicks - try both formats
+          const clicks = elem.totalPageStatistics?.clicks || {}
+          customButtonClicks += (clicks.mobileCustomButtonClickCounts || 0) +
+            (clicks.desktopCustomButtonClickCounts || 0)
         }
       }
 
@@ -319,9 +347,10 @@ export class LinkedInAnalyticsService {
 
       if (previousData?.elements) {
         for (const elem of previousData.elements) {
-          previousPageViews += elem.totalPageStatistics?.views?.allPageViews || 0
-          previousCustomButtonClicks += (elem.totalPageStatistics?.clicks?.mobileCustomButtonClickCounts || 0) +
-            (elem.totalPageStatistics?.clicks?.desktopCustomButtonClickCounts || 0)
+          previousPageViews += extractPageViews(elem)
+          const clicks = elem.totalPageStatistics?.clicks || {}
+          previousCustomButtonClicks += (clicks.mobileCustomButtonClickCounts || 0) +
+            (clicks.desktopCustomButtonClickCounts || 0)
         }
       }
 
@@ -370,61 +399,111 @@ export class LinkedInAnalyticsService {
   ): Promise<LIContentMetrics> {
     try {
       // Fetch share statistics for current period - Fixed parameter format
-      const currentData = await this.makeRequest(
-        userId,
-        organizationId,
-        '/organizationalEntityShareStatistics',
-        {
-          q: 'organizationalEntity',
-          organizationalEntity: `urn:li:organization:${organizationId}`,
-          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
-        }
-      ) as { elements?: Array<{ totalShareStatistics?: { likeCount?: number, commentCount?: number, shareCount?: number } }> }
+      // Try lifetime stats first (more reliable), then time-bound
+      let currentData: any
+      try {
+        currentData = await this.makeRequest(
+          userId,
+          organizationId,
+          '/organizationalEntityShareStatistics',
+          {
+            q: 'organizationalEntity',
+            organizationalEntity: `urn:li:organization:${organizationId}`
+          }
+        )
+      } catch {
+        // Fallback to time-bound if lifetime fails
+        currentData = await this.makeRequest(
+          userId,
+          organizationId,
+          '/organizationalEntityShareStatistics',
+          {
+            q: 'organizationalEntity',
+            organizationalEntity: `urn:li:organization:${organizationId}`,
+            timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(startDate)},end:${this.formatDate(endDate)}))`
+          }
+        )
+      }
 
       let reactions = 0
       let comments = 0
       let reposts = 0
+      let impressions = 0
+      let clicks = 0
+      let engagementRate = 0
 
       if (currentData.elements) {
         for (const elem of currentData.elements) {
-          reactions += elem.totalShareStatistics?.likeCount || 0
-          comments += elem.totalShareStatistics?.commentCount || 0
-          reposts += elem.totalShareStatistics?.shareCount || 0
+          const stats = elem.totalShareStatistics || {}
+          reactions += stats.likeCount || 0
+          comments += stats.commentCount || 0
+          reposts += stats.shareCount || 0
+          impressions += stats.impressionCount || 0
+          clicks += stats.clickCount || 0
+          // LinkedIn provides engagement as a decimal (0.09 = 9%)
+          if (stats.engagement) {
+            engagementRate = stats.engagement * 100
+          }
         }
       }
 
-      // Fetch previous period - Fixed parameter format
-      const previousData = await this.makeRequest(
-        userId,
-        organizationId,
-        '/organizationalEntityShareStatistics',
-        {
-          q: 'organizationalEntity',
-          organizationalEntity: `urn:li:organization:${organizationId}`,
-          timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
-        }
-      ) as { elements?: Array<{ totalShareStatistics?: { likeCount?: number, commentCount?: number, shareCount?: number } }> }
+      // Calculate engagement rate if not provided
+      if (engagementRate === 0 && impressions > 0) {
+        const totalEngagement = reactions + comments + reposts + clicks
+        engagementRate = (totalEngagement / impressions) * 100
+      }
 
+      // Fetch previous period for comparison
       let previousReactions = 0
       let previousComments = 0
       let previousReposts = 0
+      let previousImpressions = 0
+      let previousClicks = 0
+      let previousEngagementRate = 0
 
-      if (previousData.elements) {
-        for (const elem of previousData.elements) {
-          previousReactions += elem.totalShareStatistics?.likeCount || 0
-          previousComments += elem.totalShareStatistics?.commentCount || 0
-          previousReposts += elem.totalShareStatistics?.shareCount || 0
+      try {
+        const previousData = await this.makeRequest(
+          userId,
+          organizationId,
+          '/organizationalEntityShareStatistics',
+          {
+            q: 'organizationalEntity',
+            organizationalEntity: `urn:li:organization:${organizationId}`,
+            timeIntervals: `(timeGranularityType:DAY,timeRange:(start:${this.formatDate(previousStartDate)},end:${this.formatDate(previousEndDate)}))`
+          }
+        ) as any
+
+        if (previousData.elements) {
+          for (const elem of previousData.elements) {
+            const stats = elem.totalShareStatistics || {}
+            previousReactions += stats.likeCount || 0
+            previousComments += stats.commentCount || 0
+            previousReposts += stats.shareCount || 0
+            previousImpressions += stats.impressionCount || 0
+            previousClicks += stats.clickCount || 0
+            if (stats.engagement) {
+              previousEngagementRate = stats.engagement * 100
+            }
+          }
         }
+      } catch {
+        // Previous period data not available, that's okay
       }
 
       return {
         reactions,
         comments,
         reposts,
+        impressions,
+        clicks,
+        engagementRate: Number(engagementRate.toFixed(2)),
         previousPeriod: {
           reactions: previousReactions,
           comments: previousComments,
-          reposts: previousReposts
+          reposts: previousReposts,
+          impressions: previousImpressions,
+          clicks: previousClicks,
+          engagementRate: Number(previousEngagementRate.toFixed(2))
         }
       }
     } catch (error) {
@@ -1496,10 +1575,16 @@ export class LinkedInAnalyticsService {
       reactions: 0,
       comments: 0,
       reposts: 0,
+      impressions: 0,
+      clicks: 0,
+      engagementRate: 0,
       previousPeriod: {
         reactions: 0,
         comments: 0,
-        reposts: 0
+        reposts: 0,
+        impressions: 0,
+        clicks: 0,
+        engagementRate: 0
       }
     }
   }
