@@ -10,6 +10,7 @@ import { GAReport } from "@/components/dashboard/google-analytics"
 import { GSCReport } from "@/components/dashboard/search-console"
 import { YTReport } from "@/components/dashboard/youtube"
 import { LIReport } from "@/components/dashboard/linkedin"
+import { TrendingTopics } from "@/components/dashboard/trending-topics"
 import {
   GoogleAnalyticsIcon,
   SearchConsoleIcon,
@@ -69,6 +70,11 @@ export default function DashboardPage() {
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+
+      {/* Trending Topics - Only show for Vestige and Faster */}
+      {(company.id === "vestige-view" || company.id === "faster-asset") && (
+        <TrendingTopics companyId={company.id} companyName={company.name} />
       )}
 
       {/* Tabs */}

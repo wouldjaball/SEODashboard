@@ -350,9 +350,78 @@ const nexusFinancial: Company = {
   })),
 }
 
+// Faster Asset - Fleet Management Software (factor 0.8)
+const fasterAsset: Company = {
+  id: "faster-asset",
+  name: "Faster Asset",
+  industry: "Fleet Management Software",
+  color: "#10b981", // Emerald
+  gaMetrics: scaleObject(gaMetrics, 0.8),
+  gaWeeklyData: scaleArray(gaWeeklyData, 0.8),
+  gaChannelData: scaleArray(gaChannelData, 0.8),
+  gaTrafficShare: gaTrafficShare.map(t => ({ ...t, users: scale(t.users, 0.8) })),
+  gaSourcePerformance: scaleArray(gaSourcePerformance, 0.8),
+  gaLandingPages: gaLandingPages.map(p => ({
+    ...scaleObject(p, 0.8),
+    pageTitle: p.pageTitle.replace("Vestige View", "Faster Asset"),
+  })),
+  gaRegions: scaleArray(gaRegions, 0.8),
+  gaDevices: scaleArray(gaDevices, 0.8),
+  gaGender: scaleArray(gaGender, 0.8),
+  gaAge: scaleArray(gaAge, 0.8),
+  gscMetrics: scaleObject(gscMetrics, 0.8),
+  gscWeeklyData: scaleArray(gscWeeklyData, 0.8),
+  gscIndexData: scaleArray(gscIndexData, 0.8),
+  gscKeywords: gscKeywords.map(k => ({
+    ...scaleObject(k, 0.8),
+    query: k.query.replace(/vestige|body camera|fleet/gi, match => {
+      const replacements: Record<string, string> = { 
+        vestige: "faster", 
+        "body camera": "fleet management", 
+        fleet: "fleet maintenance" 
+      }
+      return replacements[match.toLowerCase()] || match
+    }),
+  })),
+  gscLandingPages: scaleArray(gscLandingPages, 0.8),
+  gscCountries: scaleArray(gscCountries, 0.8),
+  gscDevices: scaleArray(gscDevices, 0.8),
+  ytMetrics: scaleObject(ytMetrics, 0.8),
+  ytVideos: ytVideos.map(v => ({
+    ...scaleObject(v, 0.8),
+    title: v.title.replace(/Vestige|Body Camera|Fleet/gi, match => {
+      const replacements: Record<string, string> = { 
+        Vestige: "Faster", 
+        "Body Camera": "Fleet Management", 
+        Fleet: "Fleet Maintenance" 
+      }
+      return replacements[match] || match
+    }),
+  })),
+  ytViewsSparkline: ytViewsSparkline.map(v => scale(v, 0.8)),
+  ytWatchTimeSparkline: ytWatchTimeSparkline.map(v => scale(v, 0.8)),
+  ytSharesSparkline: ytSharesSparkline.map(v => scale(v, 0.8)),
+  ytLikesSparkline: ytLikesSparkline.map(v => scale(v, 0.8)),
+  liVisitorMetrics: scaleObject(liVisitorMetrics, 0.8),
+  liFollowerMetrics: scaleObject(liFollowerMetrics, 0.8),
+  liContentMetrics: scaleObject(liContentMetrics, 0.8),
+  liVisitorDaily: scaleArray(liVisitorDaily, 0.8),
+  liFollowerDaily: scaleArray(liFollowerDaily, 0.8),
+  liImpressionDaily: scaleArray(liImpressionDaily, 0.8),
+  liIndustryDemographics: scaleArray(liIndustryDemographics, 0.8),
+  liSeniorityDemographics: scaleArray(liSeniorityDemographics, 0.8),
+  liJobFunctionDemographics: scaleArray(liJobFunctionDemographics, 0.8),
+  liCompanySizeDemographics: scaleArray(liCompanySizeDemographics, 0.8),
+  liUpdates: liUpdates.map(u => ({
+    ...scaleObject(u, 0.8),
+    title: u.title.replace(/Vestige/gi, "Faster"),
+  })),
+}
+
 // Export all companies
 export const companies: Company[] = [
   vestigeView,
+  fasterAsset,
   acmeCorp,
   globalTech,
   bloomWellness,
