@@ -300,10 +300,16 @@ export class LinkedInSheetsService {
       reactions: totalReactions,
       comments: totalComments,
       reposts: totalReposts,
+      impressions: 0,  // Not available from sheets
+      clicks: 0,       // Not available from sheets
+      engagementRate: 0, // Not available from sheets
       previousPeriod: {
         reactions: prevReactions,
         comments: prevComments,
         reposts: prevReposts,
+        impressions: 0,
+        clicks: 0,
+        engagementRate: 0,
       },
     }
 
