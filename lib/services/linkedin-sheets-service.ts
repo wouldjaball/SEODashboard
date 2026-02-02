@@ -396,6 +396,9 @@ export class LinkedInSheetsService {
       reactions: 0,
       comments: 0,
       reposts: 0,
+      impressions: 0,
+      clicks: 0,
+      engagementRate: 0,
     }
     let visitorDaily: LIVisitorDaily[] = []
     let followerDaily: LIFollowerDaily[] = []

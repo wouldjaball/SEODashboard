@@ -86,10 +86,16 @@ export function LinkedInDataEditor({
       reactions: 0,
       comments: 0,
       reposts: 0,
+      impressions: 0,
+      clicks: 0,
+      engagementRate: 0,
       previousPeriod: {
         reactions: 0,
         comments: 0,
-        reposts: 0
+        reposts: 0,
+        impressions: 0,
+        clicks: 0,
+        engagementRate: 0
       }
     }
   )
