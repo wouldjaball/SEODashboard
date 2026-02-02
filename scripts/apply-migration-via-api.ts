@@ -17,7 +17,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 async function testOAuthWithFallback() {
   console.log('=== Testing OAuth Service Fallback Logic ===')
   
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!)
   
   try {
     // Let's simulate what the OAuthTokenService does

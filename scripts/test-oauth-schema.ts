@@ -14,7 +14,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 async function testOAuthSchema() {
   console.log('=== Testing OAuth Schema ===')
   
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!)
   
   try {
     // First, let's check what columns exist in the oauth_tokens table

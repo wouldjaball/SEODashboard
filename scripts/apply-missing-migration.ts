@@ -14,7 +14,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 async function applyMissingMigration() {
   console.log('=== Applying Missing Migration ===')
   
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!)
   
   try {
     console.log('1. Adding google_identity column...')
