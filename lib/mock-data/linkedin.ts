@@ -34,10 +34,16 @@ export const liContentMetrics: LIContentMetrics = {
   reactions: 156,
   comments: 24,
   reposts: 12,
+  impressions: 5200,
+  clicks: 340,
+  engagementRate: 0.085,
   previousPeriod: {
     reactions: 128, // +22% change
     comments: 18,
     reposts: 9,
+    impressions: 4800,
+    clicks: 290,
+    engagementRate: 0.072,
   },
 }
 
