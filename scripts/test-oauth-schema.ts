@@ -2,9 +2,14 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-// Use environment variables directly from .env.production
-const SUPABASE_URL = 'https://kcdfeeuzpkzpejbyrgej.supabase.co'
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZGZlZXV6cGt6cGVqYnlyZ2VqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODI3MTA0MywiZXhwIjoyMDgzODQ3MDQzfQ.UDs4GHkemRFMYkRHj7VF7VeBEptNRCPHsZZBo1DjJZw'
+// Use environment variables from .env.local
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error('Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+  process.exit(1)
+}
 
 async function testOAuthSchema() {
   console.log('=== Testing OAuth Schema ===')

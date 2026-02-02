@@ -1,8 +1,11 @@
 #!/usr/bin/env npx tsx
 
-// Set environment variables for testing
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://kcdfeeuzpkzpejbyrgej.supabase.co'
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZGZlZXV6cGt6cGVqYnlyZ2VqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODI3MTA0MywiZXhwIjoyMDgzODQ3MDQzfQ.UDs4GHkemRFMYkRHj7VF7VeBEptNRCPHsZZBo1DjJZw'
+// Verify environment variables are loaded from .env.local
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+  console.error('Make sure .env.local is properly configured')
+  process.exit(1)
+}
 
 import { OAuthTokenService } from '../lib/services/oauth-token-service'
 
