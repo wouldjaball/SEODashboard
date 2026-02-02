@@ -53,42 +53,51 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url)
-    // Default to 2025 dates since LinkedIn data exists there (we're in 2026 now)
-    const defaultEndDate = new Date('2025-12-31')
+    
+    // Get current date and default to last 30 days
+    const today = new Date()
+    const defaultEndDate = today
     const defaultStartDate = subDays(defaultEndDate, 30)
     
     let startDate = searchParams.get('startDate') || format(defaultStartDate, 'yyyy-MM-dd')
     let endDate = searchParams.get('endDate') || format(defaultEndDate, 'yyyy-MM-dd')
     
-    // Validate dates - since it's 2026, we need to use historical dates where LinkedIn data exists
-    const today = new Date()
+    // Parse and validate dates
     const startDateObj = new Date(startDate)
     const endDateObj = new Date(endDate)
-    
-    // For 2026, use 2025 data ranges since that's where LinkedIn data exists
-    const maxValidDate = new Date('2025-12-31') // Last known date with LinkedIn data
     const currentYear = today.getFullYear()
     
-    console.log('[Analytics API] Date validation (2026 context):', { 
+    console.log('[Analytics API] Date processing:', { 
       currentYear,
       today: format(today, 'yyyy-MM-dd'),
-      maxValidDate: format(maxValidDate, 'yyyy-MM-dd'),
       requestedStart: startDate, 
       requestedEnd: endDate,
-      isEndDateTooNew: endDateObj > maxValidDate,
-      isStartDateTooNew: startDateObj > maxValidDate
+      userProvidedDates: {
+        hasStartDate: !!searchParams.get('startDate'),
+        hasEndDate: !!searchParams.get('endDate')
+      }
     })
     
-    // Adjust end date to valid historical range
+    // Only validate for reasonable date bounds (not business logic restrictions)
+    const minValidDate = new Date('2020-01-01') // Reasonable minimum
+    const maxValidDate = new Date()
+    maxValidDate.setDate(maxValidDate.getDate() + 1) // Allow today + 1 day
+    
+    // Only adjust dates if they're completely unreasonable
     if (endDateObj > maxValidDate) {
-      endDate = format(maxValidDate, 'yyyy-MM-dd')
-      console.warn('[Analytics API] End date adjusted to last valid data date:', { originalEnd: format(endDateObj, 'yyyy-MM-dd'), adjustedEnd: endDate })
+      endDate = format(today, 'yyyy-MM-dd')
+      console.log('[Analytics API] End date adjusted to today (was future):', { originalEnd: format(endDateObj, 'yyyy-MM-dd'), adjustedEnd: endDate })
     }
     
-    // Adjust start date to valid historical range  
-    if (startDateObj > maxValidDate) {
-      startDate = format(subDays(maxValidDate, 30), 'yyyy-MM-dd')
-      console.warn('[Analytics API] Start date adjusted to historical range:', { originalStart: format(startDateObj, 'yyyy-MM-dd'), adjustedStart: startDate })
+    if (startDateObj < minValidDate) {
+      startDate = format(subDays(new Date(endDate), 30), 'yyyy-MM-dd')
+      console.log('[Analytics API] Start date adjusted (was too old):', { originalStart: format(startDateObj, 'yyyy-MM-dd'), adjustedStart: startDate })
+    }
+    
+    // Ensure start date is before end date
+    if (new Date(startDate) > new Date(endDate)) {
+      startDate = format(subDays(new Date(endDate), 30), 'yyyy-MM-dd')
+      console.log('[Analytics API] Start date adjusted to be before end date:', { adjustedStart: startDate, endDate })
     }
 
     // Calculate previous period dates
@@ -96,11 +105,17 @@ export async function GET(
     const previousStartDate = format(subDays(new Date(startDate), daysDiff), 'yyyy-MM-dd')
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
 
-    // Check cache first
-    const cached = await checkCache(supabase, companyId, startDate, endDate)
-    if (cached) {
-      console.log(`[Analytics] Serving cached data for ${companyId}`)
+    // Check cache first (but allow bypass for debugging)
+    const bypassCache = searchParams.get('nocache') === 'true'
+    const cached = bypassCache ? null : await checkCache(supabase, companyId, startDate, endDate)
+    
+    if (cached && !bypassCache) {
+      console.log(`[Analytics] Serving cached data for ${companyId} (${startDate} to ${endDate})`)
       return NextResponse.json(cached)
+    } else if (bypassCache) {
+      console.log(`[Analytics] Cache bypass requested for ${companyId}`)
+    } else {
+      console.log(`[Analytics] No cache found for ${companyId} (${startDate} to ${endDate})`)
     }
 
     console.log(`[Analytics] Fetching fresh data for ${companyId} (${startDate} to ${endDate})`)
@@ -400,8 +415,10 @@ export async function GET(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function checkCache(supabase: any, companyId: string, startDate: string, endDate: string) {
+  console.log(`[Cache] Looking for cache entry: ${companyId} | ${startDate} to ${endDate}`)
+  
   // Check for existing cache entry
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('analytics_cache')
     .select('*')
     .eq('company_id', companyId)
@@ -410,7 +427,8 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
     .eq('date_range_end', endDate)
     .single()
 
-  if (!data) {
+  if (error || !data) {
+    console.log(`[Cache] No cache entry found for ${companyId}:`, error?.message || 'No data')
     return null // No cache entry found
   }
 
@@ -418,14 +436,26 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
   const cacheDate = new Date(data.created_at)
   const expiresAt = new Date(data.expires_at)
 
+  console.log(`[Cache] Found cache entry for ${companyId}:`, {
+    created: data.created_at,
+    expires: data.expires_at,
+    ageMinutes: Math.round((now.getTime() - cacheDate.getTime()) / (1000 * 60)),
+    hasData: !!data.cached_data
+  })
+
   // Check if cache is from a previous day (daily cache invalidation)
   const isFromPreviousDay = cacheDate.toDateString() !== now.toDateString()
   
-  // Check if cache has expired normally
+  // Check if cache has expired normally (reduced to 5 minutes for development)
   const hasExpired = now > expiresAt
+  const cacheAgeMinutes = (now.getTime() - cacheDate.getTime()) / (1000 * 60)
+  const isStale = cacheAgeMinutes > 5 // 5 minute cache instead of 1 hour
 
-  if (isFromPreviousDay || hasExpired) {
-    console.log(`[Cache] Clearing stale cache for ${companyId}: ${isFromPreviousDay ? 'previous day' : 'expired'}`)
+  if (isFromPreviousDay || hasExpired || isStale) {
+    console.log(`[Cache] Clearing stale cache for ${companyId}:`, {
+      reason: isFromPreviousDay ? 'previous day' : hasExpired ? 'expired' : 'too old (5min)',
+      age: cacheAgeMinutes
+    })
     
     // Delete the stale cache entry
     await supabase
@@ -437,7 +467,7 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
   }
 
   console.log(`[Cache] Using valid cache for ${companyId}, expires: ${data.expires_at}`)
-  return data?.data || null
+  return data?.cached_data || null
 }
 
 async function cacheData(
@@ -449,16 +479,24 @@ async function cacheData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
 ) {
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000) // 30 minute cache for better real-time experience
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minute cache for development debugging
 
-  await supabase.from('analytics_cache').insert({
+  console.log(`[Cache] Storing cache for ${companyId} (${startDate} to ${endDate}), expires in 5 minutes`)
+
+  const { error } = await supabase.from('analytics_cache').insert({
     company_id: companyId,
     data_type: 'all',
     date_range_start: startDate,
     date_range_end: endDate,
-    data,
+    cached_data: data, // Note: using cached_data to match the schema
     expires_at: expiresAt.toISOString()
   })
+
+  if (error) {
+    console.error('[Cache] Failed to store cache:', error)
+  } else {
+    console.log(`[Cache] Successfully cached data for ${companyId}`)
+  }
 }
 
 // Helper to add LinkedIn mock data as fallback
