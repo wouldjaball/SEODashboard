@@ -103,9 +103,12 @@ UPDATE linkedin_pages SET page_id = '10674934' WHERE page_id = 'tripshot-inc';
 - **Authentication**: ✅ OAuth tokens valid and accessible
 - **Organization Mapping**: ✅ Correct numeric IDs in database
 
-### ⚠️ **Needs Minor Fix**
-- **Page Statistics**: API parameter format issue (403 error)
-- Only affects page views/visitor data, not follower data
+### ✅ **Page Statistics** (FIXED - Feb 1, 2026)
+- **Root Cause**: REST API (`/rest`) with `LinkedIn-Version: 202601` header was rejected
+- **Solution**: Switched to v2 API (`/v2`) which works without version headers
+- **Changes**: Updated `lib/constants/linkedin-oauth-scopes.ts`:
+  - `LINKEDIN_API_BASE`: `/rest` → `/v2`
+  - `LINKEDIN_API_VERSION`: Disabled (empty string)
 
 ### 🎉 **User Experience**  
 - Users will now see **real LinkedIn data** in their dashboards
