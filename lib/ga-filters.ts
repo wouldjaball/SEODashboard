@@ -279,21 +279,50 @@ export function filterWeeklyDataByDateRange(
   data: GAWeeklyData[],
   dateRange?: { from: Date; to: Date }
 ): GAWeeklyData[] {
-  if (!dateRange) return data
+  console.log('[filterWeeklyDataByDateRange] Input:', {
+    dataLength: data?.length || 0,
+    dateRange,
+    firstItem: data?.[0]
+  })
 
-  return data.filter((item) => {
+  if (!data || data.length === 0) {
+    console.log('[filterWeeklyDataByDateRange] No data to filter')
+    return []
+  }
+  
+  if (!dateRange) {
+    console.log('[filterWeeklyDataByDateRange] No date range, returning all data')
+    return data
+  }
+
+  const filtered = data.filter((item) => {
     try {
       // Parse the week start date from the data
       const weekStart = parseISO(item.startDate)
-      return isWithinInterval(weekStart, {
+      const inRange = isWithinInterval(weekStart, {
         start: dateRange.from,
         end: dateRange.to,
       })
-    } catch {
+      
+      if (!inRange) {
+        console.log('[filterWeeklyDataByDateRange] Excluding week:', item.startDate, 'parsed as:', weekStart)
+      }
+      
+      return inRange
+    } catch (error) {
+      console.error('[filterWeeklyDataByDateRange] Date parsing failed for:', item.startDate, error)
       // If date parsing fails, include the item
       return true
     }
   })
+
+  console.log('[filterWeeklyDataByDateRange] Result:', {
+    originalCount: data.length,
+    filteredCount: filtered.length,
+    dateRange
+  })
+
+  return filtered
 }
 
 // Filter channel data by date range
@@ -301,19 +330,48 @@ export function filterChannelDataByDateRange(
   data: GAChannelData[],
   dateRange?: { from: Date; to: Date }
 ): GAChannelData[] {
-  if (!dateRange) return data
+  console.log('[filterChannelDataByDateRange] Input:', {
+    dataLength: data?.length || 0,
+    dateRange,
+    firstItem: data?.[0]
+  })
 
-  return data.filter((item) => {
+  if (!data || data.length === 0) {
+    console.log('[filterChannelDataByDateRange] No data to filter')
+    return []
+  }
+  
+  if (!dateRange) {
+    console.log('[filterChannelDataByDateRange] No date range, returning all data')
+    return data
+  }
+
+  const filtered = data.filter((item) => {
     try {
       // Parse the date from the data
       const itemDate = parseISO(item.date)
-      return isWithinInterval(itemDate, {
+      const inRange = isWithinInterval(itemDate, {
         start: dateRange.from,
         end: dateRange.to,
       })
-    } catch {
+      
+      if (!inRange) {
+        console.log('[filterChannelDataByDateRange] Excluding date:', item.date, 'parsed as:', itemDate)
+      }
+      
+      return inRange
+    } catch (error) {
+      console.error('[filterChannelDataByDateRange] Date parsing failed for:', item.date, error)
       // If date parsing fails, include the item
       return true
     }
   })
+
+  console.log('[filterChannelDataByDateRange] Result:', {
+    originalCount: data.length,
+    filteredCount: filtered.length,
+    dateRange
+  })
+
+  return filtered
 }

@@ -87,19 +87,31 @@ export class OAuthTokenService {
       console.error('Failed to save OAuth tokens with old constraint:', error)
 
       // Maybe the new constraint exists but old one was dropped - try new constraint
-      const googleIdentity = identity?.googleIdentity || 'default'
-      const extendedData = {
-        ...baseData,
-        google_identity: googleIdentity,
-        google_identity_name: identity?.googleIdentityName || null,
-        youtube_channel_id: identity?.youtubeChannelId || null,
-        youtube_channel_name: identity?.youtubeChannelName || null
-      }
+      // BUT first check if the new columns exist
+      try {
+        const googleIdentity = identity?.googleIdentity || 'default'
+        const extendedData = {
+          ...baseData,
+          google_identity: googleIdentity,
+          google_identity_name: identity?.googleIdentityName || null,
+          youtube_channel_id: identity?.youtubeChannelId || null,
+          youtube_channel_name: identity?.youtubeChannelName || null
+        }
 
-      const result = await supabase.from('oauth_tokens').upsert(extendedData, {
-        onConflict: 'user_id,provider,google_identity'
-      })
-      error = result.error
+        const result = await supabase.from('oauth_tokens').upsert(extendedData, {
+          onConflict: 'user_id,provider,google_identity'
+        })
+        error = result.error
+        
+        if (!error) {
+          console.log('Tokens saved successfully with new constraint')
+        }
+      } catch (newConstraintError) {
+        console.error('New constraint approach failed (columns may not exist):', newConstraintError)
+        // If this fails, it means the migration wasn't applied properly
+        // We should still fail the operation rather than silently succeed
+        error = error // Keep the original error
+      }
     } else {
       console.log('Tokens saved successfully with old constraint')
 
@@ -139,11 +151,44 @@ export class OAuthTokenService {
       .eq('user_id', userId)
       .eq('provider', 'google')
 
+    // Try to add google_identity filter if specified and if column exists
     if (googleIdentity) {
-      query = query.eq('google_identity', googleIdentity)
+      // First attempt with google_identity filter
+      const queryWithIdentity = query.eq('google_identity', googleIdentity)
+      const { data: dataWithIdentity, error: errorWithIdentity } = await queryWithIdentity.limit(1).maybeSingle()
+      
+      if (!errorWithIdentity) {
+        // Success with identity filter
+        if (!dataWithIdentity) {
+          console.log('[OAuthTokenService] No tokens found for user:', userId, `(identity: ${googleIdentity})`)
+          return null
+        }
+        
+        try {
+          return {
+            accessToken: decryptToken(dataWithIdentity.access_token),
+            refreshToken: decryptToken(dataWithIdentity.refresh_token),
+            expiresAt: new Date(dataWithIdentity.expires_at),
+            scope: dataWithIdentity.scope,
+            googleIdentity: dataWithIdentity.google_identity || undefined,
+            googleIdentityName: dataWithIdentity.google_identity_name || undefined,
+            youtubeChannelId: dataWithIdentity.youtube_channel_id || undefined,
+            youtubeChannelName: dataWithIdentity.youtube_channel_name || undefined
+          }
+        } catch (error) {
+          console.error('Failed to decrypt tokens:', error)
+          return null
+        }
+      } else if (errorWithIdentity.message.includes('google_identity')) {
+        console.log('[OAuthTokenService] google_identity column not available, falling back to basic query')
+        // Fall through to basic query below
+      } else {
+        console.error('[OAuthTokenService] Database error fetching tokens with identity for user:', userId, errorWithIdentity)
+        return null
+      }
     }
 
-    // Get the first matching token (or specific identity if provided)
+    // Basic query without google_identity filter
     const { data, error } = await query.limit(1).maybeSingle()
 
     if (error) {

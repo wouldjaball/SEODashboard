@@ -68,6 +68,22 @@ export function GAReport({
   errorType,
   companyId,
 }: GAReportProps) {
+  console.log('[GAReport] Received props:', {
+    metrics: metrics ? 'present' : 'null',
+    weeklyDataLength: weeklyData?.length || 0,
+    channelDataLength: channelData?.length || 0,
+    trafficShareLength: trafficShare?.length || 0,
+    sourcePerformanceLength: sourcePerformance?.length || 0,
+    landingPagesLength: landingPages?.length || 0,
+    regionsLength: regions?.length || 0,
+    devicesLength: devices?.length || 0,
+    genderLength: gender?.length || 0,
+    ageLength: age?.length || 0,
+    dateRange,
+    error,
+    errorType,
+    companyId
+  })
   // Filter state - empty arrays mean "all selected"
   const [filters, setFilters] = useState<GAFilters>({
     landingPages: [],

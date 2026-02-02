@@ -39,11 +39,55 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function WeeklyPerformanceChart({ data, dateRange }: WeeklyPerformanceChartProps) {
-  const filteredData = filterWeeklyDataByDateRange(data, dateRange)
-  
+  console.log('[WeeklyPerformanceChart] Received data:', {
+    dataLength: data?.length || 0,
+    firstItem: data?.[0],
+    dateRange,
+    fullData: data
+  })
+
   const dateRangeStr = dateRange
     ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
     : undefined
+
+  // Handle empty or null data
+  if (!data || data.length === 0) {
+    console.log('[WeeklyPerformanceChart] No data available')
+    return (
+      <ChartCard title="Weekly User & Conversion Performance" dateRange={dateRangeStr} className="h-full">
+        <div className="h-[300px] w-full flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <p className="text-sm">No weekly performance data available</p>
+            <p className="text-xs mt-1">Data may still be loading or no analytics data configured</p>
+          </div>
+        </div>
+      </ChartCard>
+    )
+  }
+
+  const filteredData = filterWeeklyDataByDateRange(data, dateRange)
+  console.log('[WeeklyPerformanceChart] After filtering:', {
+    originalCount: data.length,
+    filteredCount: filteredData.length,
+    dateRange
+  })
+
+  // Handle case where filtering removed all data
+  if (filteredData.length === 0) {
+    console.log('[WeeklyPerformanceChart] No data after filtering')
+    return (
+      <ChartCard title="Weekly User & Conversion Performance" dateRange={dateRangeStr} className="h-full">
+        <div className="h-[300px] w-full flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <p className="text-sm">No data available for selected date range</p>
+            <p className="text-xs mt-1">Try adjusting the date range or check data availability</p>
+          </div>
+        </div>
+      </ChartCard>
+    )
+  }
+
+  console.log('[WeeklyPerformanceChart] Rendering chart with', filteredData.length, 'data points')
 
   return (
     <ChartCard title="Weekly User & Conversion Performance" dateRange={dateRangeStr} className="h-full">

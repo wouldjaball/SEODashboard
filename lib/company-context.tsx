@@ -113,11 +113,12 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Update company with real data
-      setCompanyState(prev => ({
-        ...prev,
-        gaMetrics: data.gaMetrics || null,
-        gaWeeklyData: data.gaWeeklyData || [],
-        gaChannelData: data.gaChannelData || [],
+      setCompanyState(prev => {
+        const updatedCompany = {
+          ...prev,
+          gaMetrics: data.gaMetrics || null,
+          gaWeeklyData: data.gaWeeklyData || [],
+          gaChannelData: data.gaChannelData || [],
         gaTrafficShare: data.gaTrafficShare || [],
         gaSourcePerformance: data.gaSourcePerformance || [],
         gaLandingPages: data.gaLandingPages || [],
@@ -167,7 +168,17 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         liContentBreakdown: data.liContentBreakdown || undefined,
         liSocialListening: data.liSocialListening || undefined,
         liVideoDaily: data.liVideoDaily || []
-      }))
+        }
+        
+        console.log('[CompanyContext] Updated company state:', {
+          gaMetrics: updatedCompany.gaMetrics ? 'present' : 'null',
+          gaWeeklyDataLength: updatedCompany.gaWeeklyData.length,
+          gaChannelDataLength: updatedCompany.gaChannelData.length,
+          gaTrafficShareLength: updatedCompany.gaTrafficShare.length
+        })
+        
+        return updatedCompany
+      })
     } catch (err) {
       console.error('[CompanyContext] Failed to fetch analytics:', err)
       setError('Failed to load analytics data')

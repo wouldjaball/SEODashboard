@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, Settings, LayoutDashboard, Building2, Users, Link2, Key } from "lucide-react"
+import { BarChart3, Settings, LayoutDashboard, Building2, Users, Link2, Key, PieChart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -61,6 +61,14 @@ export function DashboardHeader() {
               <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5" />
             </Link>
           </Button>
+          {/* Executive Dashboard - Only for owners and admins */}
+          {canManageUsers && (
+            <Button variant="ghost" size="icon" title="Executive Dashboard" asChild>
+              <Link href="/dashboard/executive">
+                <PieChart className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Link>
+            </Button>
+          )}
           {canManageUsers && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

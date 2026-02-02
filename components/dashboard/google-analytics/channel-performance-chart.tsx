@@ -62,15 +62,76 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function ChannelPerformanceChart({ data, dateRange }: ChannelPerformanceChartProps) {
+  console.log('[ChannelPerformanceChart] Received data:', {
+    dataLength: data?.length || 0,
+    firstItem: data?.[0],
+    dateRange,
+    fullData: data
+  })
+
+  // Handle empty or null data
+  if (!data || data.length === 0) {
+    console.log('[ChannelPerformanceChart] No data available')
+    const dateRangeStr = dateRange
+      ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
+      : undefined
+
+    return (
+      <ChartCard title="Weekly Channel Performance by Users" dateRange={dateRangeStr} className="w-full">
+        <div className="h-[350px] w-full flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <p className="text-sm">No channel performance data available</p>
+            <p className="text-xs mt-1">Data may still be loading or no analytics data configured</p>
+          </div>
+        </div>
+      </ChartCard>
+    )
+  }
+
   const filteredData = filterChannelDataByDateRange(data, dateRange)
-  const formattedData = filteredData.map((d) => ({
-    ...d,
-    formattedDate: format(parseISO(d.date), "MMM d"),
-  }))
+  console.log('[ChannelPerformanceChart] After filtering:', {
+    originalCount: data.length,
+    filteredCount: filteredData.length,
+    dateRange
+  })
+
+  const formattedData = filteredData.map((d) => {
+    try {
+      return {
+        ...d,
+        formattedDate: format(parseISO(d.date), "MMM d"),
+      }
+    } catch (error) {
+      console.error('[ChannelPerformanceChart] Date parsing error for:', d.date, error)
+      return {
+        ...d,
+        formattedDate: d.date, // Fallback to original date
+      }
+    }
+  })
+
+  console.log('[ChannelPerformanceChart] Formatted data sample:', formattedData.slice(0, 2))
 
   const dateRangeStr = dateRange
     ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
     : undefined
+
+  // Handle case where filtering removed all data
+  if (formattedData.length === 0) {
+    console.log('[ChannelPerformanceChart] No data after filtering')
+    return (
+      <ChartCard title="Weekly Channel Performance by Users" dateRange={dateRangeStr} className="w-full">
+        <div className="h-[350px] w-full flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <p className="text-sm">No data available for selected date range</p>
+            <p className="text-xs mt-1">Try adjusting the date range or check data availability</p>
+          </div>
+        </div>
+      </ChartCard>
+    )
+  }
+
+  console.log('[ChannelPerformanceChart] Rendering chart with', formattedData.length, 'data points')
 
   return (
     <ChartCard title="Weekly Channel Performance by Users" dateRange={dateRangeStr} className="w-full">
