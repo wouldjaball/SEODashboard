@@ -48,7 +48,11 @@ export async function GET(request: Request) {
             cached: true,
             cacheDate: cacheDate
           })
+        } else {
+          console.log(`[Portfolio API] Cache is stale for user ${user.id}, refreshing...`)
         }
+      } else {
+        console.log(`[Portfolio API] No cache found for user ${user.id} on date ${cacheDate}`)
       }
     }
 
