@@ -3,7 +3,7 @@
 import * as React from "react"
 import { subDays } from "date-fns"
 import type { Company } from "@/lib/types"
-import { companies as mockCompanies, defaultCompany } from "@/lib/mock-data/companies"
+// No more mock data imports - using real database companies only
 
 interface CompanyContextType {
   company: Company
@@ -68,12 +68,10 @@ const emptyCompany: Company = {
 }
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
-  const useRealData = process.env.NEXT_PUBLIC_USE_REAL_DATA === 'true'
-
-  // Always use empty placeholder initially - only real data will be shown
+  // Always use real data from database only - no mock data
   const [company, setCompanyState] = React.useState<Company>(emptyCompany)
   const [companies, setCompanies] = React.useState<Company[]>([])
-  const [isLoading, setIsLoading] = React.useState(useRealData) // Start loading if using real data
+  const [isLoading, setIsLoading] = React.useState(true) // Always start loading real data
   const [error, setError] = React.useState<string | null>(null)
   const [comparisonEnabled, setComparisonEnabled] = React.useState(false)
 
@@ -81,7 +79,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   async function fetchAnalyticsForCompany(companyId: string, dateRange: { from: Date; to: Date }) {
     console.log('[CompanyContext] fetchAnalyticsForCompany called with:', { companyId, dateRange })
 
-    if (!companyId || !companyId.includes('-') || companyId.length < 20) {
+    if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
       console.log('[CompanyContext] Skipping - invalid companyId:', companyId)
       return
     }

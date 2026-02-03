@@ -29,8 +29,8 @@ export default function DashboardPage() {
 
   // Fetch data when date range or company changes
   useEffect(() => {
-    // Only fetch if we have a real company (UUID format, not mock slug)
-    if (company.id && company.id.includes('-') && company.id.length > 20) {
+    // Only fetch if we have a valid company ID
+    if (company.id) {
       console.log('[Dashboard] Triggering refetchData for company:', company.id)
       refetchData(company.id, dateRange)
     }
@@ -72,10 +72,8 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      {/* Trending Topics - Only show for Vestige and Faster */}
-      {(company.id === "vestige-view" || company.id === "faster-asset") && (
-        <TrendingTopics companyId={company.id} companyName={company.name} />
-      )}
+      {/* Trending Topics - Disabled until real data source is implemented */}
+      {/* <TrendingTopics companyId={company.id} companyName={company.name} /> */}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">

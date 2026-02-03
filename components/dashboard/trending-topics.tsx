@@ -169,8 +169,8 @@ const getTrendingTopics = (companyId: string): TrendingTopic[] => {
     }
   ]
 
-  if (companyId === "vestige-view") return vestigeTopics
-  if (companyId === "faster-asset") return fasterTopics
+  // TODO: Implement real trending topics from actual data sources
+  // This could come from industry APIs, news feeds, market research databases, etc.
   return []
 }
 

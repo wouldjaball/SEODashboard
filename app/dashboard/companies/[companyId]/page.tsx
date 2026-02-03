@@ -37,10 +37,15 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
 
   // Find the specific company from the companies array
   const company = companies.find(c => c.id === params.companyId)
+  
+  // Debug logging
+  console.log('[Company Detail] Looking for companyId:', params.companyId)
+  console.log('[Company Detail] Available companies:', companies.map(c => ({ id: c.id, name: c.name })))
+  console.log('[Company Detail] Found company:', company ? company.name : 'Not found')
 
   // Fetch data when date range changes
   useEffect(() => {
-    if (company?.id && company.id.includes('-') && company.id.length > 20) {
+    if (company?.id) {
       console.log('[Company Detail] Triggering refetchData for company:', company.id)
       refetchData(company.id, dateRange)
     }
@@ -56,7 +61,7 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
   }
 
   // Show not found if company doesn't exist
-  if (!company) {
+  if (!company && !isLoading) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-4">
@@ -68,8 +73,21 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
           </Button>
         </div>
         <Alert variant="destructive">
-          <AlertDescription>Company not found or you don't have access to it.</AlertDescription>
+          <AlertDescription>
+            Company not found or you don't have access to it. This may be a cached company that's no longer available.
+            <br />
+            Please try refreshing the executive dashboard or contact support if this issue persists.
+          </AlertDescription>
         </Alert>
+      </div>
+    )
+  }
+
+  // Ensure company exists before rendering
+  if (!company) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
@@ -89,9 +107,9 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
       {/* Header with Date Range */}
       <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">{company.name} Analytics</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">{company?.name || 'Company'} Analytics</h1>
           <p className="text-sm text-muted-foreground truncate">
-            {company.industry} • Detailed analytics overview
+            {company?.industry || 'Loading...'} • Detailed analytics overview
           </p>
         </div>
         <div className="shrink-0">
@@ -112,10 +130,8 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
         </Alert>
       )}
 
-      {/* Trending Topics - Only show for Vestige and Faster */}
-      {(company.id === "vestige-view" || company.id === "faster-asset") && (
-        <TrendingTopics companyId={company.id} companyName={company.name} />
-      )}
+      {/* Trending Topics - Disabled until real data source is implemented */}
+      {/* <TrendingTopics companyId={company.id} companyName={company.name} /> */}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
