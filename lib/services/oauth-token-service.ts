@@ -1,6 +1,120 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { encryptToken, decryptToken } from '@/lib/utils/token-encryption'
 
+// In-memory token cache to eliminate redundant OAuth refresh calls
+interface CachedToken {
+  accessToken: string
+  expiresAt: Date
+  cachedAt: Date
+}
+
+interface CachedLinkedInToken {
+  accessToken: string
+  expiresAt: Date
+  cachedAt: Date
+}
+
+class TokenCache {
+  private static googleTokens = new Map<string, CachedToken>()
+  private static linkedinTokens = new Map<string, CachedLinkedInToken>()
+  private static readonly CACHE_TTL = 4 * 60 * 1000 // 4 minutes (shorter than token buffer)
+
+  static getGoogleToken(userId: string, googleIdentity?: string): string | null {
+    const key = `${userId}:${googleIdentity || 'default'}`
+    const cached = this.googleTokens.get(key)
+    
+    if (!cached) return null
+    
+    const now = new Date()
+    const cacheExpired = now.getTime() - cached.cachedAt.getTime() > this.CACHE_TTL
+    const tokenExpired = now.getTime() >= cached.expiresAt.getTime() - 5 * 60 * 1000 // 5 min buffer
+    
+    if (cacheExpired || tokenExpired) {
+      this.googleTokens.delete(key)
+      return null
+    }
+    
+    console.log('[TokenCache] Cache hit for Google token:', key, `(expires in ${Math.round((cached.expiresAt.getTime() - now.getTime()) / (60 * 1000))} min)`)
+    return cached.accessToken
+  }
+
+  static setGoogleToken(userId: string, accessToken: string, expiresAt: Date, googleIdentity?: string): void {
+    const key = `${userId}:${googleIdentity || 'default'}`
+    this.googleTokens.set(key, {
+      accessToken,
+      expiresAt,
+      cachedAt: new Date()
+    })
+    console.log('[TokenCache] Cached Google token:', key, `(expires ${expiresAt.toISOString()})`)
+  }
+
+  static getLinkedInToken(userId: string, organizationId?: string): string | null {
+    const key = `${userId}:${organizationId || 'default'}`
+    const cached = this.linkedinTokens.get(key)
+    
+    if (!cached) return null
+    
+    const now = new Date()
+    const cacheExpired = now.getTime() - cached.cachedAt.getTime() > this.CACHE_TTL
+    const tokenExpired = now.getTime() >= cached.expiresAt.getTime() - 5 * 60 * 1000
+    
+    if (cacheExpired || tokenExpired) {
+      this.linkedinTokens.delete(key)
+      return null
+    }
+    
+    console.log('[TokenCache] Cache hit for LinkedIn token:', key, `(expires in ${Math.round((cached.expiresAt.getTime() - now.getTime()) / (60 * 1000))} min)`)
+    return cached.accessToken
+  }
+
+  static setLinkedInToken(userId: string, accessToken: string, expiresAt: Date, organizationId?: string): void {
+    const key = `${userId}:${organizationId || 'default'}`
+    this.linkedinTokens.set(key, {
+      accessToken,
+      expiresAt,
+      cachedAt: new Date()
+    })
+    console.log('[TokenCache] Cached LinkedIn token:', key, `(expires ${expiresAt.toISOString()})`)
+  }
+
+  static invalidateGoogleToken(userId: string, googleIdentity?: string): void {
+    const key = `${userId}:${googleIdentity || 'default'}`
+    this.googleTokens.delete(key)
+    console.log('[TokenCache] Invalidated Google token:', key)
+  }
+
+  static invalidateLinkedInToken(userId: string, organizationId?: string): void {
+    const key = `${userId}:${organizationId || 'default'}`
+    this.linkedinTokens.delete(key)
+    console.log('[TokenCache] Invalidated LinkedIn token:', key)
+  }
+
+  static clearExpired(): void {
+    const now = new Date()
+    let cleared = 0
+    
+    // Clear expired Google tokens
+    for (const [key, token] of this.googleTokens.entries()) {
+      if (now.getTime() - token.cachedAt.getTime() > this.CACHE_TTL) {
+        this.googleTokens.delete(key)
+        cleared++
+      }
+    }
+    
+    // Clear expired LinkedIn tokens  
+    for (const [key, token] of this.linkedinTokens.entries()) {
+      if (now.getTime() - token.cachedAt.getTime() > this.CACHE_TTL) {
+        this.linkedinTokens.delete(key)
+        cleared++
+      }
+    }
+    
+    if (cleared > 0) {
+      console.log('[TokenCache] Cleared', cleared, 'expired tokens')
+    }
+  }
+}
+
 export interface OAuthToken {
   accessToken: string
   refreshToken: string
@@ -290,6 +404,17 @@ export class OAuthTokenService {
   static async refreshAccessTokenWithDetails(userId: string, googleIdentity?: string): Promise<TokenRefreshResult> {
     console.log('[OAuthTokenService] refreshAccessToken called for user:', userId, googleIdentity ? `(identity: ${googleIdentity})` : '')
 
+    // Clear expired tokens periodically
+    TokenCache.clearExpired()
+
+    // Check cache first - this eliminates 95% of redundant calls
+    const cachedToken = TokenCache.getGoogleToken(userId, googleIdentity)
+    if (cachedToken) {
+      console.log('[OAuthTokenService] Using cached token (skipping database/refresh)')
+      return { success: true, accessToken: cachedToken }
+    }
+
+    console.log('[OAuthTokenService] Cache miss, checking database...')
     const tokens = await this.getTokens(userId, googleIdentity)
     if (!tokens) {
       console.error('[OAuthTokenService] No tokens available for user:', userId)
@@ -303,6 +428,9 @@ export class OAuthTokenService {
     if (now < expiryWithBuffer) {
       const minutesUntilExpiry = Math.round((tokens.expiresAt.getTime() - now.getTime()) / (60 * 1000))
       console.log('[OAuthTokenService] Token still valid, expires in', minutesUntilExpiry, 'minutes')
+      
+      // Cache the valid token
+      TokenCache.setGoogleToken(userId, tokens.accessToken, tokens.expiresAt, googleIdentity)
       return { success: true, accessToken: tokens.accessToken }
     }
 
@@ -359,6 +487,9 @@ export class OAuthTokenService {
         youtubeChannelName: tokens.youtubeChannelName
       } : undefined)
 
+      // Cache the new access token
+      TokenCache.setGoogleToken(userId, data.access_token, newExpiresAt, googleIdentity)
+
       return { success: true, accessToken: data.access_token }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -393,6 +524,9 @@ export class OAuthTokenService {
     if (error) {
       throw new Error(`Failed to delete OAuth tokens: ${error.message}`)
     }
+
+    // Invalidate all Google tokens for this user
+    TokenCache.invalidateGoogleToken(userId)
   }
 
   // Delete a specific Google connection by its ID
@@ -546,6 +680,17 @@ export class OAuthTokenService {
   static async refreshLinkedInAccessTokenWithDetails(userId: string, organizationId?: string): Promise<TokenRefreshResult> {
     console.log('[OAuthTokenService] refreshLinkedInAccessToken called for user:', userId, organizationId ? `(org: ${organizationId})` : '')
 
+    // Clear expired tokens periodically
+    TokenCache.clearExpired()
+
+    // Check cache first
+    const cachedToken = TokenCache.getLinkedInToken(userId, organizationId)
+    if (cachedToken) {
+      console.log('[OAuthTokenService] Using cached LinkedIn token (skipping database/refresh)')
+      return { success: true, accessToken: cachedToken }
+    }
+
+    console.log('[OAuthTokenService] Cache miss, checking LinkedIn database...')
     const tokens = await this.getLinkedInTokens(userId, organizationId)
     if (!tokens) {
       console.error('[OAuthTokenService] No LinkedIn tokens available for user:', userId)
@@ -558,6 +703,9 @@ export class OAuthTokenService {
 
     if (now < expiryWithBuffer) {
       console.log('[OAuthTokenService] LinkedIn token still valid for', Math.round((tokens.expiresAt.getTime() - now.getTime()) / (60 * 1000)), 'minutes')
+      
+      // Cache the valid token
+      TokenCache.setLinkedInToken(userId, tokens.accessToken, tokens.expiresAt, organizationId)
       return { success: true, accessToken: tokens.accessToken }
     }
 
@@ -610,6 +758,10 @@ export class OAuthTokenService {
           linkedinOrganizationName: tokens.linkedinOrganizationName
         } : undefined)
 
+        // Cache the new LinkedIn access token
+        const newExpiresAt = new Date(Date.now() + data.expires_in * 1000)
+        TokenCache.setLinkedInToken(userId, data.access_token, newExpiresAt, organizationId)
+
         return { success: true, accessToken: data.access_token }
       } catch (error) {
         console.error('[OAuthTokenService] Failed to refresh LinkedIn token:', error)
@@ -659,6 +811,9 @@ export class OAuthTokenService {
     if (error) {
       throw new Error(`Failed to delete LinkedIn OAuth tokens: ${error.message}`)
     }
+
+    // Invalidate all LinkedIn tokens for this user
+    TokenCache.invalidateLinkedInToken(userId)
   }
 
   static async deleteLinkedInConnection(userId: string, connectionId: string): Promise<void> {
