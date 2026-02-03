@@ -19,7 +19,7 @@ export default function Home() {
                 className="rounded-lg"
               />
               <div className="flex flex-col items-center gap-2">
-                <h1 className="text-2xl font-bold">Welcome back</h1>
+                <h1 className="text-2xl font-bold">Welcome To The Transit Dash</h1>
                 <p className="text-balance text-center text-sm text-muted-foreground">
                   Sign in to your account to continue
                 </p>
