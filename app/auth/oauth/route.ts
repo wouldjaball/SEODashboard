@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 export async function POST(request: Request) {
   const { searchParams } = new URL(request.url)
   const provider = searchParams.get("provider") ?? "google"
-  const next = searchParams.get("next") ?? "/dashboard"
+  const next = searchParams.get("next") ?? "/dashboard/executive"
 
   const supabase = await createClient()
 

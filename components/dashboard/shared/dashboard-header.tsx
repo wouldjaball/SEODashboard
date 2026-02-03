@@ -61,14 +61,12 @@ export function DashboardHeader() {
               <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5" />
             </Link>
           </Button>
-          {/* Executive Dashboard - Only for owners and admins */}
-          {canManageUsers && (
-            <Button variant="ghost" size="icon" title="Executive Dashboard" asChild>
-              <Link href="/dashboard/executive">
-                <PieChart className="h-4 w-4 sm:h-5 sm:w-5" />
-              </Link>
-            </Button>
-          )}
+          {/* Executive Dashboard - Available to all users */}
+          <Button variant="ghost" size="icon" title="Executive Dashboard" asChild>
+            <Link href="/dashboard/executive">
+              <PieChart className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Link>
+          </Button>
           {canManageUsers && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

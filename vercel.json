@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "app/api/cron/portfolio-cache/route.ts": {
+      "maxDuration": 300
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/portfolio-cache",
+      "schedule": "3 8 * * *"
+    }
+  ]
+}

@@ -13,7 +13,7 @@ interface UpdatePasswordFormProps extends React.ComponentProps<"div"> {
   redirectTo?: string
 }
 
-export function UpdatePasswordForm({ className, redirectTo = "/dashboard", ...props }: UpdatePasswordFormProps) {
+export function UpdatePasswordForm({ className, redirectTo = "/dashboard/executive", ...props }: UpdatePasswordFormProps) {
   const [password, setPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)

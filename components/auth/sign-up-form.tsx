@@ -13,7 +13,7 @@ interface SignUpFormProps extends React.ComponentProps<"div"> {
   redirectTo?: string
 }
 
-export function SignUpForm({ className, redirectTo = "/dashboard", ...props }: SignUpFormProps) {
+export function SignUpForm({ className, redirectTo = "/dashboard/executive", ...props }: SignUpFormProps) {
   const [accessCode, setAccessCode] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")

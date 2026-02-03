@@ -13,7 +13,7 @@ interface LoginFormProps extends React.ComponentProps<"div"> {
   redirectTo?: string
 }
 
-export function LoginForm({ className, redirectTo = "/dashboard", ...props }: LoginFormProps) {
+export function LoginForm({ className, redirectTo = "/dashboard/executive", ...props }: LoginFormProps) {
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)

@@ -15,8 +15,45 @@ export async function GET(request: Request) {
     const defaultEndDate = new Date()
     const defaultStartDate = subDays(defaultEndDate, 30)
     
-    let startDate = searchParams.get('startDate') || format(defaultStartDate, 'yyyy-MM-dd')
-    let endDate = searchParams.get('endDate') || format(defaultEndDate, 'yyyy-MM-dd')
+    const startDate = searchParams.get('startDate') || format(defaultStartDate, 'yyyy-MM-dd')
+    const endDate = searchParams.get('endDate') || format(defaultEndDate, 'yyyy-MM-dd')
+    const forceRefresh = searchParams.get('refresh') === 'true'
+
+    // For 30-day default date range, try cache first
+    const isDefaultRange = (
+      startDate === format(defaultStartDate, 'yyyy-MM-dd') &&
+      endDate === format(defaultEndDate, 'yyyy-MM-dd')
+    )
+
+    if (isDefaultRange && !forceRefresh) {
+      // Check cache for today's data
+      const cacheDate = format(defaultEndDate, 'yyyy-MM-dd')
+      const { data: cachedData, error: cacheError } = await supabase
+        .from('portfolio_cache')
+        .select('companies_data, aggregate_metrics, updated_at')
+        .eq('user_id', user.id)
+        .eq('cache_date', cacheDate)
+        .single()
+
+      if (!cacheError && cachedData) {
+        // Check if cache is fresh (less than 24 hours old)
+        const cacheAge = Date.now() - new Date(cachedData.updated_at).getTime()
+        const isStale = cacheAge > 24 * 60 * 60 * 1000 // 24 hours
+
+        if (!isStale) {
+          console.log(`[Portfolio API] Serving cached data for user ${user.id}`)
+          return NextResponse.json({
+            companies: cachedData.companies_data,
+            aggregateMetrics: cachedData.aggregate_metrics,
+            cached: true,
+            cacheDate: cacheDate
+          })
+        }
+      }
+    }
+
+    // Cache miss or stale cache - fetch live data
+    console.log(`[Portfolio API] Cache miss or stale for user ${user.id}, fetching live data`)
 
     // Get all companies the user has access to
     const { data: userCompanies, error: companiesError } = await supabase
@@ -58,10 +95,10 @@ export async function GET(request: Request) {
     const companiesWithData = []
     let totalTraffic = 0
     let totalConversions = 0
-    let totalConversionRates = []
+    const totalConversionRates = []
     let prevTotalTraffic = 0
     let prevTotalConversions = 0
-    let prevTotalConversionRates = []
+    const prevTotalConversionRates = []
 
     // Fetch analytics data for each company
     for (const userCompany of userCompanies) {
@@ -275,10 +312,33 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({
+    const result = {
       companies: companiesWithData,
-      aggregateMetrics
-    })
+      aggregateMetrics,
+      cached: false
+    }
+
+    // If this was the default 30-day range, update the cache for next time
+    if (isDefaultRange) {
+      const cacheDate = format(defaultEndDate, 'yyyy-MM-dd')
+      try {
+        await supabase
+          .from('portfolio_cache')
+          .upsert({
+            user_id: user.id,
+            cache_date: cacheDate,
+            companies_data: companiesWithData,
+            aggregate_metrics: aggregateMetrics,
+            updated_at: new Date().toISOString()
+          })
+        console.log(`[Portfolio API] Updated cache for user ${user.id}`)
+      } catch (cacheUpdateError) {
+        console.warn(`[Portfolio API] Failed to update cache for user ${user.id}:`, cacheUpdateError)
+        // Don't fail the request if cache update fails
+      }
+    }
+
+    return NextResponse.json(result)
   } catch (error) {
     console.error('Portfolio analytics error:', error)
     return NextResponse.json({ error: 'Failed to fetch portfolio analytics' }, { status: 500 })

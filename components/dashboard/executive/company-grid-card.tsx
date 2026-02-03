@@ -13,7 +13,8 @@ import {
   Eye, 
   MousePointerClick, 
   ExternalLink,
-  AlertTriangle 
+  AlertTriangle,
+  Loader2 
 } from "lucide-react"
 import type { Company } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -32,8 +33,10 @@ function getInitials(name: string): string {
     .slice(0, 2)
 }
 
-function formatNumber(num: number | null | undefined): string {
-  if (num === null || num === undefined) return "—"
+function formatNumber(num: number | null | undefined, isLoading: boolean = false): string {
+  if (num === null || num === undefined) {
+    return isLoading ? "..." : "—"
+  }
   if (num >= 1000000) return (num / 1000000).toFixed(1) + "M"
   if (num >= 1000) return (num / 1000).toFixed(1) + "K"
   return num.toLocaleString()
@@ -60,6 +63,9 @@ function calculateChange(current?: number, previous?: number): number | undefine
 }
 
 export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
+  // Check if this company has any analytics data loaded
+  const hasAnalyticsData = company.gaMetrics || company.gscMetrics || company.ytMetrics || company.liVisitorMetrics
+  
   // Calculate key metrics changes
   const trafficChange = calculateChange(
     company.gaMetrics?.totalUsers, 
@@ -78,7 +84,7 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
 
   // Determine overall health status
   const hasErrors = company.gaError || company.gscError || company.ytError || company.liError
-  const healthStatus = hasErrors ? "warning" : "healthy"
+  const healthStatus = hasErrors ? "warning" : hasAnalyticsData ? "healthy" : "loading"
 
   const ChangeIcon = getChangeIcon(trafficChange)
 
@@ -101,6 +107,9 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
           {healthStatus === "warning" && (
             <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
           )}
+          {healthStatus === "loading" && (
+            <Loader2 className="h-4 w-4 text-muted-foreground animate-spin shrink-0" />
+          )}
         </div>
       </CardHeader>
 
@@ -114,7 +123,7 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
             </div>
             <div className="flex items-center gap-1">
               <span className="font-semibold text-sm">
-                {formatNumber(company.gaMetrics?.totalUsers)}
+                {formatNumber(company.gaMetrics?.totalUsers, healthStatus === "loading")}
               </span>
               {ChangeIcon && (
                 <div className={cn("flex items-center gap-0.5", getChangeColor(trafficChange))}>
@@ -131,7 +140,7 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
               <span className="text-xs text-muted-foreground">Sessions</span>
             </div>
             <span className="font-semibold text-sm">
-              {formatNumber(company.gaMetrics?.sessions)}
+              {formatNumber(company.gaMetrics?.sessions, healthStatus === "loading")}
             </span>
           </div>
 
@@ -159,7 +168,7 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
               <span className="text-xs text-muted-foreground">Impressions</span>
             </div>
             <span className="font-semibold text-sm">
-              {formatNumber(company.gscMetrics?.impressions)}
+              {formatNumber(company.gscMetrics?.impressions, healthStatus === "loading")}
             </span>
           </div>
         </div>
@@ -180,13 +189,6 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
           )}
         </div>
 
-        {/* View Details Button */}
-        <Button variant="outline" size="sm" className="w-full" asChild>
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <ExternalLink className="h-3 w-3" />
-            View Details
-          </Link>
-        </Button>
       </CardContent>
     </Card>
   )
