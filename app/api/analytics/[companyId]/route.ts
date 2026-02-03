@@ -417,7 +417,24 @@ export async function GET(
 async function checkCache(supabase: any, companyId: string, startDate: string, endDate: string) {
   console.log(`[Cache] Looking for cache entry: ${companyId} | ${startDate} to ${endDate}`)
   
-  // Check for existing cache entry
+  // PRIORITY 1: Check for daily_snapshot cache (pre-built by cron at 12:33 AM PST)
+  // This provides instant loading for all users throughout the day
+  const { data: dailySnapshot } = await supabase
+    .from('analytics_cache')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('data_type', 'daily_snapshot')
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (dailySnapshot?.cached_data) {
+    console.log(`[Cache] Using daily snapshot for ${companyId}, expires: ${dailySnapshot.expires_at}`)
+    return dailySnapshot.cached_data
+  }
+
+  // PRIORITY 2: Check for on-demand cache entry (fallback if cron hasn't run yet)
   const { data, error } = await supabase
     .from('analytics_cache')
     .select('*')
@@ -425,7 +442,7 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
     .eq('data_type', 'all')
     .eq('date_range_start', startDate)
     .eq('date_range_end', endDate)
-    .single()
+    .maybeSingle()
 
   if (error || !data) {
     console.log(`[Cache] No cache entry found for ${companyId}:`, error?.message || 'No data')
@@ -436,7 +453,7 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
   const cacheDate = new Date(data.created_at)
   const expiresAt = new Date(data.expires_at)
 
-  console.log(`[Cache] Found cache entry for ${companyId}:`, {
+  console.log(`[Cache] Found on-demand cache entry for ${companyId}:`, {
     created: data.created_at,
     expires: data.expires_at,
     ageMinutes: Math.round((now.getTime() - cacheDate.getTime()) / (1000 * 60)),
@@ -446,14 +463,14 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
   // Check if cache is from a previous day (daily cache invalidation)
   const isFromPreviousDay = cacheDate.toDateString() !== now.toDateString()
   
-  // Check if cache has expired normally (reduced to 5 minutes for development)
+  // Check if cache has expired normally
   const hasExpired = now > expiresAt
   const cacheAgeMinutes = (now.getTime() - cacheDate.getTime()) / (1000 * 60)
-  const isStale = cacheAgeMinutes > 5 // 5 minute cache instead of 1 hour
+  const isStale = cacheAgeMinutes > 30 // 30 minute cache (increased from 5 since we have daily snapshots)
 
   if (isFromPreviousDay || hasExpired || isStale) {
-    console.log(`[Cache] Clearing stale cache for ${companyId}:`, {
-      reason: isFromPreviousDay ? 'previous day' : hasExpired ? 'expired' : 'too old (5min)',
+    console.log(`[Cache] Clearing stale on-demand cache for ${companyId}:`, {
+      reason: isFromPreviousDay ? 'previous day' : hasExpired ? 'expired' : 'too old (30min)',
       age: cacheAgeMinutes
     })
     
@@ -466,7 +483,7 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
     return null // Force fresh data fetch
   }
 
-  console.log(`[Cache] Using valid cache for ${companyId}, expires: ${data.expires_at}`)
+  console.log(`[Cache] Using on-demand cache for ${companyId}, expires: ${data.expires_at}`)
   return data?.cached_data || null
 }
 
@@ -479,9 +496,9 @@ async function cacheData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
 ) {
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minute cache for development debugging
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000) // 30 minute on-demand cache (daily snapshot is primary)
 
-  console.log(`[Cache] Storing cache for ${companyId} (${startDate} to ${endDate}), expires in 5 minutes`)
+  console.log(`[Cache] Storing on-demand cache for ${companyId} (${startDate} to ${endDate}), expires in 30 minutes`)
 
   const { error } = await supabase.from('analytics_cache').insert({
     company_id: companyId,
