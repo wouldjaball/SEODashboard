@@ -37,19 +37,62 @@ export default function ExecutiveDashboard() {
   })
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isLoadingFromCache, setIsLoadingFromCache] = useState(true)
 
   // Allow all users to access executive dashboard
   const hasExecutiveAccess = true
 
-  const fetchPortfolioData = useCallback(async () => {
+  // Load cached data first, then refresh in background
+  const loadCachedData = useCallback(async () => {
     try {
-      setIsLoading(true)
+      setIsLoadingFromCache(true)
+      setError(null)
+
+      // Default to last 30 days for cache hit
+      const endDate = new Date()
+      const startDate = subDays(endDate, 30)
+      
+      const params = new URLSearchParams({
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0]
+      })
+
+      const response = await fetch(`/api/analytics/portfolio?${params}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch cached portfolio data')
+      }
+
+      const data = await response.json()
+      setPortfolioData(data)
+      
+      // If data is cached, we can show it immediately
+      if (data.cached) {
+        console.log('Loaded cached portfolio data')
+      }
+    } catch (err) {
+      console.error('Cached portfolio data fetch error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch cached portfolio data')
+    } finally {
+      setIsLoadingFromCache(false)
+    }
+  }, [])
+
+  const fetchPortfolioData = useCallback(async (isBackground = false) => {
+    try {
+      if (isBackground) {
+        setIsRefreshing(true)
+      } else {
+        setIsLoading(true)
+      }
       setError(null)
 
       const params = new URLSearchParams({
         startDate: dateRange.from.toISOString().split('T')[0],
-        endDate: dateRange.to.toISOString().split('T')[0]
+        endDate: dateRange.to.toISOString().split('T')[0],
+        refresh: isBackground ? 'true' : 'false'
       })
 
       const response = await fetch(`/api/analytics/portfolio?${params}`)
@@ -64,16 +107,38 @@ export default function ExecutiveDashboard() {
       console.error('Portfolio data fetch error:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch portfolio data')
     } finally {
-      setIsLoading(false)
+      if (isBackground) {
+        setIsRefreshing(false)
+      } else {
+        setIsLoading(false)
+      }
     }
   }, [dateRange])
+
+  // Load cached data immediately on mount
+  useEffect(() => {
+    if (companies && companies.length > 0 && !portfolioData) {
+      loadCachedData()
+    }
+  }, [companies, loadCachedData, portfolioData])
 
   // Fetch portfolio data when date range changes
   useEffect(() => {
     if (companies && companies.length > 0) {
-      fetchPortfolioData()
+      // Check if we're asking for default 30-day range
+      const isDefaultRange = 
+        dateRange.from.toDateString() === subDays(new Date(), 30).toDateString() &&
+        dateRange.to.toDateString() === new Date().toDateString()
+
+      if (isDefaultRange && portfolioData) {
+        // For default range with existing cached data, refresh in background
+        fetchPortfolioData(true)
+      } else {
+        // For custom date ranges, do full fetch
+        fetchPortfolioData()
+      }
     }
-  }, [dateRange, companies, fetchPortfolioData])
+  }, [dateRange, companies, fetchPortfolioData, portfolioData])
 
   if (companiesLoading) {
     return (
@@ -147,17 +212,32 @@ export default function ExecutiveDashboard() {
       )}
 
       {/* Loading State */}
-      {isLoading && (
+      {(isLoading || isLoadingFromCache) && (
         <div className="flex items-center justify-center gap-2 p-8 bg-muted/50 rounded-lg border">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm text-muted-foreground">
-            {portfolioData ? "Refreshing portfolio data..." : "Loading portfolio data..."}
+            {isLoadingFromCache 
+              ? "Loading cached data..." 
+              : portfolioData 
+              ? "Refreshing portfolio data..." 
+              : "Loading portfolio data..."
+            }
+          </span>
+        </div>
+      )}
+
+      {/* Background refresh indicator */}
+      {isRefreshing && portfolioData && (
+        <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+          <span className="text-xs text-blue-700 dark:text-blue-300">
+            Updating with latest data...
           </span>
         </div>
       )}
 
       {/* First time loading message */}
-      {!isLoading && !portfolioData && companies.length > 0 && !error && (
+      {!isLoading && !isLoadingFromCache && !portfolioData && companies.length > 0 && !error && (
         <div className="flex items-center justify-center gap-2 p-8 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
           <div className="text-center">
             <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">

@@ -38,69 +38,56 @@ export async function POST(request: Request) {
     const previousStartDate = format(subDays(new Date(startDate), daysDiff), 'yyyy-MM-dd')
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
 
-    const comparisonData: any[] = []
+    // Fetch analytics data for all companies in parallel
+    console.log(`[Comparison API] Fetching analytics for ${companyIds.length} companies in parallel...`)
+    
+    const startTime = Date.now()
+    const comparisonData = await Promise.all(
+      companyIds.map(async (companyId) => {
+        const company = userCompanies.find(uc => uc.company_id === companyId)
+        
+        if (!company) {
+          return null
+        }
 
-    // Fetch analytics data for each requested company
-    for (const companyId of companyIds) {
-      const company = userCompanies.find(uc => uc.company_id === companyId)
-      
-      if (!company) {
-        continue
-      }
+        try {
+          // Fetch both current and previous period data in parallel
+          const [currentData, previousData] = await Promise.all([
+            // Current period
+            fetch(
+              `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${companyId}?${new URLSearchParams({ startDate, endDate })}`,
+              {
+                headers: {
+                  'Authorization': request.headers.get('Authorization') || '',
+                  'Cookie': request.headers.get('Cookie') || ''
+                },
+                signal: AbortSignal.timeout(15000) // 15 second timeout per company
+              }
+            ).then(res => res.ok ? res.json() : null),
+            
+            // Previous period
+            fetch(
+              `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${companyId}?${new URLSearchParams({ startDate: previousStartDate, endDate: previousEndDate })}`,
+              {
+                headers: {
+                  'Authorization': request.headers.get('Authorization') || '',
+                  'Cookie': request.headers.get('Cookie') || ''
+                },
+                signal: AbortSignal.timeout(15000) // 15 second timeout per company
+              }
+            ).then(res => res.ok ? res.json() : null)
+          ])
 
-      try {
-        // Fetch current period analytics data
-        const params = new URLSearchParams({
-          startDate,
-          endDate
-        })
-
-        const analyticsResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${companyId}?${params}`,
-          {
-            headers: {
-              'Authorization': request.headers.get('Authorization') || '',
-              'Cookie': request.headers.get('Cookie') || ''
-            }
+          // Extract requested metrics
+          const companyMetrics: Record<string, any> = {
+            companyId,
+            companyName: (company as Record<string, any>).companies.name,
+            industry: (company as Record<string, any>).companies.industry,
+            color: (company as Record<string, any>).companies.color,
+            current: {},
+            previous: {},
+            change: {}
           }
-        )
-
-        let currentData = null
-        if (analyticsResponse.ok) {
-          currentData = await analyticsResponse.json()
-        }
-
-        // Fetch previous period analytics data for comparison
-        const prevParams = new URLSearchParams({
-          startDate: previousStartDate,
-          endDate: previousEndDate
-        })
-
-        const prevAnalyticsResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${companyId}?${prevParams}`,
-          {
-            headers: {
-              'Authorization': request.headers.get('Authorization') || '',
-              'Cookie': request.headers.get('Cookie') || ''
-            }
-          }
-        )
-
-        let previousData = null
-        if (prevAnalyticsResponse.ok) {
-          previousData = await prevAnalyticsResponse.json()
-        }
-
-        // Extract requested metrics
-        const companyMetrics: any = {
-          companyId,
-          companyName: (company as any).companies.name,
-          industry: (company as any).companies.industry,
-          color: (company as any).companies.color,
-          current: {},
-          previous: {},
-          change: {}
-        }
 
         // Google Analytics metrics
         if (metrics.includes('traffic')) {
@@ -223,36 +210,39 @@ export async function POST(request: Request) {
           )
         }
 
-        // Include weekly trend data for line charts
-        if (currentData?.gaWeeklyData) {
-          companyMetrics.weeklyTrends = {
-            traffic: currentData.gaWeeklyData.map((week: any) => ({
-              date: week.date,
-              value: week.sessions || 0
-            }))
+          // Include weekly trend data for line charts
+          if (currentData?.gaWeeklyData) {
+            companyMetrics.weeklyTrends = {
+              traffic: currentData.gaWeeklyData.map((week: any) => ({
+                date: week.date,
+                value: week.sessions || 0
+              }))
+            }
+          }
+
+          return companyMetrics
+
+        } catch (error) {
+          console.error(`Failed to fetch comparison data for company ${companyId}:`, error)
+          // Return company with empty data
+          return {
+            companyId,
+            companyName: (company as Record<string, any>).companies.name,
+            industry: (company as Record<string, any>).companies.industry,
+            color: (company as Record<string, any>).companies.color,
+            current: {},
+            previous: {},
+            change: {},
+            error: 'Failed to fetch data'
           }
         }
-
-        comparisonData.push(companyMetrics)
-
-      } catch (error) {
-        console.error(`Failed to fetch comparison data for company ${companyId}:`, error)
-        // Include company with empty data
-        comparisonData.push({
-          companyId,
-          companyName: (company as any).companies.name,
-          industry: (company as any).companies.industry,
-          color: (company as any).companies.color,
-          current: {},
-          previous: {},
-          change: {},
-          error: 'Failed to fetch data'
-        })
-      }
-    }
+      })
+    ).then(results => results.filter(result => result !== null)) // Filter out null companies
+    
+    console.log(`[Comparison API] Parallel fetch completed in ${Date.now() - startTime}ms`)
 
     // Calculate portfolio-level aggregates for the requested metrics
-    const portfolioMetrics: any = {
+    const portfolioMetrics: Record<string, any> = {
       current: {},
       previous: {},
       change: {}
@@ -271,7 +261,7 @@ export async function POST(request: Request) {
       portfolioMetrics.change[metric] = calculateChange(currentTotal, previousTotal)
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       companies: comparisonData,
       portfolio: portfolioMetrics,
       dateRange: {
@@ -279,6 +269,13 @@ export async function POST(request: Request) {
         previous: { startDate: previousStartDate, endDate: previousEndDate }
       }
     })
+    
+    // Add cache headers for comparison data (shorter cache for comparison data)
+    response.headers.set('Cache-Control', 'public, max-age=180, s-maxage=180') // 3 minutes
+    response.headers.set('CDN-Cache-Control', 'public, max-age=180')
+    response.headers.set('Vary', 'Authorization, Cookie')
+    
+    return response
 
   } catch (error) {
     console.error('Comparison analytics error:', error)

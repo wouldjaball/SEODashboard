@@ -36,20 +36,44 @@ export async function GET(request: Request) {
         .single()
 
       if (!cacheError && cachedData) {
-        // Check if cache is fresh (less than 24 hours old)
+        // For immediate response, serve cache even if slightly stale
+        // Check if cache is very stale (more than 48 hours old)
         const cacheAge = Date.now() - new Date(cachedData.updated_at).getTime()
-        const isStale = cacheAge > 24 * 60 * 60 * 1000 // 24 hours
+        const isVeryStale = cacheAge > 48 * 60 * 60 * 1000 // 48 hours
+        const isStale = cacheAge > 12 * 60 * 60 * 1000 // 12 hours
 
-        if (!isStale) {
-          console.log(`[Portfolio API] Serving cached data for user ${user.id}`)
-          return NextResponse.json({
+        if (!isVeryStale) {
+          console.log(`[Portfolio API] Serving cached data for user ${user.id} (age: ${Math.floor(cacheAge / (60 * 60 * 1000))}h)`)
+          
+          // If cache is slightly stale (12+ hours), trigger background refresh
+          if (isStale) {
+            console.log(`[Portfolio API] Cache is stale, will trigger background refresh...`)
+            // Trigger background refresh without blocking response
+            setImmediate(async () => {
+              try {
+                await refreshCacheInBackground(user.id, startDate, endDate, cacheDate, supabase, request)
+              } catch (error) {
+                console.error(`[Portfolio API] Background refresh failed for user ${user.id}:`, error)
+              }
+            })
+          }
+          
+          const response = NextResponse.json({
             companies: cachedData.companies_data,
             aggregateMetrics: cachedData.aggregate_metrics,
             cached: true,
+            cacheAge: Math.floor(cacheAge / (60 * 1000)), // age in minutes
             cacheDate: cacheDate
           })
+          
+          // Add cache headers for cached responses
+          response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300') // 5 minutes
+          response.headers.set('CDN-Cache-Control', 'public, max-age=300')
+          response.headers.set('Vary', 'Authorization, Cookie')
+          
+          return response
         } else {
-          console.log(`[Portfolio API] Cache is stale for user ${user.id}, refreshing...`)
+          console.log(`[Portfolio API] Cache is very stale for user ${user.id}, forcing refresh...`)
         }
       } else {
         console.log(`[Portfolio API] No cache found for user ${user.id} on date ${cacheDate}`)
@@ -103,7 +127,7 @@ export async function GET(request: Request) {
     const companiesWithData = await Promise.all(userCompanies.map(fetchCompanyAnalytics))
     console.log(`[Portfolio API] Parallel fetch completed in ${Date.now() - startTime}ms`)
 
-    async function fetchCompanyAnalytics(userCompany: any) {
+    async function fetchCompanyAnalytics(userCompany: Record<string, any>) {
       const companyId = userCompany.company_id
       
       try {
@@ -355,9 +379,145 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json(result)
+    const response = NextResponse.json(result)
+    
+    // Add cache headers for fresh data
+    if (result.cached) {
+      response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300') // 5 minutes for cached
+    } else {
+      response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60') // 1 minute for fresh data
+    }
+    response.headers.set('CDN-Cache-Control', 'public, max-age=60')
+    response.headers.set('Vary', 'Authorization, Cookie')
+    
+    return response
   } catch (error) {
     console.error('Portfolio analytics error:', error)
     return NextResponse.json({ error: 'Failed to fetch portfolio analytics' }, { status: 500 })
+  }
+}
+
+// Background cache refresh function
+async function refreshCacheInBackground(
+  userId: string, 
+  startDate: string, 
+  endDate: string, 
+  cacheDate: string,
+  supabase: Record<string, any>,
+  request: Request
+) {
+  try {
+    console.log(`[Portfolio API] Starting background refresh for user ${userId}`)
+    
+    // Get user companies
+    const { data: userCompanies, error: companiesError } = await supabase
+      .from('user_companies')
+      .select(`
+        company_id,
+        role,
+        companies (*)
+      `)
+      .eq('user_id', userId)
+
+    if (companiesError || !userCompanies?.length) {
+      throw new Error('Failed to fetch user companies for background refresh')
+    }
+
+    // Fetch analytics in parallel with timeout
+    const companiesWithData = await Promise.all(
+      userCompanies.map(async (userCompany: Record<string, any>) => {
+        try {
+          const companyId = userCompany.company_id
+          const params = new URLSearchParams({ startDate, endDate })
+          
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout for background
+
+          const analyticsResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${companyId}?${params}`,
+            {
+              headers: {
+                'Authorization': request.headers.get('Authorization') || '',
+                'Cookie': request.headers.get('Cookie') || ''
+              },
+              signal: controller.signal
+            }
+          )
+
+          clearTimeout(timeoutId)
+
+          if (analyticsResponse.ok) {
+            const analyticsData = await analyticsResponse.json()
+            return {
+              ...userCompany.companies,
+              role: userCompany.role,
+              ...analyticsData
+            }
+          } else {
+            console.warn(`[Portfolio API] Background refresh failed for company ${companyId}`)
+            return { ...userCompany.companies, role: userCompany.role }
+          }
+        } catch (error) {
+          console.warn(`[Portfolio API] Background refresh error for company ${userCompany.company_id}:`, error)
+          return { ...userCompany.companies, role: userCompany.role }
+        }
+      })
+    )
+
+    // Calculate aggregate metrics
+    let totalTraffic = 0, totalConversions = 0
+    const totalConversionRates: number[] = []
+    let prevTotalTraffic = 0, prevTotalConversions = 0
+    const prevTotalConversionRates: number[] = []
+
+    companiesWithData.forEach(company => {
+      if (company.gaMetrics) {
+        totalTraffic += company.gaMetrics.totalUsers || 0
+        totalConversions += company.gaMetrics.keyEvents || 0
+        if (company.gaMetrics.userKeyEventRate) {
+          totalConversionRates.push(company.gaMetrics.userKeyEventRate)
+        }
+
+        if (company.gaMetrics.previousPeriod) {
+          prevTotalTraffic += company.gaMetrics.previousPeriod.totalUsers || 0
+          prevTotalConversions += company.gaMetrics.previousPeriod.keyEvents || 0
+          if (company.gaMetrics.previousPeriod.userKeyEventRate) {
+            prevTotalConversionRates.push(company.gaMetrics.previousPeriod.userKeyEventRate)
+          }
+        }
+      }
+    })
+
+    const aggregateMetrics = {
+      totalTraffic,
+      totalConversions,
+      avgConversionRate: totalConversionRates.length > 0 
+        ? totalConversionRates.reduce((sum, rate) => sum + rate, 0) / totalConversionRates.length
+        : 0,
+      totalRevenue: 0,
+      previousPeriod: {
+        totalTraffic: prevTotalTraffic,
+        totalConversions: prevTotalConversions,
+        avgConversionRate: prevTotalConversionRates.length > 0
+          ? prevTotalConversionRates.reduce((sum, rate) => sum + rate, 0) / prevTotalConversionRates.length
+          : 0,
+        totalRevenue: 0
+      }
+    }
+
+    // Update cache
+    await supabase
+      .from('portfolio_cache')
+      .upsert({
+        user_id: userId,
+        cache_date: cacheDate,
+        companies_data: companiesWithData,
+        aggregate_metrics: aggregateMetrics,
+        updated_at: new Date().toISOString()
+      })
+
+    console.log(`[Portfolio API] Background refresh completed for user ${userId}`)
+  } catch (error) {
+    console.error(`[Portfolio API] Background refresh failed for user ${userId}:`, error)
   }
 }

@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/portfolio-cache",
-      "schedule": "3 8 * * *"
+      "schedule": "33 8 * * *"
     }
   ]
 }
