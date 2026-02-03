@@ -96,24 +96,25 @@ export async function GET(request: Request) {
     const previousStartDate = format(subDays(new Date(startDate), daysDiff), 'yyyy-MM-dd')
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
 
-    const companiesWithData = []
-    let totalTraffic = 0
-    let totalConversions = 0
-    const totalConversionRates = []
-    let prevTotalTraffic = 0
-    let prevTotalConversions = 0
-    const prevTotalConversionRates = []
+    // Fetch analytics data for all companies in parallel
+    console.log(`[Portfolio API] Fetching analytics for ${userCompanies.length} companies in parallel...`)
+    
+    const startTime = Date.now()
+    const companiesWithData = await Promise.all(userCompanies.map(fetchCompanyAnalytics))
+    console.log(`[Portfolio API] Parallel fetch completed in ${Date.now() - startTime}ms`)
 
-    // Fetch analytics data for each company
-    for (const userCompany of userCompanies) {
+    async function fetchCompanyAnalytics(userCompany: any) {
       const companyId = userCompany.company_id
       
       try {
-        // Fetch analytics data for this company
+        // Fetch analytics data for this company with timeout
         const params = new URLSearchParams({
           startDate,
           endDate
         })
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout per company
 
         const analyticsResponse = await fetch(
           `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${companyId}?${params}`,
@@ -121,15 +122,18 @@ export async function GET(request: Request) {
             headers: {
               'Authorization': request.headers.get('Authorization') || '',
               'Cookie': request.headers.get('Cookie') || ''
-            }
+            },
+            signal: controller.signal
           }
         )
+
+        clearTimeout(timeoutId)
 
         if (analyticsResponse.ok) {
           const analyticsData = await analyticsResponse.json()
           
           // Build company object with analytics data
-          const company = {
+          return {
             ...userCompany.companies,
             role: userCompany.role,
             // Google Analytics data
@@ -185,29 +189,10 @@ export async function GET(request: Request) {
             liErrorType: analyticsData.liErrorType,
             liDataSource: analyticsData.liDataSource
           }
-
-          companiesWithData.push(company)
-
-          // Aggregate metrics for portfolio view
-          if (analyticsData.gaMetrics) {
-            totalTraffic += analyticsData.gaMetrics.totalUsers || 0
-            totalConversions += analyticsData.gaMetrics.keyEvents || 0
-            if (analyticsData.gaMetrics.userKeyEventRate) {
-              totalConversionRates.push(analyticsData.gaMetrics.userKeyEventRate)
-            }
-
-            // Previous period data
-            if (analyticsData.gaMetrics.previousPeriod) {
-              prevTotalTraffic += analyticsData.gaMetrics.previousPeriod.totalUsers || 0
-              prevTotalConversions += analyticsData.gaMetrics.previousPeriod.keyEvents || 0
-              if (analyticsData.gaMetrics.previousPeriod.userKeyEventRate) {
-                prevTotalConversionRates.push(analyticsData.gaMetrics.previousPeriod.userKeyEventRate)
-              }
-            }
-          }
         } else {
-          // If analytics fetch failed, still include company with empty data
-          const company = {
+          console.warn(`[Portfolio API] Analytics fetch failed for company ${companyId}: ${analyticsResponse.status}`)
+          // Return company with empty analytics data
+          return {
             ...userCompany.companies,
             role: userCompany.role,
             gaMetrics: null,
@@ -246,12 +231,15 @@ export async function GET(request: Request) {
             liUpdates: [],
             liVideoDaily: []
           }
-          companiesWithData.push(company)
         }
       } catch (error) {
-        console.error(`Failed to fetch analytics for company ${companyId}:`, error)
-        // Still include company with empty data
-        const company = {
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.warn(`[Portfolio API] Timeout fetching analytics for company ${companyId}`)
+        } else {
+          console.error(`[Portfolio API] Failed to fetch analytics for company ${companyId}:`, error)
+        }
+        // Return company with empty data if fetch fails
+        return {
           ...userCompany.companies,
           role: userCompany.role,
           gaMetrics: null,
@@ -290,11 +278,36 @@ export async function GET(request: Request) {
           liUpdates: [],
           liVideoDaily: []
         }
-        companiesWithData.push(company)
       }
     }
 
-    // Calculate aggregate metrics
+    // Calculate aggregate metrics from the parallel results
+    let totalTraffic = 0
+    let totalConversions = 0
+    const totalConversionRates: number[] = []
+    let prevTotalTraffic = 0
+    let prevTotalConversions = 0
+    const prevTotalConversionRates: number[] = []
+
+    companiesWithData.forEach(company => {
+      if (company.gaMetrics) {
+        totalTraffic += company.gaMetrics.totalUsers || 0
+        totalConversions += company.gaMetrics.keyEvents || 0
+        if (company.gaMetrics.userKeyEventRate) {
+          totalConversionRates.push(company.gaMetrics.userKeyEventRate)
+        }
+
+        // Previous period data
+        if (company.gaMetrics.previousPeriod) {
+          prevTotalTraffic += company.gaMetrics.previousPeriod.totalUsers || 0
+          prevTotalConversions += company.gaMetrics.previousPeriod.keyEvents || 0
+          if (company.gaMetrics.previousPeriod.userKeyEventRate) {
+            prevTotalConversionRates.push(company.gaMetrics.previousPeriod.userKeyEventRate)
+          }
+        }
+      }
+    })
+
     const avgConversionRate = totalConversionRates.length > 0 
       ? totalConversionRates.reduce((sum, rate) => sum + rate, 0) / totalConversionRates.length
       : 0
