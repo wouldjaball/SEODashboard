@@ -14,6 +14,7 @@ interface CompanyContextType {
   refetchData: (companyId: string, dateRange: { from: Date; to: Date }) => Promise<void>
   comparisonEnabled: boolean
   setComparisonEnabled: (enabled: boolean) => void
+  findCompanyById: (id: string) => Company | undefined
 }
 
 const CompanyContext = React.createContext<CompanyContextType | undefined>(undefined)
@@ -303,7 +304,26 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   }
 
   const setCompany = (newCompany: Company) => {
+    console.log('[CompanyContext] Setting company:', newCompany.id, newCompany.name)
     setCompanyState(newCompany)
+    
+    // Also ensure this company is in the companies list if it's not already
+    setCompanies(prevCompanies => {
+      const existingCompany = prevCompanies.find(c => c.id === newCompany.id)
+      if (existingCompany) {
+        // Update existing company with new data
+        return prevCompanies.map(c => c.id === newCompany.id ? newCompany : c)
+      } else {
+        // Add new company to the list
+        return [...prevCompanies, newCompany]
+      }
+    })
+  }
+
+  const findCompanyById = (id: string): Company | undefined => {
+    const foundCompany = companies.find(c => c.id === id)
+    console.log('[CompanyContext] findCompanyById:', id, 'found:', foundCompany ? foundCompany.name : 'not found')
+    return foundCompany
   }
 
   return (
@@ -316,7 +336,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         error,
         refetchData,
         comparisonEnabled,
-        setComparisonEnabled
+        setComparisonEnabled,
+        findCompanyById
       }}
     >
       {children}

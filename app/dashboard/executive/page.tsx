@@ -242,24 +242,24 @@ export default function ExecutiveDashboard() {
         </div>
       )}
 
-      {/* Background refresh indicator */}
-      {isRefreshing && portfolioData && (
-        <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
-          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-          <span className="text-xs text-blue-700 dark:text-blue-300">
+      {/* Background refresh indicator - Only show if actually refreshing and not stuck */}
+      {isRefreshing && portfolioData && !isLoading && (
+        <div className="flex items-center justify-center gap-2 p-2 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800">
+          <Loader2 className="h-4 w-4 animate-spin text-green-600" />
+          <span className="text-xs text-green-700 dark:text-green-300">
             Updating with latest data...
           </span>
         </div>
       )}
 
-      {/* First time loading message */}
-      {!isLoading && !isLoadingFromCache && !portfolioData && companies.length > 0 && !error && (
-        <div className="flex items-center justify-center gap-2 p-8 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+      {/* First time loading message - Only show during legitimate first load */}
+      {!isLoading && !isLoadingFromCache && !portfolioData && companies.length > 0 && !error && !isRefreshing && (
+        <div className="flex items-center justify-center gap-2 p-8 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
           <div className="text-center">
-            <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+            <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-2">
               Welcome to your Executive Dashboard
             </h3>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
               Analytics data for your {companies.length} companies is being loaded. This may take a moment.
             </p>
           </div>

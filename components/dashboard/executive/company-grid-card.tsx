@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import type { Company } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { useCompany } from "@/lib/company-context"
 
 interface CompanyGridCardProps {
   company: Company
@@ -63,6 +64,9 @@ function calculateChange(current?: number, previous?: number): number | undefine
 }
 
 export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
+  const router = useRouter()
+  const { setCompany } = useCompany()
+
   // Check if this company has any analytics data loaded
   const hasAnalyticsData = company.gaMetrics || company.gscMetrics || company.ytMetrics || company.liVisitorMetrics
   
@@ -88,9 +92,19 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
 
   const ChangeIcon = getChangeIcon(trafficChange)
 
+  // Handle company card click with proper state management
+  const handleCompanyClick = () => {
+    // Set the company in context so it's available on the individual page
+    setCompany(company)
+    // Navigate to the company dashboard
+    router.push(`/dashboard/companies/${company.id}`)
+  }
+
   return (
-    <Link href={`/dashboard/companies/${company.id}`}>
-      <Card className={cn("hover:shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.02]", className)}>
+    <Card 
+      className={cn("hover:shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.02]", className)}
+      onClick={handleCompanyClick}
+    >
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
@@ -191,7 +205,6 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
         </div>
 
       </CardContent>
-      </Card>
-    </Link>
+    </Card>
   )
 }

@@ -28,28 +28,42 @@ interface CompanyDetailPageProps {
 }
 
 export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
-  const { companies, isLoading, error, refetchData, comparisonEnabled, setComparisonEnabled } = useCompany()
+  const { companies, isLoading, error, refetchData, comparisonEnabled, setComparisonEnabled, findCompanyById } = useCompany()
   const [dateRange, setDateRange] = useState({
     from: subDays(new Date(), 30),
     to: new Date(),
   })
   const [activeTab, setActiveTab] = useState("google-analytics")
 
-  // Find the specific company from the companies array
-  const company = companies.find(c => c.id === params.companyId)
+  // Find the specific company from the companies array with better error handling
+  const company = findCompanyById(params.companyId)
   
-  // Debug logging
+  // Debug logging with more context
   console.log('[Company Detail] Looking for companyId:', params.companyId)
   console.log('[Company Detail] Available companies:', companies.map(c => ({ id: c.id, name: c.name })))
   console.log('[Company Detail] Found company:', company ? company.name : 'Not found')
+  console.log('[Company Detail] Companies loading state:', isLoading)
+  console.log('[Company Detail] Total companies:', companies.length)
 
-  // Fetch data when date range changes
+  // Fetch data when date range changes or when company is available
   useEffect(() => {
     if (company?.id) {
       console.log('[Company Detail] Triggering refetchData for company:', company.id)
       refetchData(company.id, dateRange)
+    } else if (companies.length > 0 && !company && !isLoading) {
+      // If companies are loaded but we don't have this specific one, it's a genuine not found
+      console.warn('[Company Detail] Company not found after companies loaded')
     }
-  }, [dateRange, company?.id, refetchData])
+  }, [dateRange, company?.id, refetchData, companies.length, isLoading])
+
+  // Additional effect to handle portfolio to individual navigation
+  useEffect(() => {
+    // If we have companies but no specific company match, and we're not loading,
+    // wait a bit more for potential context updates from portfolio navigation
+    if (companies.length > 0 && !company && !isLoading) {
+      console.log('[Company Detail] Waiting for portfolio context to sync...')
+    }
+  }, [companies.length, company, isLoading, params.companyId])
 
   // Show loading while companies are loading
   if (isLoading && !companies.length) {
@@ -60,8 +74,8 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
     )
   }
 
-  // Show not found if company doesn't exist
-  if (!company && !isLoading) {
+  // Show not found if company doesn't exist, but only after we've tried loading
+  if (!company && !isLoading && companies.length > 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-4">
@@ -76,9 +90,20 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
           <AlertDescription>
             Company not found or you don't have access to it. This may be a cached company that's no longer available.
             <br />
+            <span className="font-medium">Requested ID:</span> {params.companyId}
+            <br />
+            <span className="font-medium">Available companies:</span> {companies.length}
+            <br />
             Please try refreshing the executive dashboard or contact support if this issue persists.
           </AlertDescription>
         </Alert>
+        <div className="mt-4">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/executive">
+              Return to Executive Dashboard
+            </Link>
+          </Button>
+        </div>
       </div>
     )
   }
