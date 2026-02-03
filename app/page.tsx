@@ -1,26 +1,33 @@
 import Link from "next/link"
-import { MagicLinkForm } from "@/components/auth/magic-link-form"
+import { LoginForm } from "@/components/auth/login-form"
+import Image from "next/image"
+
+export const dynamic = "force-dynamic"
 
 export default function Home() {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-background p-6 md:p-10">
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
-        <h1 className="text-4xl font-bold">Welcome to the Transit Dashboard</h1>
-        <p className="text-muted-foreground max-w-md">
-          Your comprehensive analytics platform for tracking and managing transit data.
-        </p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <div className="w-full max-w-sm">
-          <MagicLinkForm />
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col items-center gap-4">
+              <Image
+                src="/icon-192.png"
+                alt="Transit Dashboard"
+                width={64}
+                height={64}
+                className="rounded-lg"
+              />
+              <div className="flex flex-col items-center gap-2">
+                <h1 className="text-2xl font-bold">Welcome back</h1>
+                <p className="text-balance text-center text-sm text-muted-foreground">
+                  Sign in to your account to continue
+                </p>
+              </div>
+            </div>
+            <LoginForm />
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Prefer password login?{" "}
-          <Link
-            href="/auth/login"
-            className="underline underline-offset-4 hover:text-primary"
-          >
-            Sign in here
-          </Link>
-        </p>
       </div>
       <footer className="w-full border-t py-6">
         <div className="flex justify-center gap-6 text-sm text-muted-foreground">
