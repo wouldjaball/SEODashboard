@@ -89,29 +89,30 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
   const ChangeIcon = getChangeIcon(trafficChange)
 
   return (
-    <Card className={cn("hover:shadow-md transition-shadow", className)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarFallback
-              className="text-sm font-semibold text-white"
-              style={{ backgroundColor: company.color }}
-            >
-              {getInitials(company.name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <CardTitle className="text-base truncate">{company.name}</CardTitle>
-            <p className="text-xs text-muted-foreground truncate">{company.industry}</p>
+    <Link href={`/dashboard/companies/${company.id}`}>
+      <Card className={cn("hover:shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.02]", className)}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback
+                className="text-sm font-semibold text-white"
+                style={{ backgroundColor: company.color }}
+              >
+                {getInitials(company.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-base truncate">{company.name}</CardTitle>
+              <p className="text-xs text-muted-foreground truncate">{company.industry}</p>
+            </div>
+            {healthStatus === "warning" && (
+              <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
+            )}
+            {healthStatus === "loading" && (
+              <Loader2 className="h-4 w-4 text-muted-foreground animate-spin shrink-0" />
+            )}
           </div>
-          {healthStatus === "warning" && (
-            <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
-          )}
-          {healthStatus === "loading" && (
-            <Loader2 className="h-4 w-4 text-muted-foreground animate-spin shrink-0" />
-          )}
-        </div>
-      </CardHeader>
+        </CardHeader>
 
       <CardContent className="pt-0 space-y-4">
         {/* Key Metrics */}
@@ -190,6 +191,7 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
         </div>
 
       </CardContent>
-    </Card>
+      </Card>
+    </Link>
   )
 }
