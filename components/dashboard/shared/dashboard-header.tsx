@@ -56,13 +56,13 @@ export function DashboardHeader() {
 
         {/* Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <Button variant="ghost" size="icon" title="Dashboard" asChild>
+          <Button variant="ghost" size="icon" title="Company Analytics - Detailed view" asChild>
             <Link href="/dashboard">
               <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5" />
             </Link>
           </Button>
           {/* Executive Dashboard - Available to all users */}
-          <Button variant="ghost" size="icon" title="Executive Dashboard" asChild>
+          <Button variant="ghost" size="icon" title="Portfolio Overview - Executive view" asChild>
             <Link href="/dashboard/executive">
               <PieChart className="h-4 w-4 sm:h-5 sm:w-5" />
             </Link>

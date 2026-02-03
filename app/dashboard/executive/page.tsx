@@ -62,19 +62,30 @@ export default function ExecutiveDashboard() {
       const response = await fetch(`/api/analytics/portfolio?${params}`)
       
       if (!response.ok) {
-        throw new Error('Failed to fetch cached portfolio data')
+        const errorText = await response.text()
+        console.error('[Executive Dashboard] Cache load failed:', response.status, errorText)
+        throw new Error(`Failed to fetch cached portfolio data: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('[Executive Dashboard] Cache response:', { cached: data.cached, companiesCount: data.companies?.length })
       setPortfolioData(data)
       
       // If data is cached, we can show it immediately
       if (data.cached) {
-        console.log('Loaded cached portfolio data')
+        console.log('[Executive Dashboard] Using cached portfolio data, age:', data.cacheAge, 'minutes')
+      } else {
+        console.log('[Executive Dashboard] Using fresh portfolio data')
       }
     } catch (err) {
       console.error('Cached portfolio data fetch error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch cached portfolio data')
+      // If cache loading fails, fall back to regular data fetch
+      console.log('[Executive Dashboard] Cache failed, falling back to regular fetch')
+      try {
+        await fetchPortfolioData()
+      } catch (fallbackErr) {
+        setError(fallbackErr instanceof Error ? fallbackErr.message : 'Failed to fetch portfolio data')
+      }
     } finally {
       setIsLoadingFromCache(false)
     }
@@ -95,13 +106,17 @@ export default function ExecutiveDashboard() {
         refresh: isBackground ? 'true' : 'false'
       })
 
+      console.log('[Executive Dashboard] Fetching portfolio data with params:', Object.fromEntries(params))
       const response = await fetch(`/api/analytics/portfolio?${params}`)
       
       if (!response.ok) {
-        throw new Error('Failed to fetch portfolio data')
+        const errorText = await response.text()
+        console.error('[Executive Dashboard] Fetch failed:', response.status, errorText)
+        throw new Error(`Failed to fetch portfolio data: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('[Executive Dashboard] Portfolio data response:', { cached: data.cached, companiesCount: data.companies?.length })
       setPortfolioData(data)
     } catch (err) {
       console.error('Portfolio data fetch error:', err)
@@ -118,9 +133,10 @@ export default function ExecutiveDashboard() {
   // Load cached data immediately on mount
   useEffect(() => {
     if (companies && companies.length > 0 && !portfolioData) {
+      console.log('[Executive Dashboard] Loading cached data...')
       loadCachedData()
     }
-  }, [companies, loadCachedData, portfolioData])
+  }, [companies, portfolioData]) // Removed loadCachedData from dependencies to avoid infinite loops
 
   // Fetch portfolio data when date range changes
   useEffect(() => {
