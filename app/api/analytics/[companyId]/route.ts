@@ -475,11 +475,19 @@ export async function GET(
       console.error('[Analytics] LinkedIn fetch failed:', liResult.reason)
       results.liError = liResult.reason?.message || 'LinkedIn fetch failed'
       
+      // Check if it's a rate limit error
+      const isRateLimit = liResult.reason?.message?.includes('429') || liResult.reason?.message?.includes('TOO_MANY_REQUESTS')
+      if (isRateLimit) {
+        console.warn(`[LinkedIn] Rate limit detected for ${companyId} - falling back to cached data`)
+        results.liError = 'LinkedIn API rate limit reached - showing cached data'
+      }
+      
       // Try to fall back to cached LinkedIn data
       const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
       if (cachedLiData) {
         Object.assign(results, cachedLiData)
-        console.log(`[LinkedIn] Using cached data fallback for ${companyId}`)
+        console.log(`[LinkedIn] Using cached data fallback for ${companyId}${isRateLimit ? ' (rate limited)' : ''}`)
+        results.liDataSource = 'cache'
       }
     } else {
       // No LinkedIn connection configured, try cached data
@@ -616,16 +624,16 @@ async function getCachedServiceData(
   try {
     console.log(`[Cache] Looking for cached ${service} data for ${companyId}`)
     
-    // Look for recent cached data (up to 7 days old)
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    // Look for recent cached data (up to 30 days old for LinkedIn due to rate limiting issues)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     
     const { data, error } = await supabase
       .from('analytics_cache')
-      .select('cached_data, created_at')
+      .select('data, created_at')
       .eq('company_id', companyId)
       .eq('data_type', 'all')
-      .gte('created_at', sevenDaysAgo.toISOString())
+      .gte('created_at', thirtyDaysAgo.toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -635,12 +643,12 @@ async function getCachedServiceData(
       return null
     }
 
-    if (!data?.cached_data) {
+    if (!data?.data) {
       console.log(`[Cache] No cached ${service} data found for ${companyId}`)
       return null
     }
 
-    const cachedData = data.cached_data
+    const cachedData = data.data
     const serviceData: any = {}
 
     if (service === 'youtube') {
