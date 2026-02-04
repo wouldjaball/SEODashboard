@@ -68,6 +68,18 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
   const hasGSCData = company.gscMetrics && !company.gscError
   const hasAnalyticsData = hasGAData || hasGSCData || company.ytMetrics || company.liVisitorMetrics
   
+  // Debug logging for missing data
+  if (!hasAnalyticsData) {
+    console.log(`[Company Card] ${company.name} missing data:`, {
+      gaMetrics: !!company.gaMetrics,
+      gaError: company.gaError,
+      gscMetrics: !!company.gscMetrics,
+      gscError: company.gscError,
+      ytMetrics: !!company.ytMetrics,
+      liVisitorMetrics: !!company.liVisitorMetrics
+    })
+  }
+  
   // Calculate key metrics changes
   const trafficChange = calculateChange(
     company.gaMetrics?.totalUsers, 
@@ -276,20 +288,33 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
           {hasGAData ? (
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">GA</Badge>
           ) : company.gaError ? (
-            <Badge variant="destructive" className="text-xs px-1.5 py-0.5">GA✗</Badge>
+            <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`GA Error: ${company.gaError}`}>GA✗</Badge>
+          ) : company.gaMetrics === null ? (
+            <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-muted-foreground">GA—</Badge>
           ) : null}
           
           {hasGSCData ? (
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">GSC</Badge>
           ) : company.gscError ? (
-            <Badge variant="destructive" className="text-xs px-1.5 py-0.5">GSC✗</Badge>
+            <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`GSC Error: ${company.gscError}`}>GSC✗</Badge>
+          ) : company.gscMetrics === null ? (
+            <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-muted-foreground">GSC—</Badge>
           ) : null}
           
-          {company.ytMetrics && !company.ytError && (
+          {company.ytMetrics && !company.ytError ? (
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5">YT</Badge>
-          )}
-          {company.liVisitorMetrics && !company.liError && (
+          ) : company.ytError ? (
+            <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`YT Error: ${company.ytError}`}>YT✗</Badge>
+          ) : null}
+          
+          {company.liVisitorMetrics && !company.liError ? (
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5">LI</Badge>
+          ) : company.liError ? (
+            <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`LI Error: ${company.liError}`}>LI✗</Badge>
+          ) : null}
+          
+          {!hasAnalyticsData && !company.gaError && !company.gscError && (
+            <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-amber-600">No Data</Badge>
           )}
         </div>
 

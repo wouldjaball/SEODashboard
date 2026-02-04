@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { subDays } from "date-fns"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Loader2, Building2, Shield } from "lucide-react"
+import { Loader2, Building2, Shield, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useCompany } from "@/lib/company-context"
 import type { Company } from "@/lib/types"
@@ -42,8 +42,8 @@ export default function ExecutiveDashboard() {
   // Allow all users to access executive dashboard
   const hasExecutiveAccess = true
 
-  // Load cached data only (no real-time updates)
-  const loadCachedData = useCallback(async () => {
+  // Load cached data with option to force refresh
+  const loadCachedData = useCallback(async (forceRefresh = false) => {
     try {
       setIsLoading(true)
       setError(null)
@@ -53,6 +53,11 @@ export default function ExecutiveDashboard() {
         startDate: dateRange.from.toISOString().split('T')[0],
         endDate: dateRange.to.toISOString().split('T')[0]
       })
+      
+      // Add refresh parameter if forcing refresh
+      if (forceRefresh) {
+        params.set('refresh', 'true')
+      }
 
       const response = await fetch(`/api/analytics/portfolio?${params}`)
       
@@ -63,7 +68,12 @@ export default function ExecutiveDashboard() {
       }
 
       const data = await response.json()
-      console.log('[Executive Dashboard] Portfolio data loaded:', { cached: data.cached, companiesCount: data.companies?.length })
+      console.log('[Executive Dashboard] Portfolio data loaded:', { 
+        cached: data.cached, 
+        companiesCount: data.companies?.length,
+        companiesWithData: data.companies?.filter(c => c.gaMetrics || c.gscMetrics).length || 0,
+        forceRefresh
+      })
       setPortfolioData(data)
     } catch (err) {
       console.error('Portfolio data fetch error:', err)
@@ -130,11 +140,32 @@ export default function ExecutiveDashboard() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header - Clean and Simple */}
       <div className="flex flex-col gap-2 sm:gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Executive Overview</h1>
-          <p className="text-sm text-muted-foreground">
-            Portfolio overview • {companies.length} companies • Last 30 Days
-          </p>
+        <div className="flex items-center justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Executive Overview</h1>
+            <p className="text-sm text-muted-foreground">
+              Portfolio overview • {companies.length} companies • Last 30 Days
+              {portfolioData && (
+                <span className="ml-2">
+                  • {portfolioData.companies?.filter(c => c.gaMetrics || c.gscMetrics).length || 0} with data
+                </span>
+              )}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadCachedData(true)}
+            disabled={isLoading}
+            className="shrink-0"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Refresh Data
+          </Button>
         </div>
       </div>
 
