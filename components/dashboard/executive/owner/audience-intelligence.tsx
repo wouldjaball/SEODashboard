@@ -183,7 +183,7 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
             </CardContent>
           </Card>
 
-          {/* Geographic Distribution */}
+          {/* Geographic Distribution - Pie Chart */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -195,30 +195,74 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
               <div className="h-64">
                 {regionData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={regionData} layout="horizontal">
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis type="number" className="text-sm" tick={{ fontSize: 12 }} />
-                      <YAxis 
-                        type="category" 
-                        dataKey="country" 
-                        className="text-sm" 
-                        tick={{ fontSize: 12 }}
-                        width={80}
-                      />
+                    <PieChart>
+                      <Pie
+                        data={(() => {
+                          const sortedCountries = regionData
+                            .sort((a: any, b: any) => b.users - a.users)
+                            .slice(0, 6)
+                          
+                          const others = regionData
+                            .slice(6)
+                            .reduce((sum: number, country: any) => sum + country.users, 0)
+                          
+                          const pieData = sortedCountries.map((country: any, index: number) => ({
+                            name: country.country,
+                            value: country.users,
+                            keyEvents: country.keyEvents,
+                            fill: `hsl(${(index * 60) % 360}, 70%, 50%)`
+                          }))
+                          
+                          if (others > 0) {
+                            pieData.push({
+                              name: 'Others',
+                              value: others,
+                              keyEvents: 0,
+                              fill: '#8b5cf6'
+                            })
+                          }
+                          
+                          return pieData
+                        })()}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => 
+                          (percent && percent > 0.05) ? `${name}: ${(percent * 100).toFixed(0)}%` : ''
+                        }
+                        outerRadius={80}
+                        dataKey="value"
+                      >
+                        {(() => {
+                          const sortedCountries = regionData
+                            .sort((a: any, b: any) => b.users - a.users)
+                            .slice(0, 6)
+                          
+                          const colors = sortedCountries.map((_: any, index: number) => 
+                            `hsl(${(index * 60) % 360}, 70%, 50%)`
+                          )
+                          
+                          if (regionData.length > 6) {
+                            colors.push('#8b5cf6')
+                          }
+                          
+                          return colors.map((color: string, index: number) => (
+                            <Cell key={`cell-${index}`} fill={color} />
+                          ))
+                        })()}
+                      </Pie>
                       <Tooltip 
-                        formatter={(value: number | undefined) => [formatNumber(value || 0), 'Users']}
+                        formatter={(value: number | undefined, name: string | undefined, props: any) => [
+                          `${formatNumber(value || 0)} users`,
+                          props.payload.keyEvents > 0 ? `${formatNumber(props.payload.keyEvents)} events` : ''
+                        ].filter(Boolean)}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '6px'
                         }}
                       />
-                      <Bar 
-                        dataKey="users" 
-                        fill="#3b82f6" 
-                        radius={[0, 4, 4, 0]}
-                      />
-                    </BarChart>
+                    </PieChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">

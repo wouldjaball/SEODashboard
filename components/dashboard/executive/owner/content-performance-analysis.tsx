@@ -215,12 +215,13 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
           </div>
           
           {/* Enhanced YouTube Analytics */}
-          {ytViews > 0 && (
-            <div>
-              <h4 className="text-md font-semibold mb-6 text-red-600 flex items-center gap-2">
-                <PlayCircle className="h-5 w-5" />
-                📺 Enhanced YouTube Analytics
-              </h4>
+          <div>
+            <h4 className="text-md font-semibold mb-6 text-red-600 flex items-center gap-2">
+              <PlayCircle className="h-5 w-5" />
+              📺 Enhanced YouTube Analytics {ytViews === 0 && ytVideos.length === 0 && !analytics?.ytMetrics ? "(No Data Available)" : ""}
+            </h4>
+            {(ytViews > 0 || ytVideos.length > 0 || analytics?.ytMetrics) ? (
+              <div>
               
               {/* YouTube KPI Cards */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -357,16 +358,22 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
                   </CardContent>
                 </Card>
               )}
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No YouTube data available for this company. Connect YouTube Analytics to see detailed video performance metrics.
+              </div>
+            )}
+          </div>
           
           {/* Enhanced LinkedIn Analytics */}
-          {(liImpressions > 0 || liPageViews > 0 || liFollowers > 0) && (
-            <div>
-              <h4 className="text-md font-semibold mb-6 text-blue-700 flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                💼 Enhanced LinkedIn Analytics
-              </h4>
+          <div>
+            <h4 className="text-md font-semibold mb-6 text-blue-700 flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              💼 Enhanced LinkedIn Analytics {liImpressions === 0 && liPageViews === 0 && liFollowers === 0 && !analytics?.liVisitorMetrics && !analytics?.liFollowerMetrics && !analytics?.liContentMetrics ? "(No Data Available)" : ""}
+            </h4>
+            {(liImpressions > 0 || liPageViews > 0 || liFollowers > 0 || analytics?.liVisitorMetrics || analytics?.liFollowerMetrics || analytics?.liContentMetrics) ? (
+              <div>
               
               {/* LinkedIn KPI Cards */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -608,8 +615,13 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
                   </Card>
                 </div>
               )}
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No LinkedIn data available for this company. Connect LinkedIn Analytics to see detailed audience demographics and content performance metrics.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
