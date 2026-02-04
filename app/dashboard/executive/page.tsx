@@ -71,7 +71,7 @@ export default function ExecutiveDashboard() {
       console.log('[Executive Dashboard] Portfolio data loaded:', { 
         cached: data.cached, 
         companiesCount: data.companies?.length,
-        companiesWithData: data.companies?.filter(c => c.gaMetrics || c.gscMetrics).length || 0,
+        companiesWithData: data.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0,
         forceRefresh
       })
       setPortfolioData(data)
@@ -147,7 +147,7 @@ export default function ExecutiveDashboard() {
               Portfolio overview • {companies.length} companies • Last 30 Days
               {portfolioData && (
                 <span className="ml-2">
-                  • {portfolioData.companies?.filter(c => c.gaMetrics || c.gscMetrics).length || 0} with data
+                  • {portfolioData.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0} with data
                 </span>
               )}
             </p>
