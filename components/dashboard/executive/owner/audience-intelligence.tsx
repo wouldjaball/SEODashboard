@@ -313,6 +313,184 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
           )}
         </div>
 
+        {/* LinkedIn Professional Demographics */}
+        {(liIndustryDemographics.length > 0 || liSeniorityDemographics.length > 0) && (
+          <div className="mt-6">
+            <h4 className="text-md font-semibold mb-4 text-blue-600">LinkedIn Professional Demographics</h4>
+            <div className="grid gap-6 lg:grid-cols-2">
+              
+              {/* Industry Distribution */}
+              {liIndustryDemographics.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-blue-600" />
+                      Industry Distribution
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={liIndustryDemographics.slice(0, 8)}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis 
+                            dataKey="segment" 
+                            className="text-sm" 
+                            tick={{ fontSize: 10 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                          />
+                          <YAxis className="text-sm" tick={{ fontSize: 12 }} />
+                          <Tooltip 
+                            formatter={(value: number | undefined) => [formatNumber(value || 0), 'Followers']}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '6px'
+                            }}
+                          />
+                          <Bar 
+                            dataKey="value" 
+                            fill="#2563eb" 
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Seniority Distribution */}
+              {liSeniorityDemographics.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-blue-600" />
+                      Seniority Levels
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={liSeniorityDemographics.slice(0, 6)}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ segment, percentage }) => `${segment}: ${percentage.toFixed(1)}%`}
+                          >
+                            {liSeniorityDemographics.slice(0, 6).map((entry: any, index: number) => (
+                              <Cell key={`cell-${index}`} fill={['#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a', '#312e81', '#3730a3'][index]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: number | undefined) => [formatNumber(value || 0), 'Followers']}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '6px'
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Job Function Distribution */}
+              {liJobFunctionDemographics.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-blue-600" />
+                      Job Functions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={liJobFunctionDemographics.slice(0, 6)} layout="horizontal">
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis type="number" className="text-sm" tick={{ fontSize: 12 }} />
+                          <YAxis 
+                            type="category" 
+                            dataKey="segment" 
+                            className="text-sm" 
+                            tick={{ fontSize: 10 }}
+                            width={100}
+                          />
+                          <Tooltip 
+                            formatter={(value: number | undefined) => [formatNumber(value || 0), 'Followers']}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '6px'
+                            }}
+                          />
+                          <Bar 
+                            dataKey="value" 
+                            fill="#1d4ed8" 
+                            radius={[0, 4, 4, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Company Size Distribution */}
+              {liCompanySizeDemographics.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-blue-600" />
+                      Company Sizes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={liCompanySizeDemographics.slice(0, 8)}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis 
+                            dataKey="segment" 
+                            className="text-sm" 
+                            tick={{ fontSize: 10 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                          />
+                          <YAxis className="text-sm" tick={{ fontSize: 12 }} />
+                          <Tooltip 
+                            formatter={(value: number | undefined) => [formatNumber(value || 0), 'Followers']}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '6px'
+                            }}
+                          />
+                          <Bar 
+                            dataKey="value" 
+                            fill="#1e40af" 
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Real-time Activity */}
         <div className="grid gap-6 lg:grid-cols-2 mt-6">
           <Card>
