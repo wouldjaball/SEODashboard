@@ -307,7 +307,7 @@ export async function GET(
     }
 
     const fetchGSC = async () => {
-      if (!gscMappings?.gsc_sites) return null
+      if (!gscMappings?.gsc_sites) return { notConfigured: true }
       const gscSite = gscMappings.gsc_sites as { site_url: string; user_id: string }
       const gscOwnerUserId = gscSite.user_id
       
@@ -404,17 +404,23 @@ export async function GET(
     // Process GSC results
     if (gscResult.status === 'fulfilled' && gscResult.value) {
       const gsc = gscResult.value
-      results.gscMetrics = gsc.metrics
-      results.gscWeeklyData = gsc.weeklyData
-      results.gscKeywords = gsc.keywords
-      results.gscCountries = gsc.countries
-      results.gscDevices = gsc.devices
-      results.gscIndexData = gsc.indexData
-      results.gscLandingPages = gsc.landingPages
-      results.totalKeywords = gsc.totalKeywords
-      results.totalIndexedPages = gsc.totalIndexedPages
-      results.prevKeywords = gsc.prevKeywords
-      results.prevIndexedPages = gsc.prevIndexedPages
+      if (gsc.notConfigured) {
+        // GSC is not configured for this company - this is normal, not an error
+        console.log(`[Analytics] GSC not configured for company ${companyId}`)
+      } else {
+        // GSC is configured and data was fetched successfully
+        results.gscMetrics = gsc.metrics
+        results.gscWeeklyData = gsc.weeklyData
+        results.gscKeywords = gsc.keywords
+        results.gscCountries = gsc.countries
+        results.gscDevices = gsc.devices
+        results.gscIndexData = gsc.indexData
+        results.gscLandingPages = gsc.landingPages
+        results.totalKeywords = gsc.totalKeywords
+        results.totalIndexedPages = gsc.totalIndexedPages
+        results.prevKeywords = gsc.prevKeywords
+        results.prevIndexedPages = gsc.prevIndexedPages
+      }
     } else if (gscResult.status === 'rejected') {
       console.error('[Analytics] GSC fetch failed:', gscResult.reason)
       results.gscError = gscResult.reason?.message || 'GSC fetch failed'
