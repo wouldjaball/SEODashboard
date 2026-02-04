@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, TrendingUp, MousePointer, Eye, Clock, Target, ExternalLink } from "lucide-react"
+import { FileText, TrendingUp, MousePointer, Eye, Clock, Target, ExternalLink, Globe } from "lucide-react"
 
 interface ContentPerformanceAnalysisProps {
   analytics: any
@@ -19,7 +19,9 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
   const gscLandingPages = analytics?.gscLandingPages || []
   
   // Get top keywords from GSC
-  const topKeywords = analytics?.gscKeywords || []
+  const topKeywords = (analytics?.gscKeywords || [])
+    .filter((keyword: any) => keyword.query && keyword.impressions > 0)
+    .sort((a: any, b: any) => b.clicks - a.clicks)
   
   // Get YouTube data
   const ytMetrics = analytics?.ytMetrics || {}
@@ -38,7 +40,13 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
 
   // Format percentage
   const formatPercentage = (num: number): string => {
-    return num.toFixed(1) + '%'
+    // Handle conversion rate (already in percentage) vs other percentages (decimals)
+    // Conversion rates come as percentages (5.2), bounce rates come as decimals (0.52)
+    if (num > 1) {
+      return num.toFixed(1) + '%'
+    } else {
+      return (num * 100).toFixed(1) + '%'
+    }
   }
 
   // Format duration in seconds to readable format
@@ -71,79 +79,183 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
       <div>
         <h3 className="text-lg font-semibold mb-4">Content Performance Analysis</h3>
         
-        {/* Content Overview Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 mb-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Web Page Views</p>
-                  <p className="text-2xl font-bold">{formatNumber(totalPageViews)}</p>
-                </div>
-                <Eye className="h-5 w-5 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
+        {/* Multi-Platform Content Overview */}
+        <div className="space-y-6 mb-8">
           
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Web Sessions</p>
-                  <p className="text-2xl font-bold">{formatNumber(totalSessions)}</p>
-                </div>
-                <FileText className="h-5 w-5 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
+          {/* Website Analytics */}
+          <div>
+            <h4 className="text-md font-semibold mb-3 text-blue-600 flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Website Analytics (Google Analytics)
+            </h4>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Page Views</p>
+                      <p className="text-2xl font-bold">{formatNumber(totalPageViews)}</p>
+                    </div>
+                    <Eye className="h-5 w-5 text-blue-500" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Sessions</p>
+                      <p className="text-2xl font-bold">{formatNumber(totalSessions)}</p>
+                    </div>
+                    <FileText className="h-5 w-5 text-blue-500" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Avg Bounce Rate</p>
+                      <p className="text-2xl font-bold">{formatPercentage(avgBounceRate)}</p>
+                    </div>
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Conversions</p>
+                      <p className="text-2xl font-bold">{formatNumber(totalConversions)}</p>
+                    </div>
+                    <Target className="h-5 w-5 text-blue-500" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
           
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">YouTube Views</p>
-                  <p className="text-2xl font-bold">{formatNumber(ytViews)}</p>
-                </div>
-                <Eye className="h-5 w-5 text-red-500" />
+          {/* YouTube Analytics */}
+          {ytViews > 0 && (
+            <div>
+              <h4 className="text-md font-semibold mb-3 text-red-600 flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                YouTube Analytics
+              </h4>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Video Views</p>
+                        <p className="text-2xl font-bold">{formatNumber(ytViews)}</p>
+                      </div>
+                      <Eye className="h-5 w-5 text-red-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Watch Time</p>
+                        <p className="text-2xl font-bold">{formatDuration(ytWatchTime)}</p>
+                      </div>
+                      <Clock className="h-5 w-5 text-red-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Engagement</p>
+                        <p className="text-2xl font-bold">{formatNumber(ytEngagement)}</p>
+                      </div>
+                      <TrendingUp className="h-5 w-5 text-red-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Videos</p>
+                        <p className="text-2xl font-bold">{ytVideos.length}</p>
+                      </div>
+                      <FileText className="h-5 w-5 text-red-500" />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
           
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">LinkedIn Impressions</p>
-                  <p className="text-2xl font-bold">{formatNumber(liImpressions)}</p>
-                </div>
-                <Eye className="h-5 w-5 text-blue-600" />
+          {/* LinkedIn Analytics */}
+          {liImpressions > 0 && (
+            <div>
+              <h4 className="text-md font-semibold mb-3 text-blue-700 flex items-center gap-2">
+                <MousePointer className="h-4 w-4" />
+                LinkedIn Analytics
+              </h4>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Impressions</p>
+                        <p className="text-2xl font-bold">{formatNumber(liImpressions)}</p>
+                      </div>
+                      <Eye className="h-5 w-5 text-blue-700" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Engagement</p>
+                        <p className="text-2xl font-bold">{formatNumber(liEngagement)}</p>
+                      </div>
+                      <TrendingUp className="h-5 w-5 text-blue-700" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Engagement Rate</p>
+                        <p className="text-2xl font-bold">{formatPercentage(liEngagementRate)}</p>
+                      </div>
+                      <Target className="h-5 w-5 text-blue-700" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Posts</p>
+                        <p className="text-2xl font-bold">{liUpdates.length}</p>
+                      </div>
+                      <FileText className="h-5 w-5 text-blue-700" />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Engagement</p>
-                  <p className="text-2xl font-bold">{formatNumber(ytEngagement + liEngagement)}</p>
-                </div>
-                <TrendingUp className="h-5 w-5 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Conversions</p>
-                  <p className="text-2xl font-bold">{formatNumber(totalConversions)}</p>
-                </div>
-                <Target className="h-5 w-5 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </div>
       </div>
 
@@ -355,7 +467,7 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-red-500" />
-              Top YouTube Videos
+              🎥 Top YouTube Videos
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -401,8 +513,8 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MousePointer className="h-5 w-5 text-blue-600" />
-              Top LinkedIn Posts
+              <MousePointer className="h-5 w-5 text-blue-700" />
+              💼 Top LinkedIn Posts
             </CardTitle>
           </CardHeader>
           <CardContent>

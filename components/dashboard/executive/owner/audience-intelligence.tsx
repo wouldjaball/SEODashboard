@@ -40,11 +40,14 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
   })
 
   // Region data formatting (top 8 countries)
-  const regionData = gaRegions.slice(0, 8).map((region: any) => ({
-    country: region.country,
-    users: region.totalUsers,
-    keyEvents: region.keyEvents
-  }))
+  const regionData = gaRegions.slice(0, 8)
+    .filter((region: any) => region.country && region.totalUsers > 0)
+    .map((region: any) => ({
+      country: region.country,
+      users: region.totalUsers,
+      keyEvents: region.keyEvents || 0
+    }))
+    .sort((a: any, b: any) => b.users - a.users)
 
   // Gender data formatting
   const genderData = gaGender
@@ -82,25 +85,8 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
       <div>
         <h3 className="text-lg font-semibold mb-4">Audience Intelligence</h3>
         
-        {/* Real-time Overview */}
+        {/* Audience Overview */}
         <div className="grid gap-4 md:grid-cols-3 mb-6">
-          <Card className="border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Active Users</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatNumber(realtime.activeUsers)}
-                  </p>
-                  <Badge variant="secondary" className="mt-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                    LIVE
-                  </Badge>
-                </div>
-                <Users className="h-6 w-6 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-          
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -127,6 +113,21 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
                   </p>
                 </div>
                 <Smartphone className="h-6 w-6 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Users</p>
+                  <p className="text-2xl font-bold">{formatNumber(gaRegions.reduce((sum: number, region: any) => sum + region.totalUsers, 0))}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    vs. previous 30 days
+                  </p>
+                </div>
+                <Users className="h-6 w-6 text-green-500" />
               </div>
             </CardContent>
           </Card>
@@ -491,72 +492,6 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
           </div>
         )}
 
-        {/* Real-time Activity */}
-        <div className="grid gap-6 lg:grid-cols-2 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                Top Active Pages
-                <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                  LIVE
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {realtime.topPages.length > 0 ? (
-                  realtime.topPages.map((page, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
-                      <div className="truncate flex-1">
-                        <p className="text-sm font-medium truncate">{page.pagePath}</p>
-                      </div>
-                      <Badge variant="secondary">
-                        {page.activeUsers} users
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No active pages data available
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Top Traffic Sources
-                <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                  LIVE
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {realtime.topReferrers.length > 0 ? (
-                  realtime.topReferrers.map((referrer, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
-                      <div className="truncate flex-1">
-                        <p className="text-sm font-medium truncate">{referrer.source}</p>
-                      </div>
-                      <Badge variant="secondary">
-                        {referrer.activeUsers} users
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No traffic source data available
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   )

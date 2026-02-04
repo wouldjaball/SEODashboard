@@ -18,7 +18,31 @@ export function ChannelAnalysisVisualization({ analytics, dateRange }: ChannelAn
   // Get traffic and source data
   const gaChannelData = analytics?.gaChannelData || []
   const gaTrafficShare = analytics?.gaTrafficShare || []
-  const gaSourcePerformance = analytics?.gaSourcePerformance || []
+  const rawSourcePerformance = analytics?.gaSourcePerformance || []
+  
+  // Prioritize direct, organic search, and referral traffic sources
+  const prioritySourceOrder = ['direct', 'organic', 'google', 'referral', 'social']
+  
+  const gaSourcePerformance = [...rawSourcePerformance].sort((a: any, b: any) => {
+    const aSource = a.source.toLowerCase()
+    const bSource = b.source.toLowerCase()
+    
+    // Check if sources contain priority terms
+    const aPriorityIndex = prioritySourceOrder.findIndex(term => aSource.includes(term))
+    const bPriorityIndex = prioritySourceOrder.findIndex(term => bSource.includes(term))
+    
+    // If both have priority, sort by priority order
+    if (aPriorityIndex !== -1 && bPriorityIndex !== -1) {
+      return aPriorityIndex - bPriorityIndex
+    }
+    
+    // If only one has priority, it goes first
+    if (aPriorityIndex !== -1) return -1
+    if (bPriorityIndex !== -1) return 1
+    
+    // Neither has priority, sort by sessions descending
+    return b.sessions - a.sessions
+  })
   
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
@@ -27,7 +51,13 @@ export function ChannelAnalysisVisualization({ analytics, dateRange }: ChannelAn
   }
 
   const formatPercentage = (num: number): string => {
-    return num.toFixed(1) + '%'
+    // Handle conversion rate (already in percentage) vs other percentages (decimals)
+    // Conversion rates come as percentages (5.2), bounce rates come as decimals (0.52)
+    if (num > 1) {
+      return num.toFixed(1) + '%'
+    } else {
+      return (num * 100).toFixed(1) + '%'
+    }
   }
 
   const formatDuration = (seconds: number): string => {

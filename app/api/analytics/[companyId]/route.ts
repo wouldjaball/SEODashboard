@@ -418,6 +418,15 @@ export async function GET(
     } else if (gscResult.status === 'rejected') {
       console.error('[Analytics] GSC fetch failed:', gscResult.reason)
       results.gscError = gscResult.reason?.message || 'GSC fetch failed'
+      // Set error type based on error message  
+      const errorMessage = gscResult.reason?.message || ''
+      if (errorMessage.includes('scope') || errorMessage.includes('webmasters.readonly')) {
+        results.gscErrorType = 'scope_missing'
+      } else if (errorMessage.includes('token') || errorMessage.includes('auth')) {
+        results.gscErrorType = 'auth_required'  
+      } else {
+        results.gscErrorType = 'api_error'
+      }
     }
 
     // Process YouTube results

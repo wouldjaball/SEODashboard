@@ -87,7 +87,7 @@ export function OwnerKPICards({ data }: OwnerKPICardsProps) {
       value: formatNumber(data.keyEvents),
       icon: Target,
       growth: null,
-      description: `${(data.conversionRate * 100).toFixed(2)}% conversion rate`
+      description: `${data.conversionRate.toFixed(2)}% conversion rate`
     },
     {
       title: "Search Impressions",
