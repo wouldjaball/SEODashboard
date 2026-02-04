@@ -8,27 +8,7 @@ import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
 import { subDays, format } from 'date-fns'
 
-// Import LinkedIn mock data for fallback
-import {
-  liVisitorMetrics,
-  liFollowerMetrics,
-  liContentMetrics,
-  liVisitorDaily,
-  liFollowerDaily,
-  liImpressionDaily,
-  liIndustryDemographics,
-  liSeniorityDemographics,
-  liJobFunctionDemographics,
-  liCompanySizeDemographics,
-  liUpdates
-} from '@/lib/mock-data/linkedin'
 
-// Import YouTube mock data for fallback
-import {
-  ytMetrics as mockYtMetrics,
-  ytVideos as mockYtVideos,
-  ytDailyData as mockYtDailyData
-} from '@/lib/mock-data/youtube'
 
 export async function GET(
   request: Request,
@@ -455,15 +435,20 @@ export async function GET(
     } else if (ytResult.status === 'rejected') {
       console.error('[Analytics] YouTube fetch failed:', ytResult.reason)
       results.ytError = ytResult.reason?.message || 'YouTube fetch failed'
-      // Fallback to mock data when YouTube API fails
-      console.log('[YouTube] Using mock data fallback due to API failure')
-      addYouTubeMockData(results)
-      results.ytDataSource = 'mock'
+      
+      // Try to fall back to cached YouTube data
+      const cachedYtData = await getCachedServiceData(supabase, companyId, 'youtube')
+      if (cachedYtData) {
+        Object.assign(results, cachedYtData)
+        console.log(`[YouTube] Using cached data fallback for ${companyId}`)
+      }
     } else {
-      // No YouTube connection configured, use mock data
-      console.log('[YouTube] No connection configured, using mock data')
-      addYouTubeMockData(results)
-      results.ytDataSource = 'mock'
+      // No YouTube connection configured, try cached data
+      const cachedYtData = await getCachedServiceData(supabase, companyId, 'youtube')
+      if (cachedYtData) {
+        Object.assign(results, cachedYtData)
+        console.log(`[YouTube] No connection configured, using cached data for ${companyId}`)
+      }
     }
 
     // Process LinkedIn results
@@ -489,15 +474,20 @@ export async function GET(
     } else if (liResult.status === 'rejected') {
       console.error('[Analytics] LinkedIn fetch failed:', liResult.reason)
       results.liError = liResult.reason?.message || 'LinkedIn fetch failed'
-      // Fallback to mock data when LinkedIn API fails
-      console.log('[LinkedIn] Using mock data fallback due to API failure')
-      addLinkedInMockData(results)
-      results.liDataSource = 'mock'
+      
+      // Try to fall back to cached LinkedIn data
+      const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
+      if (cachedLiData) {
+        Object.assign(results, cachedLiData)
+        console.log(`[LinkedIn] Using cached data fallback for ${companyId}`)
+      }
     } else {
-      // No LinkedIn connection configured, use mock data
-      console.log('[LinkedIn] No connection configured, using mock data')
-      addLinkedInMockData(results)
-      results.liDataSource = 'mock'
+      // No LinkedIn connection configured, try cached data
+      const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
+      if (cachedLiData) {
+        Object.assign(results, cachedLiData)
+        console.log(`[LinkedIn] No connection configured, using cached data for ${companyId}`)
+      }
     }
 
     // ============================================
@@ -617,30 +607,78 @@ async function cacheData(
   }
 }
 
-// Helper to add LinkedIn mock data as fallback
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addLinkedInMockData(results: any) {
-  results.liVisitorMetrics = liVisitorMetrics
-  results.liFollowerMetrics = liFollowerMetrics
-  results.liContentMetrics = liContentMetrics
-  results.liVisitorDaily = liVisitorDaily
-  results.liFollowerDaily = liFollowerDaily
-  results.liImpressionDaily = liImpressionDaily
-  results.liIndustryDemographics = liIndustryDemographics
-  results.liSeniorityDemographics = liSeniorityDemographics
-  results.liJobFunctionDemographics = liJobFunctionDemographics
-  results.liCompanySizeDemographics = liCompanySizeDemographics
-  results.liUpdates = liUpdates
+// Helper to get cached data for a specific service when API fails
+async function getCachedServiceData(
+  supabase: any, 
+  companyId: string, 
+  service: 'youtube' | 'linkedin'
+) {
+  try {
+    console.log(`[Cache] Looking for cached ${service} data for ${companyId}`)
+    
+    // Look for recent cached data (up to 7 days old)
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    
+    const { data, error } = await supabase
+      .from('analytics_cache')
+      .select('cached_data, created_at')
+      .eq('company_id', companyId)
+      .eq('data_type', 'all')
+      .gte('created_at', sevenDaysAgo.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      console.error(`[Cache] Error fetching cached ${service} data:`, error)
+      return null
+    }
+
+    if (!data?.cached_data) {
+      console.log(`[Cache] No cached ${service} data found for ${companyId}`)
+      return null
+    }
+
+    const cachedData = data.cached_data
+    const serviceData: any = {}
+
+    if (service === 'youtube') {
+      if (cachedData.ytMetrics) {
+        serviceData.ytMetrics = cachedData.ytMetrics
+        serviceData.ytVideos = cachedData.ytVideos || []
+        serviceData.ytViewsSparkline = cachedData.ytViewsSparkline || []
+        serviceData.ytWatchTimeSparkline = cachedData.ytWatchTimeSparkline || []
+        serviceData.ytSharesSparkline = cachedData.ytSharesSparkline || []
+        serviceData.ytLikesSparkline = cachedData.ytLikesSparkline || []
+        serviceData.ytDataSource = 'cached'
+        console.log(`[Cache] Using cached YouTube data for ${companyId} (${Math.round((new Date().getTime() - new Date(data.created_at).getTime()) / (1000 * 60))} minutes old)`)
+        return serviceData
+      }
+    } else if (service === 'linkedin') {
+      if (cachedData.liVisitorMetrics) {
+        serviceData.liVisitorMetrics = cachedData.liVisitorMetrics
+        serviceData.liFollowerMetrics = cachedData.liFollowerMetrics
+        serviceData.liContentMetrics = cachedData.liContentMetrics
+        serviceData.liVisitorDaily = cachedData.liVisitorDaily || []
+        serviceData.liFollowerDaily = cachedData.liFollowerDaily || []
+        serviceData.liImpressionDaily = cachedData.liImpressionDaily || []
+        serviceData.liIndustryDemographics = cachedData.liIndustryDemographics || []
+        serviceData.liSeniorityDemographics = cachedData.liSeniorityDemographics || []
+        serviceData.liJobFunctionDemographics = cachedData.liJobFunctionDemographics || []
+        serviceData.liCompanySizeDemographics = cachedData.liCompanySizeDemographics || []
+        serviceData.liUpdates = cachedData.liUpdates || []
+        serviceData.liDataSource = 'cached'
+        console.log(`[Cache] Using cached LinkedIn data for ${companyId} (${Math.round((new Date().getTime() - new Date(data.created_at).getTime()) / (1000 * 60))} minutes old)`)
+        return serviceData
+      }
+    }
+
+    console.log(`[Cache] No valid cached ${service} data found for ${companyId}`)
+    return null
+  } catch (error) {
+    console.error(`[Cache] Error getting cached ${service} data:`, error)
+    return null
+  }
 }
 
-// Helper to add YouTube mock data as fallback
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addYouTubeMockData(results: any) {
-  results.ytMetrics = mockYtMetrics
-  results.ytVideos = mockYtVideos
-  results.ytIsPublicDataOnly = false
-  results.ytViewsSparkline = mockYtDailyData.map((d: any) => d.views)
-  results.ytWatchTimeSparkline = mockYtDailyData.map((d: any) => d.watchTime)
-  results.ytSharesSparkline = mockYtDailyData.map((d: any) => d.shares)
-  results.ytLikesSparkline = mockYtDailyData.map((d: any) => d.likes)
-}
