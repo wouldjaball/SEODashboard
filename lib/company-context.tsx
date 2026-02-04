@@ -211,7 +211,17 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       console.log('[CompanyContext] Received data:', data)
 
       if (data.error) {
+        console.error('[CompanyContext] API returned error:', data.error)
         throw new Error(data.error)
+      }
+
+      // Handle case where API returns debug info about access issues
+      if (data.debug) {
+        console.warn('[CompanyContext] Access issue detected:', data.debug)
+        setError(`Access issue: ${data.message || 'User has no company access'}. ${data.debug.suggestedAction || 'Please contact support.'}`)
+        setCompanies([])
+        setCompanyState(emptyCompany)
+        return
       }
 
       if (data.companies && data.companies.length > 0) {

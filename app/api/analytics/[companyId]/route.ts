@@ -37,20 +37,81 @@ export async function GET(
 
     const { companyId } = await params
 
+    console.log('[Analytics API] === COMPANY ACCESS VALIDATION ===')
+    console.log('[Analytics API] User ID:', user.id)
+    console.log('[Analytics API] User email:', user.email)
+    console.log('[Analytics API] Requested company ID:', companyId)
+
+    // First, let's get the company details to verify it exists
+    const { data: companyData, error: companyError } = await supabase
+      .from('companies')
+      .select('id, name, industry')
+      .eq('id', companyId)
+      .maybeSingle()
+
+    console.log('[Analytics API] Company lookup result:')
+    console.log('[Analytics API] - Error:', companyError)
+    console.log('[Analytics API] - Company data:', companyData)
+
+    if (companyError) {
+      console.error('[Analytics API] Error looking up company:', companyError)
+    }
+
+    if (!companyData) {
+      console.warn('[Analytics API] Company not found in database:', companyId)
+      return NextResponse.json({
+        error: 'Company not found',
+        message: 'The requested company does not exist in the database'
+      }, { status: 404 })
+    }
+
     // Verify user has access to this company
-    const { data: userCompanyAccess } = await supabase
+    const { data: userCompanyAccess, error: accessError } = await supabase
       .from('user_companies')
-      .select('role')
+      .select('role, company_id, user_id')
       .eq('user_id', user.id)
       .eq('company_id', companyId)
       .maybeSingle()
 
+    console.log('[Analytics API] User access validation result:')
+    console.log('[Analytics API] - Error:', accessError)
+    console.log('[Analytics API] - Access data:', userCompanyAccess)
+
+    // Let's also check what companies this user DOES have access to
+    const { data: allUserCompanies, error: allAccessError } = await supabase
+      .from('user_companies')
+      .select('company_id, role, companies(id, name)')
+      .eq('user_id', user.id)
+
+    console.log('[Analytics API] User\'s all company access:')
+    console.log('[Analytics API] - Error:', allAccessError)
+    console.log('[Analytics API] - All companies:', allUserCompanies?.map(uc => ({
+      companyId: uc.company_id,
+      role: uc.role,
+      companyName: (uc.companies as any)?.name
+    })))
+
     if (!userCompanyAccess) {
+      console.error('[Analytics API] === ACCESS DENIED ===')
+      console.error('[Analytics API] User', user.email, 'does not have access to company', companyId, '(', companyData.name, ')')
+      console.error('[Analytics API] User has access to', allUserCompanies?.length || 0, 'companies total')
+      
       return NextResponse.json({
         error: 'Access denied',
-        message: 'You do not have access to this company'
+        message: `You do not have access to ${companyData.name}. You have access to ${allUserCompanies?.length || 0} companies. Please check with your administrator.`,
+        debug: {
+          requestedCompany: { id: companyId, name: companyData.name },
+          userCompanies: allUserCompanies?.map(uc => ({
+            id: uc.company_id,
+            name: (uc.companies as any)?.name,
+            role: uc.role
+          })) || []
+        }
       }, { status: 403 })
     }
+
+    console.log('[Analytics API] === ACCESS GRANTED ===')
+    console.log('[Analytics API] User', user.email, 'has', userCompanyAccess.role, 'access to', companyData.name)
 
     const { searchParams } = new URL(request.url)
     
