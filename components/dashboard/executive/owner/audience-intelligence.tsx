@@ -382,7 +382,7 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
                             outerRadius={80}
                             fill="#8884d8"
                             dataKey="value"
-                            label={({ segment, percentage }) => `${segment}: ${percentage.toFixed(1)}%`}
+                            label={false}
                           >
                             {liSeniorityDemographics.slice(0, 6).map((entry: any, index: number) => (
                               <Cell key={`cell-${index}`} fill={['#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a', '#312e81', '#3730a3'][index]} />
