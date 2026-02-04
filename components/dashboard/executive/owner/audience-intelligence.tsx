@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { Globe, Smartphone, Monitor, Tablet, Users, MapPin, Clock } from "lucide-react"
+import { Globe, Smartphone, Monitor, Tablet, Users, MapPin, Clock, Briefcase, Building2, TrendingUp } from "lucide-react"
 
 interface AudienceIntelligenceProps {
   analytics: any
@@ -20,6 +20,12 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
   const gaRegions = analytics?.gaRegions || []
   const gaGender = analytics?.gaGender || []
   const gaAge = analytics?.gaAge || []
+  
+  // Get LinkedIn demographics data
+  const liIndustryDemographics = analytics?.liIndustryDemographics || []
+  const liSeniorityDemographics = analytics?.liSeniorityDemographics || []
+  const liJobFunctionDemographics = analytics?.liJobFunctionDemographics || []
+  const liCompanySizeDemographics = analytics?.liCompanySizeDemographics || []
   
   // Device data formatting
   const deviceData = gaDevices.map((device: any) => ({

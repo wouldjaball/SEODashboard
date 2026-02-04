@@ -27,7 +27,7 @@ export function ChannelAnalysisVisualization({ analytics, dateRange }: ChannelAn
   }
 
   const formatPercentage = (num: number): string => {
-    return (num * 100).toFixed(1) + '%'
+    return num.toFixed(1) + '%'
   }
 
   const formatDuration = (seconds: number): string => {

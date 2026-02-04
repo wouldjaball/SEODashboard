@@ -285,7 +285,7 @@ export class GoogleAnalyticsService {
         avgSessionDuration: parseFloat(row.metricValues[4].value),
         bounceRate: parseFloat(row.metricValues[5].value),
         keyEvents,
-        conversionRate: keyEvents / sessions
+        conversionRate: (keyEvents / sessions) * 100
       }
     })
   }
@@ -328,7 +328,7 @@ export class GoogleAnalyticsService {
         avgSessionDuration: parseFloat(row.metricValues[4].value),
         bounceRate: parseFloat(row.metricValues[5].value),
         keyEvents,
-        conversionRate: keyEvents / sessions
+        conversionRate: (keyEvents / sessions) * 100
       }
     })
   }

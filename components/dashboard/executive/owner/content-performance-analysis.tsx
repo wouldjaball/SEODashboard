@@ -21,6 +21,14 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
   // Get top keywords from GSC
   const topKeywords = analytics?.gscKeywords || []
   
+  // Get YouTube data
+  const ytMetrics = analytics?.ytMetrics || {}
+  const ytVideos = analytics?.ytVideos || []
+  
+  // Get LinkedIn data
+  const liContentMetrics = analytics?.liContentMetrics || {}
+  const liUpdates = analytics?.liUpdates || []
+  
   // Format numbers for display
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
@@ -30,7 +38,7 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
 
   // Format percentage
   const formatPercentage = (num: number): string => {
-    return (num * 100).toFixed(1) + '%'
+    return num.toFixed(1) + '%'
   }
 
   // Format duration in seconds to readable format
@@ -47,6 +55,16 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
     ? gaLandingPages.reduce((sum: number, page: any) => sum + page.bounceRate, 0) / gaLandingPages.length 
     : 0
   const totalConversions = gaLandingPages.reduce((sum: number, page: any) => sum + page.keyEvents, 0)
+  
+  // YouTube insights
+  const ytViews = ytMetrics.views || 0
+  const ytWatchTime = ytMetrics.totalWatchTime || 0
+  const ytEngagement = ytMetrics.likes + ytMetrics.comments || 0
+  
+  // LinkedIn insights  
+  const liImpressions = liContentMetrics.impressions || 0
+  const liEngagement = liContentMetrics.reactions + liContentMetrics.comments + liContentMetrics.reposts || 0
+  const liEngagementRate = liContentMetrics.engagementRate || 0
 
   return (
     <div className="space-y-6">
@@ -54,12 +72,12 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
         <h3 className="text-lg font-semibold mb-4">Content Performance Analysis</h3>
         
         {/* Content Overview Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 mb-6">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Page Views</p>
+                  <p className="text-sm text-muted-foreground">Web Page Views</p>
                   <p className="text-2xl font-bold">{formatNumber(totalPageViews)}</p>
                 </div>
                 <Eye className="h-5 w-5 text-blue-500" />
@@ -71,7 +89,7 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Sessions</p>
+                  <p className="text-sm text-muted-foreground">Web Sessions</p>
                   <p className="text-2xl font-bold">{formatNumber(totalSessions)}</p>
                 </div>
                 <FileText className="h-5 w-5 text-green-500" />
@@ -83,10 +101,34 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Avg Bounce Rate</p>
-                  <p className="text-2xl font-bold">{formatPercentage(avgBounceRate)}</p>
+                  <p className="text-sm text-muted-foreground">YouTube Views</p>
+                  <p className="text-2xl font-bold">{formatNumber(ytViews)}</p>
                 </div>
-                <TrendingUp className="h-5 w-5 text-orange-500" />
+                <Eye className="h-5 w-5 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">LinkedIn Impressions</p>
+                  <p className="text-2xl font-bold">{formatNumber(liImpressions)}</p>
+                </div>
+                <Eye className="h-5 w-5 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Engagement</p>
+                  <p className="text-2xl font-bold">{formatNumber(ytEngagement + liEngagement)}</p>
+                </div>
+                <TrendingUp className="h-5 w-5 text-purple-500" />
               </div>
             </CardContent>
           </Card>
@@ -98,7 +140,7 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
                   <p className="text-sm text-muted-foreground">Conversions</p>
                   <p className="text-2xl font-bold">{formatNumber(totalConversions)}</p>
                 </div>
-                <Target className="h-5 w-5 text-purple-500" />
+                <Target className="h-5 w-5 text-green-600" />
               </div>
             </CardContent>
           </Card>
@@ -306,6 +348,109 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
           </Table>
         </CardContent>
       </Card>
+
+      {/* Top YouTube Videos */}
+      {ytVideos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-red-500" />
+              Top YouTube Videos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Video Title</TableHead>
+                  <TableHead className="text-right">Views</TableHead>
+                  <TableHead className="text-right">Avg Watch Time</TableHead>
+                  <TableHead className="text-right">Shares</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ytVideos.slice(0, 5).map((video: any, index: number) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium max-w-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="truncate">
+                          <div className="font-medium truncate">{video.title}</div>
+                        </div>
+                        <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatNumber(video.views)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatDuration(video.avgWatchTime)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatNumber(video.shares)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Top LinkedIn Posts */}
+      {liUpdates.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MousePointer className="h-5 w-5 text-blue-600" />
+              Top LinkedIn Posts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Post Title</TableHead>
+                  <TableHead className="text-right">Impressions</TableHead>
+                  <TableHead className="text-right">Reactions</TableHead>
+                  <TableHead className="text-right">Comments</TableHead>
+                  <TableHead className="text-right">Engagement Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {liUpdates.slice(0, 5).map((post: any, index: number) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium max-w-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="truncate">
+                          <div className="font-medium truncate">{post.title}</div>
+                        </div>
+                        <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatNumber(post.impressions)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatNumber(post.reactions)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatNumber(post.comments)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge 
+                        variant={post.engagementRate > 5 ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        {formatPercentage(post.engagementRate)}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
