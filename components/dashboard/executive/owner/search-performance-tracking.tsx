@@ -139,9 +139,9 @@ export function SearchPerformanceTracking({ analytics, dateRange }: SearchPerfor
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '6px'
                     }}
-                    formatter={(value: number, name: string) => [
-                      formatNumber(value), 
-                      name === 'impressions' ? 'Impressions' : 'Clicks'
+                    formatter={(value: number | undefined, name: string | undefined) => [
+                      formatNumber(value || 0), 
+                      (name === 'impressions') ? 'Impressions' : 'Clicks'
                     ]}
                   />
                   <Line
@@ -188,7 +188,7 @@ export function SearchPerformanceTracking({ analytics, dateRange }: SearchPerfor
                     width={120}
                   />
                   <Tooltip 
-                    formatter={(value: number) => [formatNumber(value), 'Clicks']}
+                    formatter={(value: number | undefined) => [formatNumber(value || 0), 'Clicks']}
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--background))',
                       border: '1px solid hsl(var(--border))',

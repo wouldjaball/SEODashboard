@@ -86,14 +86,18 @@ export function ChannelAnalysisVisualization({ analytics, dateRange }: ChannelAn
                         outerRadius={100}
                         fill="#8884d8"
                         dataKey="users"
-                        label={({ channel, percentage }) => `${channel}: ${(percentage * 100).toFixed(1)}%`}
+                        label={({ payload }: any) => {
+                          const channel = payload?.channel || 'Unknown'
+                          const percentage = payload?.percentage || 0
+                          return `${channel}: ${(percentage * 100).toFixed(1)}%`
+                        }}
                       >
-                        {gaTrafficShare.map((entry, index) => (
+                        {gaTrafficShare.map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
                         ))}
                       </Pie>
                       <Tooltip 
-                        formatter={(value: number) => [formatNumber(value), 'Users']}
+                        formatter={(value: number | undefined) => [formatNumber(value || 0), 'Users']}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',

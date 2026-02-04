@@ -56,7 +56,7 @@ interface OwnerDashboardData {
 }
 
 export default function OwnerExecutiveDashboard() {
-  const { selectedCompany, isLoading: companyLoading } = useCompany()
+  const { company, isLoading } = useCompany()
   const [user, setUser] = useState<any>(null)
   
   const [dateRange, setDateRange] = useState({
@@ -65,7 +65,7 @@ export default function OwnerExecutiveDashboard() {
   })
   
   const [dashboardData, setDashboardData] = useState<OwnerDashboardData | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isDashboardLoading, setIsDashboardLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasOwnerAccess, setHasOwnerAccess] = useState<boolean | null>(null)
 
@@ -81,10 +81,10 @@ export default function OwnerExecutiveDashboard() {
 
   // Check if user has owner access to current company
   const checkOwnerAccess = useCallback(async () => {
-    if (!user || !selectedCompany) return
+    if (!user || !company) return
 
     try {
-      const response = await fetch(`/api/companies/${selectedCompany.id}/access-check`)
+      const response = await fetch(`/api/companies/${company.id}/access-check`)
       const result = await response.json()
       
       setHasOwnerAccess(result.role === 'owner')
@@ -92,14 +92,14 @@ export default function OwnerExecutiveDashboard() {
       console.error('Failed to check access:', err)
       setHasOwnerAccess(false)
     }
-  }, [user, selectedCompany])
+  }, [user, company])
 
   // Fetch comprehensive analytics data
   const fetchDashboardData = useCallback(async () => {
-    if (!selectedCompany) return
+    if (!company) return
 
     try {
-      setIsLoading(true)
+      setIsDashboardLoading(true)
       setError(null)
 
       const params = new URLSearchParams({
@@ -109,8 +109,8 @@ export default function OwnerExecutiveDashboard() {
 
       // Fetch both regular analytics and real-time data
       const [analyticsResponse, realtimeResponse] = await Promise.all([
-        fetch(`/api/analytics/${selectedCompany.id}?${params}`),
-        fetch(`/api/analytics/${selectedCompany.id}/realtime`)
+        fetch(`/api/analytics/${company.id}?${params}`),
+        fetch(`/api/analytics/${company.id}/realtime`)
       ])
 
       if (!analyticsResponse.ok) {
@@ -164,9 +164,9 @@ export default function OwnerExecutiveDashboard() {
       console.error('Dashboard data fetch error:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data')
     } finally {
-      setIsLoading(false)
+      setIsDashboardLoading(false)
     }
-  }, [selectedCompany, dateRange])
+  }, [company, dateRange])
 
   // Calculate growth percentage
   const calculateGrowth = (current: number, previous: number): number => {
@@ -181,12 +181,12 @@ export default function OwnerExecutiveDashboard() {
 
   // Fetch data when date range or company changes
   useEffect(() => {
-    if (hasOwnerAccess && selectedCompany) {
+    if (hasOwnerAccess && company) {
       fetchDashboardData()
     }
-  }, [hasOwnerAccess, selectedCompany, fetchDashboardData])
+  }, [hasOwnerAccess, company, fetchDashboardData])
 
-  if (companyLoading || hasOwnerAccess === null) {
+  if (isLoading || hasOwnerAccess === null) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -217,7 +217,7 @@ export default function OwnerExecutiveDashboard() {
     )
   }
 
-  if (!selectedCompany) {
+  if (!company) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
@@ -240,7 +240,7 @@ export default function OwnerExecutiveDashboard() {
             Executive Dashboard
           </h1>
           <p className="text-muted-foreground">
-            {selectedCompany.name} • Owner View • {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
+            {company.name} • Owner View • {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
           </p>
         </div>
         <div className="shrink-0">
@@ -260,7 +260,7 @@ export default function OwnerExecutiveDashboard() {
       )}
 
       {/* Loading State */}
-      {isLoading && (
+      {isDashboardLoading && (
         <div className="flex items-center justify-center gap-2 p-8 bg-muted/50 rounded-lg border">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm text-muted-foreground">
@@ -269,7 +269,7 @@ export default function OwnerExecutiveDashboard() {
         </div>
       )}
 
-      {dashboardData && !isLoading && (
+      {dashboardData && !isDashboardLoading && (
         <>
           {/* KPI Cards */}
           <OwnerKPICards data={dashboardData} />

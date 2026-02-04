@@ -55,7 +55,7 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
       name: age.segment,
       value: age.totalUsers
     }))
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       // Sort age ranges properly (18-24, 25-34, etc.)
       const parseAge = (str: string) => parseInt(str.split('-')[0])
       return parseAge(a.name) - parseAge(b.name)
@@ -147,14 +147,18 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
-                        label={({ name, percentage }) => `${name}: ${percentage}%`}
+                        label={({ name, value }: any) => {
+                          const total = deviceData.reduce((sum: number, device: any) => sum + device.value, 0)
+                          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0
+                          return `${name}: ${percentage}%`
+                        }}
                       >
-                        {deviceData.map((entry, index) => (
+                        {deviceData.map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={deviceColors[index % deviceColors.length]} />
                         ))}
                       </Pie>
                       <Tooltip 
-                        formatter={(value: number) => [formatNumber(value), 'Users']}
+                        formatter={(value: number | undefined) => [formatNumber(value || 0), 'Users']}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',
@@ -195,7 +199,7 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
                         width={80}
                       />
                       <Tooltip 
-                        formatter={(value: number) => [formatNumber(value), 'Users']}
+                        formatter={(value: number | undefined) => [formatNumber(value || 0), 'Users']}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',
@@ -240,12 +244,12 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
                         dataKey="value"
                         label={({ name, value }) => `${name}: ${formatNumber(value)}`}
                       >
-                        {genderData.map((entry, index) => (
+                        {genderData.map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={genderColors[index % genderColors.length]} />
                         ))}
                       </Pie>
                       <Tooltip 
-                        formatter={(value: number) => [formatNumber(value), 'Users']}
+                        formatter={(value: number | undefined) => [formatNumber(value || 0), 'Users']}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',
@@ -283,7 +287,7 @@ export function AudienceIntelligence({ analytics, realtime }: AudienceIntelligen
                       />
                       <YAxis className="text-sm" tick={{ fontSize: 12 }} />
                       <Tooltip 
-                        formatter={(value: number) => [formatNumber(value), 'Users']}
+                        formatter={(value: number | undefined) => [formatNumber(value || 0), 'Users']}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',
