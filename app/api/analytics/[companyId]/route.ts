@@ -23,6 +23,13 @@ import {
   liUpdates
 } from '@/lib/mock-data/linkedin'
 
+// Import YouTube mock data for fallback
+import {
+  ytMetrics as mockYtMetrics,
+  ytVideos as mockYtVideos,
+  ytDailyData as mockYtDailyData
+} from '@/lib/mock-data/youtube'
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ companyId: string }> }
@@ -448,6 +455,15 @@ export async function GET(
     } else if (ytResult.status === 'rejected') {
       console.error('[Analytics] YouTube fetch failed:', ytResult.reason)
       results.ytError = ytResult.reason?.message || 'YouTube fetch failed'
+      // Fallback to mock data when YouTube API fails
+      console.log('[YouTube] Using mock data fallback due to API failure')
+      addYouTubeMockData(results)
+      results.ytDataSource = 'mock'
+    } else {
+      // No YouTube connection configured, use mock data
+      console.log('[YouTube] No connection configured, using mock data')
+      addYouTubeMockData(results)
+      results.ytDataSource = 'mock'
     }
 
     // Process LinkedIn results
@@ -473,6 +489,15 @@ export async function GET(
     } else if (liResult.status === 'rejected') {
       console.error('[Analytics] LinkedIn fetch failed:', liResult.reason)
       results.liError = liResult.reason?.message || 'LinkedIn fetch failed'
+      // Fallback to mock data when LinkedIn API fails
+      console.log('[LinkedIn] Using mock data fallback due to API failure')
+      addLinkedInMockData(results)
+      results.liDataSource = 'mock'
+    } else {
+      // No LinkedIn connection configured, use mock data
+      console.log('[LinkedIn] No connection configured, using mock data')
+      addLinkedInMockData(results)
+      results.liDataSource = 'mock'
     }
 
     // ============================================
@@ -606,4 +631,16 @@ function addLinkedInMockData(results: any) {
   results.liJobFunctionDemographics = liJobFunctionDemographics
   results.liCompanySizeDemographics = liCompanySizeDemographics
   results.liUpdates = liUpdates
+}
+
+// Helper to add YouTube mock data as fallback
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addYouTubeMockData(results: any) {
+  results.ytMetrics = mockYtMetrics
+  results.ytVideos = mockYtVideos
+  results.ytIsPublicDataOnly = false
+  results.ytViewsSparkline = mockYtDailyData.map((d: any) => d.views)
+  results.ytWatchTimeSparkline = mockYtDailyData.map((d: any) => d.watchTime)
+  results.ytSharesSparkline = mockYtDailyData.map((d: any) => d.shares)
+  results.ytLikesSparkline = mockYtDailyData.map((d: any) => d.likes)
 }

@@ -218,7 +218,13 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
           <div>
             <h4 className="text-md font-semibold mb-6 text-red-600 flex items-center gap-2">
               <PlayCircle className="h-5 w-5" />
-              📺 Enhanced YouTube Analytics {ytViews === 0 && ytVideos.length === 0 && !analytics?.ytMetrics ? "(No Data Available)" : ""}
+              📺 Enhanced YouTube Analytics
+              {analytics?.ytDataSource === 'mock' && (
+                <Badge variant="outline" className="text-xs text-amber-600">
+                  Sample Data
+                </Badge>
+              )}
+              {ytViews === 0 && ytVideos.length === 0 && !analytics?.ytMetrics && !analytics?.ytDataSource ? "(No Data Available)" : ""}
             </h4>
             {(ytViews > 0 || ytVideos.length > 0 || analytics?.ytMetrics) ? (
               <div>
@@ -370,7 +376,13 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
           <div>
             <h4 className="text-md font-semibold mb-6 text-blue-700 flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              💼 Enhanced LinkedIn Analytics {liImpressions === 0 && liPageViews === 0 && liFollowers === 0 && !analytics?.liVisitorMetrics && !analytics?.liFollowerMetrics && !analytics?.liContentMetrics ? "(No Data Available)" : ""}
+              💼 Enhanced LinkedIn Analytics
+              {analytics?.liDataSource === 'mock' && (
+                <Badge variant="outline" className="text-xs text-amber-600">
+                  Sample Data
+                </Badge>
+              )}
+              {liImpressions === 0 && liPageViews === 0 && liFollowers === 0 && !analytics?.liVisitorMetrics && !analytics?.liFollowerMetrics && !analytics?.liContentMetrics && !analytics?.liDataSource ? "(No Data Available)" : ""}
             </h4>
             {(liImpressions > 0 || liPageViews > 0 || liFollowers > 0 || analytics?.liVisitorMetrics || analytics?.liFollowerMetrics || analytics?.liContentMetrics) ? (
               <div>
