@@ -3,7 +3,40 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, TrendingUp, MousePointer, Eye, Clock, Target, ExternalLink, Globe } from "lucide-react"
+import { 
+  AreaChart, 
+  Area, 
+  LineChart, 
+  Line, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from "recharts"
+import { 
+  FileText, 
+  TrendingUp, 
+  MousePointer, 
+  Eye, 
+  Clock, 
+  Target, 
+  ExternalLink, 
+  Globe,
+  PlayCircle,
+  Share2,
+  ThumbsUp,
+  Users,
+  Building2,
+  UserCheck,
+  BarChart3,
+  Briefcase
+} from "lucide-react"
 
 interface ContentPerformanceAnalysisProps {
   analytics: any
@@ -26,10 +59,22 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
   // Get YouTube data
   const ytMetrics = analytics?.ytMetrics || {}
   const ytVideos = analytics?.ytVideos || []
+  const ytViewsSparkline = analytics?.ytViewsSparkline || []
+  const ytWatchTimeSparkline = analytics?.ytWatchTimeSparkline || []
+  const ytSharesSparkline = analytics?.ytSharesSparkline || []
+  const ytLikesSparkline = analytics?.ytLikesSparkline || []
   
   // Get LinkedIn data
+  const liVisitorMetrics = analytics?.liVisitorMetrics || {}
+  const liFollowerMetrics = analytics?.liFollowerMetrics || {}
   const liContentMetrics = analytics?.liContentMetrics || {}
   const liUpdates = analytics?.liUpdates || []
+  const liVisitorDaily = analytics?.liVisitorDaily || []
+  const liFollowerDaily = analytics?.liFollowerDaily || []
+  const liIndustryDemographics = analytics?.liIndustryDemographics || []
+  const liSeniorityDemographics = analytics?.liSeniorityDemographics || []
+  const liJobFunctionDemographics = analytics?.liJobFunctionDemographics || []
+  const liCompanySizeDemographics = analytics?.liCompanySizeDemographics || []
   
   // Format numbers for display
   const formatNumber = (num: number): string => {
@@ -67,12 +112,42 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
   // YouTube insights
   const ytViews = ytMetrics.views || 0
   const ytWatchTime = ytMetrics.totalWatchTime || 0
-  const ytEngagement = ytMetrics.likes + ytMetrics.comments || 0
+  const ytEngagement = (ytMetrics.likes || 0) + (ytMetrics.comments || 0)
   
   // LinkedIn insights  
   const liImpressions = liContentMetrics.impressions || 0
-  const liEngagement = liContentMetrics.reactions + liContentMetrics.comments + liContentMetrics.reposts || 0
+  const liEngagement = (liContentMetrics.reactions || 0) + (liContentMetrics.comments || 0) + (liContentMetrics.reposts || 0)
   const liEngagementRate = liContentMetrics.engagementRate || 0
+  const liPageViews = liVisitorMetrics.pageViews || 0
+  const liFollowers = liFollowerMetrics.totalFollowers || 0
+
+  // Prepare timeline data for YouTube charts
+  const ytTimelineData = ytViewsSparkline?.map((views: number, index: number) => ({
+    day: `Day ${index + 1}`,
+    views,
+    watchTime: ytWatchTimeSparkline?.[index] || 0,
+    shares: ytSharesSparkline?.[index] || 0,
+    likes: ytLikesSparkline?.[index] || 0
+  })) || []
+
+  // Prepare LinkedIn visitor data for charts
+  const liVisitorData = liVisitorDaily?.map((day: any) => ({
+    date: day.date,
+    desktop: day.desktopVisitors || 0,
+    mobile: day.mobileVisitors || 0,
+    total: (day.desktopVisitors || 0) + (day.mobileVisitors || 0)
+  })) || []
+
+  // Prepare LinkedIn follower growth data
+  const liFollowerData = liFollowerDaily?.map((day: any) => ({
+    date: day.date,
+    sponsored: day.sponsored || 0,
+    organic: day.organic || 0,
+    total: (day.sponsored || 0) + (day.organic || 0)
+  })) || []
+
+  // Colors for chart visualizations
+  const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
   return (
     <div className="space-y-6">
@@ -139,20 +214,27 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
             </div>
           </div>
           
-          {/* YouTube Analytics */}
+          {/* Enhanced YouTube Analytics */}
           {ytViews > 0 && (
             <div>
-              <h4 className="text-md font-semibold mb-3 text-red-600 flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                YouTube Analytics
+              <h4 className="text-md font-semibold mb-6 text-red-600 flex items-center gap-2">
+                <PlayCircle className="h-5 w-5" />
+                📺 Enhanced YouTube Analytics
               </h4>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              
+              {/* YouTube KPI Cards */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Video Views</p>
+                        <p className="text-sm text-muted-foreground">Total Views</p>
                         <p className="text-2xl font-bold">{formatNumber(ytViews)}</p>
+                        {ytMetrics.previousPeriod?.views && (
+                          <p className="text-xs text-green-600">
+                            +{(((ytViews - ytMetrics.previousPeriod.views) / ytMetrics.previousPeriod.views) * 100).toFixed(1)}%
+                          </p>
+                        )}
                       </div>
                       <Eye className="h-5 w-5 text-red-500" />
                     </div>
@@ -164,7 +246,12 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Watch Time</p>
-                        <p className="text-2xl font-bold">{formatDuration(ytWatchTime)}</p>
+                        <p className="text-2xl font-bold">{Math.floor(ytWatchTime / 3600).toLocaleString()}h</p>
+                        {ytMetrics.previousPeriod?.totalWatchTime && (
+                          <p className="text-xs text-green-600">
+                            +{(((ytWatchTime - ytMetrics.previousPeriod.totalWatchTime) / ytMetrics.previousPeriod.totalWatchTime) * 100).toFixed(1)}%
+                          </p>
+                        )}
                       </div>
                       <Clock className="h-5 w-5 text-red-500" />
                     </div>
@@ -175,10 +262,15 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Engagement</p>
-                        <p className="text-2xl font-bold">{formatNumber(ytEngagement)}</p>
+                        <p className="text-sm text-muted-foreground">Shares</p>
+                        <p className="text-2xl font-bold">{formatNumber(ytMetrics.shares || 0)}</p>
+                        {ytMetrics.previousPeriod?.shares && (
+                          <p className="text-xs text-green-600">
+                            +{(((ytMetrics.shares - ytMetrics.previousPeriod.shares) / ytMetrics.previousPeriod.shares) * 100).toFixed(1)}%
+                          </p>
+                        )}
                       </div>
-                      <TrendingUp className="h-5 w-5 text-red-500" />
+                      <Share2 className="h-5 w-5 text-red-500" />
                     </div>
                   </CardContent>
                 </Card>
@@ -187,31 +279,108 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Videos</p>
-                        <p className="text-2xl font-bold">{ytVideos.length}</p>
+                        <p className="text-sm text-muted-foreground">Avg. Duration</p>
+                        <p className="text-2xl font-bold">{formatDuration(ytMetrics.avgViewDuration || 0)}</p>
                       </div>
-                      <FileText className="h-5 w-5 text-red-500" />
+                      <PlayCircle className="h-5 w-5 text-red-500" />
                     </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* YouTube Charts */}
+              {ytTimelineData.length > 0 && (
+                <div className="grid gap-4 lg:grid-cols-2 mb-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Views Trend</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={ytTimelineData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="day" />
+                            <YAxis />
+                            <Tooltip formatter={(value) => [formatNumber(value as number), 'Views']} />
+                            <Area type="monotone" dataKey="views" stroke="#ef4444" fill="#ef4444" fillOpacity={0.3} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Engagement Metrics</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={ytTimelineData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="day" />
+                            <YAxis />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="shares" stroke="#10b981" name="Shares" />
+                            <Line type="monotone" dataKey="likes" stroke="#f59e0b" name="Likes" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Top Videos Performance */}
+              {ytVideos.length > 0 && (
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="text-base">Top Performing Videos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={ytVideos.slice(0, 5).map((video: any, index: number) => ({
+                          name: video.title.length > 20 ? video.title.substring(0, 20) + '...' : video.title,
+                          views: video.views,
+                          color: CHART_COLORS[index % CHART_COLORS.length]
+                        }))} layout="horizontal">
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" />
+                          <YAxis dataKey="name" type="category" width={100} />
+                          <Tooltip formatter={(value) => [formatNumber(value as number), 'Views']} />
+                          <Bar dataKey="views" fill="#ef4444" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
           
-          {/* LinkedIn Analytics */}
-          {liImpressions > 0 && (
+          {/* Enhanced LinkedIn Analytics */}
+          {(liImpressions > 0 || liPageViews > 0 || liFollowers > 0) && (
             <div>
-              <h4 className="text-md font-semibold mb-3 text-blue-700 flex items-center gap-2">
-                <MousePointer className="h-4 w-4" />
-                LinkedIn Analytics
+              <h4 className="text-md font-semibold mb-6 text-blue-700 flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                💼 Enhanced LinkedIn Analytics
               </h4>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              
+              {/* LinkedIn KPI Cards */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Impressions</p>
-                        <p className="text-2xl font-bold">{formatNumber(liImpressions)}</p>
+                        <p className="text-sm text-muted-foreground">Page Views</p>
+                        <p className="text-2xl font-bold">{formatNumber(liPageViews)}</p>
+                        {liVisitorMetrics.previousPeriod?.pageViews && (
+                          <p className="text-xs text-green-600">
+                            +{(((liPageViews - liVisitorMetrics.previousPeriod.pageViews) / liVisitorMetrics.previousPeriod.pageViews) * 100).toFixed(1)}%
+                          </p>
+                        )}
                       </div>
                       <Eye className="h-5 w-5 text-blue-700" />
                     </div>
@@ -222,10 +391,32 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Engagement</p>
-                        <p className="text-2xl font-bold">{formatNumber(liEngagement)}</p>
+                        <p className="text-sm text-muted-foreground">Followers</p>
+                        <p className="text-2xl font-bold">{formatNumber(liFollowers)}</p>
+                        {liFollowerMetrics.previousPeriod?.totalFollowers && (
+                          <p className="text-xs text-green-600">
+                            +{(((liFollowers - liFollowerMetrics.previousPeriod.totalFollowers) / liFollowerMetrics.previousPeriod.totalFollowers) * 100).toFixed(1)}%
+                          </p>
+                        )}
                       </div>
-                      <TrendingUp className="h-5 w-5 text-blue-700" />
+                      <Users className="h-5 w-5 text-blue-700" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Content Impressions</p>
+                        <p className="text-2xl font-bold">{formatNumber(liImpressions)}</p>
+                        {liContentMetrics.previousPeriod?.impressions && (
+                          <p className="text-xs text-green-600">
+                            +{(((liImpressions - liContentMetrics.previousPeriod.impressions) / liContentMetrics.previousPeriod.impressions) * 100).toFixed(1)}%
+                          </p>
+                        )}
+                      </div>
+                      <BarChart3 className="h-5 w-5 text-blue-700" />
                     </div>
                   </CardContent>
                 </Card>
@@ -236,24 +427,187 @@ export function ContentPerformanceAnalysis({ analytics, dateRange }: ContentPerf
                       <div>
                         <p className="text-sm text-muted-foreground">Engagement Rate</p>
                         <p className="text-2xl font-bold">{formatPercentage(liEngagementRate)}</p>
+                        {liContentMetrics.previousPeriod?.engagementRate && (
+                          <p className="text-xs text-green-600">
+                            +{(((liEngagementRate - liContentMetrics.previousPeriod.engagementRate) / liContentMetrics.previousPeriod.engagementRate) * 100).toFixed(1)}%
+                          </p>
+                        )}
                       </div>
                       <Target className="h-5 w-5 text-blue-700" />
                     </div>
                   </CardContent>
                 </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Posts</p>
-                        <p className="text-2xl font-bold">{liUpdates.length}</p>
-                      </div>
-                      <FileText className="h-5 w-5 text-blue-700" />
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
+
+              {/* LinkedIn Charts */}
+              <div className="grid gap-4 lg:grid-cols-2 mb-6">
+                {/* Visitor Trends */}
+                {liVisitorData.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Visitor Trends</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={liVisitorData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Area type="monotone" dataKey="desktop" stackId="1" stroke="#3b82f6" fill="#3b82f6" />
+                            <Area type="monotone" dataKey="mobile" stackId="1" stroke="#10b981" fill="#10b981" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Follower Growth */}
+                {liFollowerData.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Follower Growth</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={liFollowerData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="organic" stroke="#10b981" name="Organic" />
+                            <Line type="monotone" dataKey="sponsored" stroke="#f59e0b" name="Sponsored" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Audience Demographics */}
+              {liIndustryDemographics.length > 0 && (
+                <div className="grid gap-4 lg:grid-cols-2 mb-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Industry Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={liIndustryDemographics.slice(0, 6).map((item: any, index: number) => ({
+                                name: item.segment,
+                                value: item.value,
+                                fill: CHART_COLORS[index % CHART_COLORS.length]
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => 
+                                (percent && percent > 0.05) ? `${name}: ${(percent * 100).toFixed(0)}%` : ''
+                              }
+                              outerRadius={80}
+                              dataKey="value"
+                            >
+                              {liIndustryDemographics.slice(0, 6).map((_: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value) => [formatNumber(value as number), 'Followers']} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Seniority Levels</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={liSeniorityDemographics.slice(0, 6)}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="segment" />
+                            <YAxis />
+                            <Tooltip formatter={(value) => [formatNumber(value as number), 'Followers']} />
+                            <Bar dataKey="value" fill="#3b82f6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Job Functions and Company Size */}
+              {liJobFunctionDemographics.length > 0 && (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Briefcase className="h-4 w-4" />
+                        Job Functions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {liJobFunctionDemographics.slice(0, 6).map((item: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{item.segment}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-blue-600 rounded-full"
+                                  style={{ width: `${item.percentage}%` }}
+                                />
+                              </div>
+                              <span className="text-sm text-muted-foreground w-12 text-right">
+                                {item.percentage.toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Company Size
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {liCompanySizeDemographics.slice(0, 6).map((item: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{item.segment}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-green-600 rounded-full"
+                                  style={{ width: `${item.percentage}%` }}
+                                />
+                              </div>
+                              <span className="text-sm text-muted-foreground w-12 text-right">
+                                {item.percentage.toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </div>
           )}
         </div>

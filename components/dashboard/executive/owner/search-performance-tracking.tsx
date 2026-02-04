@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Search, TrendingUp, MousePointer, Eye, Target } from "lucide-react"
 
 interface SearchPerformanceTrackingProps {
@@ -166,47 +166,7 @@ export function SearchPerformanceTracking({ analytics, dateRange }: SearchPerfor
           </CardContent>
         </Card>
 
-        {/* Top Performing Keywords */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Top Performing Keywords
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={gscKeywords.slice(0, 10)} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" className="text-sm" tick={{ fontSize: 12 }} />
-                  <YAxis 
-                    type="category" 
-                    dataKey="query" 
-                    className="text-sm" 
-                    tick={{ fontSize: 10 }}
-                    width={120}
-                  />
-                  <Tooltip 
-                    formatter={(value: number | undefined) => [formatNumber(value || 0), 'Clicks']}
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px'
-                    }}
-                  />
-                  <Bar 
-                    dataKey="clicks" 
-                    fill="#10b981" 
-                    radius={[0, 4, 4, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Search by Country */}
+        {/* Search Performance by Country - Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -215,36 +175,86 @@ export function SearchPerformanceTracking({ analytics, dateRange }: SearchPerfor
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {gscCountries.slice(0, 8).map((country: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-6 bg-gray-200 rounded text-xs flex items-center justify-center font-medium">
-                      {country.countryCode}
-                    </div>
-                    <span className="font-medium">{country.country}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{formatNumber(country.clicks)}</p>
-                      <p className="text-xs text-muted-foreground">clicks</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{formatNumber(country.impressions)}</p>
-                      <p className="text-xs text-muted-foreground">impressions</p>
-                    </div>
-                    <Badge variant="secondary">
-                      {formatPercentage(country.ctr)}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              {gscCountries.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No country data available for the selected period.
-                </div>
-              )}
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={(() => {
+                      const sortedCountries = gscCountries
+                        .sort((a: any, b: any) => b.impressions - a.impressions)
+                        .slice(0, 8)
+                      
+                      const others = gscCountries
+                        .slice(8)
+                        .reduce((sum: number, country: any) => sum + country.impressions, 0)
+                      
+                      const pieData = sortedCountries.map((country: any, index: number) => ({
+                        name: country.country,
+                        value: country.impressions,
+                        clicks: country.clicks,
+                        ctr: country.ctr,
+                        fill: `hsl(${(index * 45) % 360}, 70%, 50%)`
+                      }))
+                      
+                      if (others > 0) {
+                        pieData.push({
+                          name: 'Others',
+                          value: others,
+                          clicks: 0,
+                          ctr: 0,
+                          fill: '#8b5cf6'
+                        })
+                      }
+                      
+                      return pieData
+                    })()}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => 
+                      (percent && percent > 0.05) ? `${name}: ${(percent * 100).toFixed(0)}%` : ''
+                    }
+                    outerRadius={100}
+                    dataKey="value"
+                  >
+                    {(() => {
+                      const sortedCountries = gscCountries
+                        .sort((a: any, b: any) => b.impressions - a.impressions)
+                        .slice(0, 8)
+                      
+                      const colors = sortedCountries.map((_: any, index: number) => 
+                        `hsl(${(index * 45) % 360}, 70%, 50%)`
+                      )
+                      
+                      if (gscCountries.length > 8) {
+                        colors.push('#8b5cf6')
+                      }
+                      
+                      return colors.map((color: string, index: number) => (
+                        <Cell key={`cell-${index}`} fill={color} />
+                      ))
+                    })()}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number | undefined, name: string | undefined, props: any) => [
+                      `${formatNumber(value || 0)} impressions`,
+                      props.payload.clicks > 0 ? `${formatNumber(props.payload.clicks)} clicks` : '',
+                      props.payload.ctr > 0 ? `${formatPercentage(props.payload.ctr)} CTR` : ''
+                    ].filter(Boolean)}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
+            {gscCountries.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No country data available for the selected period.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
