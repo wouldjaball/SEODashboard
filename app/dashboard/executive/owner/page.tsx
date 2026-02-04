@@ -53,6 +53,7 @@ interface OwnerDashboardData {
   analytics: any
   isLoading: boolean
   error: string | null
+  lastUpdated: string
 }
 
 export default function OwnerExecutiveDashboard() {
@@ -134,7 +135,7 @@ export default function OwnerExecutiveDashboard() {
         totalSessions: gaMetrics.sessions || 0,
         totalPageViews: gaMetrics.views || 0,
         keyEvents: gaMetrics.keyEvents || 0,
-        conversionRate: gaMetrics.sessions > 0 ? (gaMetrics.keyEvents / gaMetrics.sessions) * 100 : 0,
+        conversionRate: gaMetrics.sessions > 0 ? (gaMetrics.keyEvents / gaMetrics.sessions) : 0,
         
         totalImpressions: gscMetrics.impressions || 0,
         totalClicks: gscMetrics.clicks || 0,
@@ -156,7 +157,8 @@ export default function OwnerExecutiveDashboard() {
         realtime,
         analytics,
         isLoading: false,
-        error: null
+        error: null,
+        lastUpdated: new Date().toISOString()
       }
 
       setDashboardData(dashboardData)
@@ -241,6 +243,11 @@ export default function OwnerExecutiveDashboard() {
           </h1>
           <p className="text-muted-foreground">
             {company.name} • Owner View • {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
+            {dashboardData?.lastUpdated && (
+              <span className="ml-2">
+                • Last updated: {format(new Date(dashboardData.lastUpdated), 'MMM d, h:mm a')}
+              </span>
+            )}
           </p>
         </div>
         <div className="shrink-0">
@@ -272,36 +279,44 @@ export default function OwnerExecutiveDashboard() {
       {dashboardData && !isDashboardLoading && (
         <>
           {/* KPI Cards */}
-          <OwnerKPICards data={dashboardData} />
+          <OwnerKPICards 
+            data={dashboardData} 
+            key={`kpi-${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`}
+          />
           
           {/* Business Growth Metrics */}
           <BusinessGrowthMetrics 
             data={dashboardData} 
             dateRange={dateRange}
+            key={`growth-${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`}
           />
           
           {/* Content Performance Analysis */}
           <ContentPerformanceAnalysis 
             analytics={dashboardData.analytics}
             dateRange={dateRange}
+            key={`content-${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`}
           />
           
           {/* Audience Intelligence */}
           <AudienceIntelligence 
             analytics={dashboardData.analytics}
             realtime={dashboardData.realtime}
+            key={`audience-${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`}
           />
           
           {/* Search Performance Tracking */}
           <SearchPerformanceTracking 
             analytics={dashboardData.analytics}
             dateRange={dateRange}
+            key={`search-${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`}
           />
           
           {/* Channel Analysis */}
           <ChannelAnalysisVisualization 
             analytics={dashboardData.analytics}
             dateRange={dateRange}
+            key={`channel-${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`}
           />
         </>
       )}

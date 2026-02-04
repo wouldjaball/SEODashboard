@@ -66,14 +66,14 @@ export function OwnerKPICards({ data }: OwnerKPICardsProps) {
       value: formatNumber(data.totalUsers),
       icon: Users,
       growth: formatGrowth(data.periodComparison.usersGrowth),
-      description: "Unique visitors this period"
+      description: "vs. previous 30 days"
     },
     {
       title: "Sessions", 
       value: formatNumber(data.totalSessions),
       icon: Activity,
       growth: formatGrowth(data.periodComparison.sessionsGrowth),
-      description: "Total website sessions"
+      description: "vs. previous 30 days"
     },
     {
       title: "Page Views",
@@ -87,21 +87,21 @@ export function OwnerKPICards({ data }: OwnerKPICardsProps) {
       value: formatNumber(data.keyEvents),
       icon: Target,
       growth: null,
-      description: `${data.conversionRate.toFixed(2)}% conversion rate`
+      description: `${(data.conversionRate * 100).toFixed(2)}% conversion rate`
     },
     {
       title: "Search Impressions",
       value: formatNumber(data.totalImpressions),
       icon: Search,
       growth: formatGrowth(data.periodComparison.impressionsGrowth),
-      description: "Times shown in search results"
+      description: "vs. previous 30 days"
     },
     {
       title: "Search Clicks",
       value: formatNumber(data.totalClicks),
       icon: MousePointer,
       growth: formatGrowth(data.periodComparison.clicksGrowth),
-      description: `Avg position: ${data.avgPosition.toFixed(1)}`
+      description: `vs. previous 30 days • Avg pos: ${data.avgPosition.toFixed(1)}`
     },
     {
       title: "Ranking Keywords",

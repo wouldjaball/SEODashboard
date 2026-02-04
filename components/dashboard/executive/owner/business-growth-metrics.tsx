@@ -44,25 +44,25 @@ export function BusinessGrowthMetrics({ data, dateRange }: BusinessGrowthMetrics
       title: "User Growth",
       value: data.periodComparison.usersGrowth,
       icon: Users,
-      description: "Period over period",
+      description: "vs. previous 30 days",
     },
     {
       title: "Session Growth", 
       value: data.periodComparison.sessionsGrowth,
       icon: Eye,
-      description: "Period over period",
+      description: "vs. previous 30 days",
     },
     {
       title: "Search Growth",
       value: data.periodComparison.impressionsGrowth,
       icon: Search,
-      description: "Search impressions",
+      description: "vs. previous 30 days",
     },
     {
       title: "Click Growth",
       value: data.periodComparison.clicksGrowth,
       icon: MousePointer,
-      description: "Search clicks",
+      description: "vs. previous 30 days",
     },
   ]
 
