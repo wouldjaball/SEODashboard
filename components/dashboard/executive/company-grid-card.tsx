@@ -107,10 +107,10 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
 
   // Handle company card click with proper state management
   const handleCompanyClick = () => {
-    // Set the company in context so it's available on the individual page
+    // Set the company in context so it's available on the owner dashboard
     setCompany(company)
-    // Navigate to the company dashboard
-    router.push(`/dashboard/companies/${company.id}`)
+    // Navigate to the new owner dashboard
+    router.push(`/dashboard/executive/owner`)
   }
 
   return (

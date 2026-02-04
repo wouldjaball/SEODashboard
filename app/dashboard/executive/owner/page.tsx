@@ -5,7 +5,7 @@ import { subDays, format } from "date-fns"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Building2, Shield, TrendingUp, TrendingDown, Eye, MousePointer, Search, Users } from "lucide-react"
+import { Loader2, Building2, Shield, TrendingUp, TrendingDown, Eye, MousePointer, Search, Users, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { DateRangePicker } from "@/components/dashboard/shared"
 import { useCompany } from "@/lib/company-context"
@@ -80,7 +80,7 @@ export default function OwnerExecutiveDashboard() {
     getUser()
   }, [])
 
-  // Check if user has owner access to current company
+  // Check if user has access to current company (all users allowed)
   const checkOwnerAccess = useCallback(async () => {
     if (!user || !company) return
 
@@ -88,7 +88,8 @@ export default function OwnerExecutiveDashboard() {
       const response = await fetch(`/api/companies/${company.id}/access-check`)
       const result = await response.json()
       
-      setHasOwnerAccess(result.role === 'owner')
+      // Allow all users to access the dashboard (owner, admin, viewer)
+      setHasOwnerAccess(['owner', 'admin', 'viewer'].includes(result.role))
     } catch (err) {
       console.error('Failed to check access:', err)
       setHasOwnerAccess(false)
@@ -196,22 +197,22 @@ export default function OwnerExecutiveDashboard() {
     )
   }
 
-  // Show access denied if not owner
+  // Show access denied if no access
   if (hasOwnerAccess === false) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4 max-w-md">
           <Shield className="h-16 w-16 mx-auto text-muted-foreground" />
           <div>
-            <h2 className="text-xl font-semibold">Owner Access Required</h2>
+            <h2 className="text-xl font-semibold">Access Denied</h2>
             <p className="text-muted-foreground mt-2">
-              This executive dashboard is only available to company owners. 
+              You don't have access to this company dashboard. 
               Please contact your administrator if you believe you should have access.
             </p>
           </div>
           <Button asChild>
-            <Link href="/dashboard">
-              Return to Dashboard
+            <Link href="/dashboard/executive">
+              Return to Executive Overview
             </Link>
           </Button>
         </div>
@@ -238,11 +239,19 @@ export default function OwnerExecutiveDashboard() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Executive Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            {company.name} • Owner View • {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
+              <Link href="/dashboard/executive">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only sm:ml-2">Back to Portfolio</span>
+              </Link>
+            </Button>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Executive Dashboard
+            </h1>
+          </div>
+          <p className="text-muted-foreground ml-11 sm:ml-0">
+            {company.name} • Company View • {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
             {dashboardData?.lastUpdated && (
               <span className="ml-2">
                 • Last updated: {format(new Date(dashboardData.lastUpdated), 'MMM d, h:mm a')}
