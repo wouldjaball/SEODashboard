@@ -136,7 +136,7 @@ export default function OwnerExecutiveDashboard() {
         totalSessions: gaMetrics.sessions || 0,
         totalPageViews: gaMetrics.views || 0,
         keyEvents: gaMetrics.keyEvents || 0,
-        conversionRate: gaMetrics.sessions > 0 ? (gaMetrics.keyEvents / gaMetrics.sessions) * 100 : 0,
+        conversionRate: gaMetrics.sessions > 0 ? (gaMetrics.keyEvents / gaMetrics.sessions) : 0,
         
         totalImpressions: gscMetrics.impressions || 0,
         totalClicks: gscMetrics.clicks || 0,
