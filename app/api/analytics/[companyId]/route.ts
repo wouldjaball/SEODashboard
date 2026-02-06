@@ -38,20 +38,81 @@ export async function GET(
 
     const { companyId } = await params
 
+    console.log('[Analytics API] === COMPANY ACCESS VALIDATION ===')
+    console.log('[Analytics API] User ID:', user.id)
+    console.log('[Analytics API] User email:', user.email)
+    console.log('[Analytics API] Requested company ID:', companyId)
+
+    // First, let's get the company details to verify it exists
+    const { data: companyData, error: companyError } = await supabase
+      .from('companies')
+      .select('id, name, industry')
+      .eq('id', companyId)
+      .maybeSingle()
+
+    console.log('[Analytics API] Company lookup result:')
+    console.log('[Analytics API] - Error:', companyError)
+    console.log('[Analytics API] - Company data:', companyData)
+
+    if (companyError) {
+      console.error('[Analytics API] Error looking up company:', companyError)
+    }
+
+    if (!companyData) {
+      console.warn('[Analytics API] Company not found in database:', companyId)
+      return NextResponse.json({
+        error: 'Company not found',
+        message: 'The requested company does not exist in the database'
+      }, { status: 404 })
+    }
+
     // Verify user has access to this company
-    const { data: userCompanyAccess } = await supabase
+    const { data: userCompanyAccess, error: accessError } = await supabase
       .from('user_companies')
-      .select('role')
+      .select('role, company_id, user_id')
       .eq('user_id', user.id)
       .eq('company_id', companyId)
       .maybeSingle()
 
+    console.log('[Analytics API] User access validation result:')
+    console.log('[Analytics API] - Error:', accessError)
+    console.log('[Analytics API] - Access data:', userCompanyAccess)
+
+    // Let's also check what companies this user DOES have access to
+    const { data: allUserCompanies, error: allAccessError } = await supabase
+      .from('user_companies')
+      .select('company_id, role, companies(id, name)')
+      .eq('user_id', user.id)
+
+    console.log('[Analytics API] User\'s all company access:')
+    console.log('[Analytics API] - Error:', allAccessError)
+    console.log('[Analytics API] - All companies:', allUserCompanies?.map(uc => ({
+      companyId: uc.company_id,
+      role: uc.role,
+      companyName: (uc.companies as any)?.name
+    })))
+
     if (!userCompanyAccess) {
+      console.error('[Analytics API] === ACCESS DENIED ===')
+      console.error('[Analytics API] User', user.email, 'does not have access to company', companyId, '(', companyData.name, ')')
+      console.error('[Analytics API] User has access to', allUserCompanies?.length || 0, 'companies total')
+      
       return NextResponse.json({
         error: 'Access denied',
-        message: 'You do not have access to this company'
+        message: `You do not have access to ${companyData.name}. You have access to ${allUserCompanies?.length || 0} companies. Please check with your administrator.`,
+        debug: {
+          requestedCompany: { id: companyId, name: companyData.name },
+          userCompanies: allUserCompanies?.map(uc => ({
+            id: uc.company_id,
+            name: (uc.companies as any)?.name,
+            role: uc.role
+          })) || []
+        }
       }, { status: 403 })
     }
+
+    console.log('[Analytics API] === ACCESS GRANTED ===')
+    console.log('[Analytics API] User', user.email, 'has', userCompanyAccess.role, 'access to', companyData.name)
 
     const { searchParams } = new URL(request.url)
     
@@ -247,7 +308,7 @@ export async function GET(
     }
 
     const fetchGSC = async () => {
-      if (!gscMappings?.gsc_sites) return null
+      if (!gscMappings?.gsc_sites) return { notConfigured: true }
       const gscSite = gscMappings.gsc_sites as { site_url: string; user_id: string }
       const gscOwnerUserId = gscSite.user_id
       
@@ -344,20 +405,35 @@ export async function GET(
     // Process GSC results
     if (gscResult.status === 'fulfilled' && gscResult.value) {
       const gsc = gscResult.value
-      results.gscMetrics = gsc.metrics
-      results.gscWeeklyData = gsc.weeklyData
-      results.gscKeywords = gsc.keywords
-      results.gscCountries = gsc.countries
-      results.gscDevices = gsc.devices
-      results.gscIndexData = gsc.indexData
-      results.gscLandingPages = gsc.landingPages
-      results.totalKeywords = gsc.totalKeywords
-      results.totalIndexedPages = gsc.totalIndexedPages
-      results.prevKeywords = gsc.prevKeywords
-      results.prevIndexedPages = gsc.prevIndexedPages
+      if (gsc.notConfigured) {
+        // GSC is not configured for this company - this is normal, not an error
+        console.log(`[Analytics] GSC not configured for company ${companyId}`)
+      } else {
+        // GSC is configured and data was fetched successfully
+        results.gscMetrics = gsc.metrics
+        results.gscWeeklyData = gsc.weeklyData
+        results.gscKeywords = gsc.keywords
+        results.gscCountries = gsc.countries
+        results.gscDevices = gsc.devices
+        results.gscIndexData = gsc.indexData
+        results.gscLandingPages = gsc.landingPages
+        results.totalKeywords = gsc.totalKeywords
+        results.totalIndexedPages = gsc.totalIndexedPages
+        results.prevKeywords = gsc.prevKeywords
+        results.prevIndexedPages = gsc.prevIndexedPages
+      }
     } else if (gscResult.status === 'rejected') {
       console.error('[Analytics] GSC fetch failed:', gscResult.reason)
       results.gscError = gscResult.reason?.message || 'GSC fetch failed'
+      // Set error type based on error message  
+      const errorMessage = gscResult.reason?.message || ''
+      if (errorMessage.includes('scope') || errorMessage.includes('webmasters.readonly')) {
+        results.gscErrorType = 'scope_missing'
+      } else if (errorMessage.includes('token') || errorMessage.includes('auth')) {
+        results.gscErrorType = 'auth_required'  
+      } else {
+        results.gscErrorType = 'api_error'
+      }
     }
 
     // Process YouTube results
@@ -373,6 +449,20 @@ export async function GET(
     } else if (ytResult.status === 'rejected') {
       console.error('[Analytics] YouTube fetch failed:', ytResult.reason)
       results.ytError = ytResult.reason?.message || 'YouTube fetch failed'
+      
+      // Try to fall back to cached YouTube data
+      const cachedYtData = await getCachedServiceData(supabase, companyId, 'youtube')
+      if (cachedYtData) {
+        Object.assign(results, cachedYtData)
+        console.log(`[YouTube] Using cached data fallback for ${companyId}`)
+      }
+    } else {
+      // No YouTube connection configured, try cached data
+      const cachedYtData = await getCachedServiceData(supabase, companyId, 'youtube')
+      if (cachedYtData) {
+        Object.assign(results, cachedYtData)
+        console.log(`[YouTube] No connection configured, using cached data for ${companyId}`)
+      }
     }
 
     // Process LinkedIn results
@@ -399,6 +489,28 @@ export async function GET(
     } else if (liResult.status === 'rejected') {
       console.error('[Analytics] LinkedIn fetch failed:', liResult.reason)
       results.liError = liResult.reason?.message || 'LinkedIn fetch failed'
+      
+      // Check if it's a rate limit error
+      const isRateLimit = liResult.reason?.message?.includes('429') || liResult.reason?.message?.includes('TOO_MANY_REQUESTS')
+      if (isRateLimit) {
+        console.warn(`[LinkedIn] Rate limit detected for ${companyId} - falling back to cached data`)
+        results.liError = 'LinkedIn API rate limit reached - showing cached data'
+      }
+      
+      // Try to fall back to cached LinkedIn data
+      const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
+      if (cachedLiData) {
+        Object.assign(results, cachedLiData)
+        console.log(`[LinkedIn] Using cached data fallback for ${companyId}${isRateLimit ? ' (rate limited)' : ''}`)
+        results.liDataSource = 'cache'
+      }
+    } else {
+      // No LinkedIn connection configured, try cached data
+      const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
+      if (cachedLiData) {
+        Object.assign(results, cachedLiData)
+        console.log(`[LinkedIn] No connection configured, using cached data for ${companyId}`)
+      }
     }
 
     // ============================================
@@ -518,6 +630,81 @@ async function cacheData(
   }
 }
 
+// Helper to get cached data for a specific service when API fails
+async function getCachedServiceData(
+  supabase: any, 
+  companyId: string, 
+  service: 'youtube' | 'linkedin'
+) {
+  try {
+    console.log(`[Cache] Looking for cached ${service} data for ${companyId}`)
+    
+    // Look for recent cached data (up to 30 days old for LinkedIn due to rate limiting issues)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    
+    const { data, error } = await supabase
+      .from('analytics_cache')
+      .select('data, created_at')
+      .eq('company_id', companyId)
+      .eq('data_type', 'all')
+      .gte('created_at', thirtyDaysAgo.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      console.error(`[Cache] Error fetching cached ${service} data:`, error)
+      return null
+    }
+
+    if (!data?.data) {
+      console.log(`[Cache] No cached ${service} data found for ${companyId}`)
+      return null
+    }
+
+    const cachedData = data.data
+    const serviceData: any = {}
+
+    if (service === 'youtube') {
+      if (cachedData.ytMetrics) {
+        serviceData.ytMetrics = cachedData.ytMetrics
+        serviceData.ytVideos = cachedData.ytVideos || []
+        serviceData.ytViewsSparkline = cachedData.ytViewsSparkline || []
+        serviceData.ytWatchTimeSparkline = cachedData.ytWatchTimeSparkline || []
+        serviceData.ytSharesSparkline = cachedData.ytSharesSparkline || []
+        serviceData.ytLikesSparkline = cachedData.ytLikesSparkline || []
+        serviceData.ytDataSource = 'cached'
+        console.log(`[Cache] Using cached YouTube data for ${companyId} (${Math.round((new Date().getTime() - new Date(data.created_at).getTime()) / (1000 * 60))} minutes old)`)
+        return serviceData
+      }
+    } else if (service === 'linkedin') {
+      if (cachedData.liVisitorMetrics) {
+        serviceData.liVisitorMetrics = cachedData.liVisitorMetrics
+        serviceData.liFollowerMetrics = cachedData.liFollowerMetrics
+        serviceData.liContentMetrics = cachedData.liContentMetrics
+        serviceData.liVisitorDaily = cachedData.liVisitorDaily || []
+        serviceData.liFollowerDaily = cachedData.liFollowerDaily || []
+        serviceData.liImpressionDaily = cachedData.liImpressionDaily || []
+        serviceData.liIndustryDemographics = cachedData.liIndustryDemographics || []
+        serviceData.liSeniorityDemographics = cachedData.liSeniorityDemographics || []
+        serviceData.liJobFunctionDemographics = cachedData.liJobFunctionDemographics || []
+        serviceData.liCompanySizeDemographics = cachedData.liCompanySizeDemographics || []
+        serviceData.liUpdates = cachedData.liUpdates || []
+        serviceData.liDataSource = 'cached'
+        console.log(`[Cache] Using cached LinkedIn data for ${companyId} (${Math.round((new Date().getTime() - new Date(data.created_at).getTime()) / (1000 * 60))} minutes old)`)
+        return serviceData
+      }
+    }
+
+    console.log(`[Cache] No valid cached ${service} data found for ${companyId}`)
+    return null
+  } catch (error) {
+    console.error(`[Cache] Error getting cached ${service} data:`, error)
+    return null
+  }
+}
+
 // Helper to add LinkedIn mock data as fallback
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addLinkedInMockData(results: any) {
@@ -534,3 +721,4 @@ function addLinkedInMockData(results: any) {
   results.liCompanySizeDemographics = liCompanySizeDemographics
   results.liUpdates = liUpdates
 }
+

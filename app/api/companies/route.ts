@@ -11,7 +11,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch user's companies
+    console.log('[Companies API] === USER ACCESS DEBUG ===')
+    console.log('[Companies API] User ID:', user.id)
+    console.log('[Companies API] User email:', user.email)
+    console.log('[Companies API] User metadata:', user.user_metadata)
+
+    // Fetch user's companies with detailed logging
     const { data: userCompanies, error } = await supabase
       .from('user_companies')
       .select(`
@@ -21,20 +26,33 @@ export async function GET() {
       `)
       .eq('user_id', user.id)
 
+    console.log('[Companies API] User companies query result:')
+    console.log('[Companies API] - Error:', error)
+    console.log('[Companies API] - Data count:', userCompanies?.length || 0)
+    console.log('[Companies API] - Raw data:', JSON.stringify(userCompanies, null, 2))
+
     if (error) {
+      console.error('[Companies API] Error fetching user companies:', error)
       throw error
     }
 
     // If user has no company assignments, auto-assign them to all available companies
     if (!userCompanies || userCompanies.length === 0) {
-      console.log('[Companies API] User has no company assignments, auto-assigning to all companies')
+      console.log('[Companies API] === AUTO-ASSIGNMENT TRIGGERED ===')
+      console.log('[Companies API] User has no company assignments, starting auto-assignment process')
       
-      // Get all companies
+      // Get all companies using service client to bypass RLS
       const { data: allCompanies, error: allCompaniesError } = await serviceClient
         .from('companies')
-        .select('id')
+        .select('id, name')
+
+      console.log('[Companies API] Available companies for assignment:')
+      console.log('[Companies API] - Error:', allCompaniesError)
+      console.log('[Companies API] - Count:', allCompanies?.length || 0)
+      console.log('[Companies API] - Companies:', allCompanies?.map(c => ({ id: c.id, name: c.name })))
 
       if (allCompaniesError) {
+        console.error('[Companies API] Error fetching all companies:', allCompaniesError)
         throw allCompaniesError
       }
 
@@ -46,33 +64,63 @@ export async function GET() {
           role: 'viewer'
         }))
 
-        const { error: assignError } = await serviceClient
+        console.log('[Companies API] Creating assignments:', assignments)
+
+        // Use upsert to handle potential race conditions
+        const { data: insertResult, error: assignError } = await serviceClient
           .from('user_companies')
-          .insert(assignments)
+          .upsert(assignments, {
+            onConflict: 'user_id, company_id',
+            ignoreDuplicates: true
+          })
+          .select()
 
         if (assignError) {
           console.error('[Companies API] Failed to auto-assign user to companies:', assignError)
-        } else {
-          console.log('[Companies API] Successfully auto-assigned user to', allCompanies.length, 'companies')
+          console.error('[Companies API] Assignment details:', JSON.stringify(assignError, null, 2))
           
-          // Re-fetch user companies after assignment
-          const { data: newUserCompanies, error: refetchError } = await supabase
-            .from('user_companies')
-            .select(`
-              company_id,
-              role,
-              companies (*)
-            `)
-            .eq('user_id', user.id)
-
-          if (!refetchError && newUserCompanies) {
-            const companies = newUserCompanies.map(uc => ({
-              ...uc.companies,
-              role: uc.role
-            }))
-            return NextResponse.json({ companies })
-          }
+          // Try to proceed with existing assignments instead of failing completely
+          console.log('[Companies API] Attempting to fetch any existing user companies despite assignment failure')
+        } else {
+          console.log('[Companies API] Successfully auto-assigned user to companies')
+          console.log('[Companies API] Insert result:', insertResult?.length || 0, 'new assignments created')
         }
+
+        // Always try to re-fetch user companies, even if assignment had issues
+        // This handles cases where some assignments already existed
+        const { data: newUserCompanies, error: refetchError } = await supabase
+          .from('user_companies')
+          .select(`
+            company_id,
+            role,
+            companies (*)
+          `)
+          .eq('user_id', user.id)
+
+        console.log('[Companies API] Re-fetch after assignment attempt:')
+        console.log('[Companies API] - Error:', refetchError)
+        console.log('[Companies API] - Count:', newUserCompanies?.length || 0)
+
+        if (!refetchError && newUserCompanies && newUserCompanies.length > 0) {
+          const companies = newUserCompanies.map(uc => ({
+            ...uc.companies,
+            role: uc.role
+          }))
+          console.log('[Companies API] Successfully returning', companies.length, 'companies after auto-assignment')
+          return NextResponse.json({ companies })
+        } else if (refetchError) {
+          console.error('[Companies API] Error re-fetching user companies after assignment:', refetchError)
+        } else {
+          console.warn('[Companies API] Still no user companies found after assignment attempt')
+        }
+      } else {
+        console.warn('[Companies API] No companies found in database for auto-assignment')
+        
+        // Return empty result with helpful message
+        return NextResponse.json({ 
+          companies: [],
+          message: 'No companies available in the system. Please contact your administrator.'
+        })
       }
     }
 
@@ -80,6 +128,33 @@ export async function GET() {
       ...uc.companies,
       role: uc.role
     })) || []
+
+    console.log('[Companies API] === FINAL RESULT ===')
+    console.log('[Companies API] Returning companies count:', companies.length)
+    companies.forEach((company: any, index: number) => {
+      console.log(`[Companies API] Company ${index + 1}: ID=${company.id}, Name="${company.name}", Role=${company.role}`)
+    })
+
+    // Final safety check: If we still have no companies, this is a critical issue
+    if (companies.length === 0) {
+      console.error('[Companies API] === CRITICAL: USER HAS NO COMPANY ACCESS ===')
+      console.error('[Companies API] This user cannot access any companies, which should not happen')
+      console.error('[Companies API] Recommend running diagnostic: GET /api/admin/user-access-diagnostic?userId=' + user.id)
+      
+      // Return error with helpful debug info instead of empty list
+      return NextResponse.json({ 
+        error: 'No company access',
+        message: 'You do not have access to any companies. This may indicate a configuration issue.',
+        debug: {
+          userId: user.id,
+          userEmail: user.email,
+          diagnosticUrl: `/api/admin/user-access-diagnostic?userId=${user.id}`,
+          suggestedAction: 'Contact your administrator to assign you to companies'
+        }
+      }, { status: 403 })
+    }
+
+    console.log('[Companies API] === END DEBUG ===')
 
     return NextResponse.json({ companies })
   } catch (error) {

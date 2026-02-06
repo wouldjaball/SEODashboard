@@ -3,7 +3,7 @@
 import * as React from "react"
 import { subDays } from "date-fns"
 import type { Company } from "@/lib/types"
-import { companies as mockCompanies, defaultCompany } from "@/lib/mock-data/companies"
+// No more mock data imports - using real database companies only
 
 interface CompanyContextType {
   company: Company
@@ -14,6 +14,7 @@ interface CompanyContextType {
   refetchData: (companyId: string, dateRange: { from: Date; to: Date }) => Promise<void>
   comparisonEnabled: boolean
   setComparisonEnabled: (enabled: boolean) => void
+  findCompanyById: (id: string) => Company | undefined
 }
 
 const CompanyContext = React.createContext<CompanyContextType | undefined>(undefined)
@@ -68,12 +69,10 @@ const emptyCompany: Company = {
 }
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
-  const useRealData = process.env.NEXT_PUBLIC_USE_REAL_DATA === 'true'
-
-  // Always use empty placeholder initially - only real data will be shown
+  // Always use real data from database only - no mock data
   const [company, setCompanyState] = React.useState<Company>(emptyCompany)
   const [companies, setCompanies] = React.useState<Company[]>([])
-  const [isLoading, setIsLoading] = React.useState(useRealData) // Start loading if using real data
+  const [isLoading, setIsLoading] = React.useState(true) // Always start loading real data
   const [error, setError] = React.useState<string | null>(null)
   const [comparisonEnabled, setComparisonEnabled] = React.useState(false)
 
@@ -81,7 +80,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   async function fetchAnalyticsForCompany(companyId: string, dateRange: { from: Date; to: Date }) {
     console.log('[CompanyContext] fetchAnalyticsForCompany called with:', { companyId, dateRange })
 
-    if (!companyId || !companyId.includes('-') || companyId.length < 20) {
+    if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
       console.log('[CompanyContext] Skipping - invalid companyId:', companyId)
       return
     }
@@ -212,7 +211,17 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       console.log('[CompanyContext] Received data:', data)
 
       if (data.error) {
+        console.error('[CompanyContext] API returned error:', data.error)
         throw new Error(data.error)
+      }
+
+      // Handle case where API returns debug info about access issues
+      if (data.debug) {
+        console.warn('[CompanyContext] Access issue detected:', data.debug)
+        setError(`Access issue: ${data.message || 'User has no company access'}. ${data.debug.suggestedAction || 'Please contact support.'}`)
+        setCompanies([])
+        setCompanyState(emptyCompany)
+        return
       }
 
       if (data.companies && data.companies.length > 0) {
@@ -305,7 +314,26 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   }
 
   const setCompany = (newCompany: Company) => {
+    console.log('[CompanyContext] Setting company:', newCompany.id, newCompany.name)
     setCompanyState(newCompany)
+    
+    // Also ensure this company is in the companies list if it's not already
+    setCompanies(prevCompanies => {
+      const existingCompany = prevCompanies.find(c => c.id === newCompany.id)
+      if (existingCompany) {
+        // Update existing company with new data
+        return prevCompanies.map(c => c.id === newCompany.id ? newCompany : c)
+      } else {
+        // Add new company to the list
+        return [...prevCompanies, newCompany]
+      }
+    })
+  }
+
+  const findCompanyById = (id: string): Company | undefined => {
+    const foundCompany = companies.find(c => c.id === id)
+    console.log('[CompanyContext] findCompanyById:', id, 'found:', foundCompany ? foundCompany.name : 'not found')
+    return foundCompany
   }
 
   return (
@@ -318,7 +346,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         error,
         refetchData,
         comparisonEnabled,
-        setComparisonEnabled
+        setComparisonEnabled,
+        findCompanyById
       }}
     >
       {children}

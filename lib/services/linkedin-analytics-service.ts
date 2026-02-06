@@ -49,6 +49,19 @@ export class LinkedInAnalyticsService {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('LinkedIn API error:', response.status, errorText)
+      
+      // Handle rate limiting specifically
+      if (response.status === 429) {
+        console.warn('[LinkedIn] API rate limit hit - this explains why dashboard shows zeros')
+        console.warn('[LinkedIn] Consider implementing longer caching periods for LinkedIn data')
+        
+        // Parse the error to get retry-after header if available
+        const retryAfter = response.headers.get('retry-after')
+        if (retryAfter) {
+          console.warn(`[LinkedIn] Retry after ${retryAfter} seconds`)
+        }
+      }
+      
       throw new Error(`LinkedIn API Error: ${response.status} - ${errorText}`)
     }
 
@@ -1322,7 +1335,7 @@ export class LinkedInAnalyticsService {
   private static requestQueue: Array<() => Promise<any>> = []
   private static isProcessing = false
   private static lastRequestTime = 0
-  private static readonly RATE_LIMIT_DELAY = 200 // 200ms between requests (5 requests/second)
+  private static readonly RATE_LIMIT_DELAY = 2000 // 2 seconds between requests (30 requests/minute to stay under LinkedIn limits)
 
   private static async processQueue(): Promise<void> {
     if (this.isProcessing || this.requestQueue.length === 0) return

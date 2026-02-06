@@ -4,9 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import { subDays } from "date-fns"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Loader2, Building2, Shield } from "lucide-react"
+import { Loader2, Building2, Shield, RefreshCw } from "lucide-react"
 import Link from "next/link"
-import { DateRangePicker } from "@/components/dashboard/shared"
 import { useCompany } from "@/lib/company-context"
 import type { Company } from "@/lib/types"
 
@@ -31,130 +30,66 @@ interface PortfolioData {
 
 export default function ExecutiveDashboard() {
   const { companies, isLoading: companiesLoading } = useCompany()
-  const [dateRange, setDateRange] = useState({
+  // Fixed date range to last 30 days (no user selection)
+  const dateRange = {
     from: subDays(new Date(), 30),
     to: new Date(),
-  })
+  }
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isLoadingFromCache, setIsLoadingFromCache] = useState(true)
 
   // Allow all users to access executive dashboard
   const hasExecutiveAccess = true
 
-  // Load cached data first, then refresh in background
-  const loadCachedData = useCallback(async () => {
+  // Load cached data with option to force refresh
+  const loadCachedData = useCallback(async (forceRefresh = false) => {
     try {
-      setIsLoadingFromCache(true)
+      setIsLoading(true)
       setError(null)
 
-      // Default to last 30 days for cache hit
-      const endDate = new Date()
-      const startDate = subDays(endDate, 30)
-      
-      const params = new URLSearchParams({
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0]
-      })
-
-      const response = await fetch(`/api/analytics/portfolio?${params}`)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('[Executive Dashboard] Cache load failed:', response.status, errorText)
-        throw new Error(`Failed to fetch cached portfolio data: ${response.status}`)
-      }
-
-      const data = await response.json()
-      console.log('[Executive Dashboard] Cache response:', { cached: data.cached, companiesCount: data.companies?.length })
-      setPortfolioData(data)
-      
-      // If data is cached, we can show it immediately
-      if (data.cached) {
-        console.log('[Executive Dashboard] Using cached portfolio data, age:', data.cacheAge, 'minutes')
-      } else {
-        console.log('[Executive Dashboard] Using fresh portfolio data')
-      }
-    } catch (err) {
-      console.error('Cached portfolio data fetch error:', err)
-      // If cache loading fails, fall back to regular data fetch
-      console.log('[Executive Dashboard] Cache failed, falling back to regular fetch')
-      try {
-        await fetchPortfolioData()
-      } catch (fallbackErr) {
-        setError(fallbackErr instanceof Error ? fallbackErr.message : 'Failed to fetch portfolio data')
-      }
-    } finally {
-      setIsLoadingFromCache(false)
-    }
-  }, [])
-
-  const fetchPortfolioData = useCallback(async (isBackground = false) => {
-    try {
-      if (isBackground) {
-        setIsRefreshing(true)
-      } else {
-        setIsLoading(true)
-      }
-      setError(null)
-
+      // Fixed to last 30 days
       const params = new URLSearchParams({
         startDate: dateRange.from.toISOString().split('T')[0],
-        endDate: dateRange.to.toISOString().split('T')[0],
-        refresh: isBackground ? 'true' : 'false'
+        endDate: dateRange.to.toISOString().split('T')[0]
       })
+      
+      // Add refresh parameter if forcing refresh
+      if (forceRefresh) {
+        params.set('refresh', 'true')
+      }
 
-      console.log('[Executive Dashboard] Fetching portfolio data with params:', Object.fromEntries(params))
       const response = await fetch(`/api/analytics/portfolio?${params}`)
       
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('[Executive Dashboard] Fetch failed:', response.status, errorText)
+        console.error('[Executive Dashboard] Data load failed:', response.status, errorText)
         throw new Error(`Failed to fetch portfolio data: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log('[Executive Dashboard] Portfolio data response:', { cached: data.cached, companiesCount: data.companies?.length })
+      console.log('[Executive Dashboard] Portfolio data loaded:', { 
+        cached: data.cached, 
+        companiesCount: data.companies?.length,
+        companiesWithData: data.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0,
+        forceRefresh
+      })
       setPortfolioData(data)
     } catch (err) {
       console.error('Portfolio data fetch error:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch portfolio data')
     } finally {
-      if (isBackground) {
-        setIsRefreshing(false)
-      } else {
-        setIsLoading(false)
-      }
+      setIsLoading(false)
     }
-  }, [dateRange])
+  }, [])
 
-  // Load cached data immediately on mount
+  // Load data on mount only
   useEffect(() => {
     if (companies && companies.length > 0 && !portfolioData) {
-      console.log('[Executive Dashboard] Loading cached data...')
+      console.log('[Executive Dashboard] Loading portfolio data...')
       loadCachedData()
     }
-  }, [companies, portfolioData]) // Removed loadCachedData from dependencies to avoid infinite loops
-
-  // Fetch portfolio data when date range changes
-  useEffect(() => {
-    if (companies && companies.length > 0) {
-      // Check if we're asking for default 30-day range
-      const isDefaultRange = 
-        dateRange.from.toDateString() === subDays(new Date(), 30).toDateString() &&
-        dateRange.to.toDateString() === new Date().toDateString()
-
-      if (isDefaultRange && portfolioData) {
-        // For default range with existing cached data, refresh in background
-        fetchPortfolioData(true)
-      } else {
-        // For custom date ranges, do full fetch
-        fetchPortfolioData()
-      }
-    }
-  }, [dateRange, companies, fetchPortfolioData, portfolioData])
+  }, [companies, portfolioData, loadCachedData])
 
   if (companiesLoading) {
     return (
@@ -203,20 +138,34 @@ export default function ExecutiveDashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header with Date Range */}
-      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Executive Dashboard</h1>
-          <p className="text-sm text-muted-foreground truncate">
-            Portfolio overview • {companies.length} companies
-          </p>
-        </div>
-        <div className="shrink-0">
-          <DateRangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            showComparison={false}
-          />
+      {/* Header - Clean and Simple */}
+      <div className="flex flex-col gap-2 sm:gap-3">
+        <div className="flex items-center justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Executive Overview</h1>
+            <p className="text-sm text-muted-foreground">
+              Portfolio overview • {companies.length} companies • Last 30 Days
+              {portfolioData && (
+                <span className="ml-2">
+                  • {portfolioData.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0} with data
+                </span>
+              )}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadCachedData(true)}
+            disabled={isLoading}
+            className="shrink-0"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Refresh Data
+          </Button>
         </div>
       </div>
 
@@ -227,42 +176,13 @@ export default function ExecutiveDashboard() {
         </Alert>
       )}
 
-      {/* Loading State */}
-      {(isLoading || isLoadingFromCache) && (
+      {/* Loading State - Simplified */}
+      {isLoading && (
         <div className="flex items-center justify-center gap-2 p-8 bg-muted/50 rounded-lg border">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm text-muted-foreground">
-            {isLoadingFromCache 
-              ? "Loading cached data..." 
-              : portfolioData 
-              ? "Refreshing portfolio data..." 
-              : "Loading portfolio data..."
-            }
+            Loading portfolio overview...
           </span>
-        </div>
-      )}
-
-      {/* Background refresh indicator */}
-      {isRefreshing && portfolioData && (
-        <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
-          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-          <span className="text-xs text-blue-700 dark:text-blue-300">
-            Updating with latest data...
-          </span>
-        </div>
-      )}
-
-      {/* First time loading message */}
-      {!isLoading && !isLoadingFromCache && !portfolioData && companies.length > 0 && !error && (
-        <div className="flex items-center justify-center gap-2 p-8 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-          <div className="text-center">
-            <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
-              Welcome to your Executive Dashboard
-            </h3>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              Analytics data for your {companies.length} companies is being loaded. This may take a moment.
-            </p>
-          </div>
         </div>
       )}
 

@@ -156,6 +156,16 @@ export async function GET(request: Request) {
         if (analyticsResponse.ok) {
           const analyticsData = await analyticsResponse.json()
           
+          // Debug logging for data validation
+          console.log(`[Portfolio API] Company ${companyId} data status:`, {
+            hasGaMetrics: !!analyticsData.gaMetrics,
+            hasGscMetrics: !!analyticsData.gscMetrics,
+            gaError: analyticsData.gaError,
+            gscError: analyticsData.gscError,
+            gaMetricsUsers: analyticsData.gaMetrics?.totalUsers,
+            gscMetricsImpressions: analyticsData.gscMetrics?.impressions
+          })
+          
           // Build company object with analytics data
           return {
             ...userCompany.companies,
@@ -214,7 +224,8 @@ export async function GET(request: Request) {
             liDataSource: analyticsData.liDataSource
           }
         } else {
-          console.warn(`[Portfolio API] Analytics fetch failed for company ${companyId}: ${analyticsResponse.status}`)
+          const errorText = await analyticsResponse.text().catch(() => 'Unknown error')
+          console.warn(`[Portfolio API] Analytics fetch failed for company ${companyId}: ${analyticsResponse.status} - ${errorText}`)
           // Return company with empty analytics data
           return {
             ...userCompany.companies,

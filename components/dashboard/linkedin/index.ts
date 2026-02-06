@@ -1,4 +1,5 @@
 export { LIReport } from "./li-report"
+export { LinkedInNativeDashboard } from "./linkedin-native-dashboard"
 export { VisitorAnalytics } from "./visitor-analytics"
 export { VisitorDemographics } from "./visitor-demographics"
 export { FollowerAnalytics } from "./follower-analytics"

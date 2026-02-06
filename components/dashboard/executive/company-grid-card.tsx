@@ -1,10 +1,9 @@
 "use client"
 
 import React from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { 
   TrendingUp, 
@@ -12,12 +11,14 @@ import {
   Users, 
   Eye, 
   MousePointerClick, 
-  ExternalLink,
   AlertTriangle,
-  Loader2 
+  Loader2,
+  Search,
+  Target
 } from "lucide-react"
 import type { Company } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { useCompany } from "@/lib/company-context"
 
 interface CompanyGridCardProps {
   company: Company
@@ -52,10 +53,6 @@ function getChangeColor(change?: number | null): string {
   return change > 0 ? "text-green-600" : "text-red-600"
 }
 
-function getChangeIcon(change?: number | null) {
-  if (!change) return null
-  return change > 0 ? TrendingUp : TrendingDown
-}
 
 function calculateChange(current?: number, previous?: number): number | undefined {
   if (!current || !previous) return undefined
@@ -63,8 +60,25 @@ function calculateChange(current?: number, previous?: number): number | undefine
 }
 
 export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
+  const router = useRouter()
+  const { setCompany } = useCompany()
+
   // Check if this company has any analytics data loaded
-  const hasAnalyticsData = company.gaMetrics || company.gscMetrics || company.ytMetrics || company.liVisitorMetrics
+  const hasGAData = company.gaMetrics && !company.gaError
+  const hasGSCData = company.gscMetrics && !company.gscError
+  const hasAnalyticsData = hasGAData || hasGSCData || company.ytMetrics || company.liVisitorMetrics
+  
+  // Debug logging for missing data
+  if (!hasAnalyticsData) {
+    console.log(`[Company Card] ${company.name} missing data:`, {
+      gaMetrics: !!company.gaMetrics,
+      gaError: company.gaError,
+      gscMetrics: !!company.gscMetrics,
+      gscError: company.gscError,
+      ytMetrics: !!company.ytMetrics,
+      liVisitorMetrics: !!company.liVisitorMetrics
+    })
+  }
   
   // Calculate key metrics changes
   const trafficChange = calculateChange(
@@ -82,61 +96,93 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
     company.gscMetrics?.previousPeriod?.impressions
   )
 
+  const clicksChange = calculateChange(
+    company.gscMetrics?.clicks, 
+    company.gscMetrics?.previousPeriod?.clicks
+  )
+
+  const ctrChange = calculateChange(
+    company.gscMetrics?.ctr, 
+    company.gscMetrics?.previousPeriod?.ctr
+  )
+
   // Determine overall health status
   const hasErrors = company.gaError || company.gscError || company.ytError || company.liError
   const healthStatus = hasErrors ? "warning" : hasAnalyticsData ? "healthy" : "loading"
 
-  const ChangeIcon = getChangeIcon(trafficChange)
+  // Get change directions for icons (avoiding component creation during render)
+  const trafficIconType = trafficChange ? (trafficChange > 0 ? 'up' : 'down') : null
+  const conversionRateIconType = conversionRateChange ? (conversionRateChange > 0 ? 'up' : 'down') : null
+  const impressionsIconType = impressionsChange ? (impressionsChange > 0 ? 'up' : 'down') : null
+  const clicksIconType = clicksChange ? (clicksChange > 0 ? 'up' : 'down') : null
+  const ctrIconType = ctrChange ? (ctrChange > 0 ? 'up' : 'down') : null
+
+  // Handle company card click with proper state management
+  const handleCompanyClick = () => {
+    // Set the company in context so it's available on the owner dashboard
+    setCompany(company)
+    // Navigate to the new owner dashboard
+    router.push(`/dashboard/executive/owner`)
+  }
 
   return (
-    <Card className={cn("hover:shadow-md transition-shadow", className)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarFallback
-              className="text-sm font-semibold text-white"
-              style={{ backgroundColor: company.color }}
-            >
-              {getInitials(company.name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <CardTitle className="text-base truncate">{company.name}</CardTitle>
-            <p className="text-xs text-muted-foreground truncate">{company.industry}</p>
+    <Card 
+      className={cn("hover:shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.02]", className)}
+      onClick={handleCompanyClick}
+    >
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback
+                className="text-sm font-semibold text-white"
+                style={{ backgroundColor: company.color }}
+              >
+                {getInitials(company.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-base truncate">{company.name}</CardTitle>
+              <p className="text-xs text-muted-foreground truncate">{company.industry}</p>
+            </div>
+            {healthStatus === "warning" && (
+              <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
+            )}
+            {healthStatus === "loading" && (
+              <Loader2 className="h-4 w-4 text-muted-foreground animate-spin shrink-0" />
+            )}
           </div>
-          {healthStatus === "warning" && (
-            <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
-          )}
-          {healthStatus === "loading" && (
-            <Loader2 className="h-4 w-4 text-muted-foreground animate-spin shrink-0" />
-          )}
-        </div>
-      </CardHeader>
+        </CardHeader>
 
       <CardContent className="pt-0 space-y-4">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Key Metrics - Enhanced 6-metric grid */}
+        <div className="grid grid-cols-2 gap-2.5">
+          {/* GA Traffic */}
           <div className="space-y-1">
             <div className="flex items-center gap-1">
-              <Users className="h-3 w-3 text-muted-foreground" />
+              <Users className="h-3 w-3 text-blue-500" />
               <span className="text-xs text-muted-foreground">Traffic</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="font-semibold text-sm">
                 {formatNumber(company.gaMetrics?.totalUsers, healthStatus === "loading")}
               </span>
-              {ChangeIcon && (
+              {trafficIconType && (
                 <div className={cn("flex items-center gap-0.5", getChangeColor(trafficChange))}>
-                  <ChangeIcon className="h-3 w-3" />
+                  {trafficIconType === 'up' ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
                   <span className="text-xs">{formatPercent(Math.abs(trafficChange || 0))}</span>
                 </div>
               )}
             </div>
           </div>
 
+          {/* GA Sessions */}
           <div className="space-y-1">
             <div className="flex items-center gap-1">
-              <Eye className="h-3 w-3 text-muted-foreground" />
+              <Eye className="h-3 w-3 text-blue-500" />
               <span className="text-xs text-muted-foreground">Sessions</span>
             </div>
             <span className="font-semibold text-sm">
@@ -144,48 +190,131 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
             </span>
           </div>
 
+          {/* GA Conv. Rate */}
           <div className="space-y-1">
             <div className="flex items-center gap-1">
-              <MousePointerClick className="h-3 w-3 text-muted-foreground" />
+              <MousePointerClick className="h-3 w-3 text-blue-500" />
               <span className="text-xs text-muted-foreground">Conv. Rate</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="font-semibold text-sm">
                 {formatPercent(company.gaMetrics?.userKeyEventRate)}
               </span>
-              {conversionRateChange && (
+              {conversionRateIconType && (
                 <div className={cn("flex items-center gap-0.5", getChangeColor(conversionRateChange))}>
-                  {getChangeIcon(conversionRateChange) && React.createElement(getChangeIcon(conversionRateChange)!, { className: "h-3 w-3" })}
-                  <span className="text-xs">{formatPercent(Math.abs(conversionRateChange))}</span>
+                  {conversionRateIconType === 'up' ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span className="text-xs">{formatPercent(Math.abs(conversionRateChange || 0))}</span>
                 </div>
               )}
             </div>
           </div>
 
+          {/* GSC Impressions */}
           <div className="space-y-1">
             <div className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-muted-foreground" />
+              <Search className="h-3 w-3 text-green-600" />
               <span className="text-xs text-muted-foreground">Impressions</span>
             </div>
-            <span className="font-semibold text-sm">
-              {formatNumber(company.gscMetrics?.impressions, healthStatus === "loading")}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="font-semibold text-sm">
+                {formatNumber(company.gscMetrics?.impressions, healthStatus === "loading")}
+              </span>
+              {impressionsIconType && (
+                <div className={cn("flex items-center gap-0.5", getChangeColor(impressionsChange))}>
+                  {impressionsIconType === 'up' ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span className="text-xs">{formatPercent(Math.abs(impressionsChange || 0))}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* GSC Clicks */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-1">
+              <Target className="h-3 w-3 text-green-600" />
+              <span className="text-xs text-muted-foreground">Clicks</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="font-semibold text-sm">
+                {formatNumber(company.gscMetrics?.clicks, healthStatus === "loading")}
+              </span>
+              {clicksIconType && (
+                <div className={cn("flex items-center gap-0.5", getChangeColor(clicksChange))}>
+                  {clicksIconType === 'up' ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span className="text-xs">{formatPercent(Math.abs(clicksChange || 0))}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* GSC CTR */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-1">
+              <TrendingUp className="h-3 w-3 text-green-600" />
+              <span className="text-xs text-muted-foreground">CTR</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="font-semibold text-sm">
+                {company.gscMetrics?.ctr ? formatPercent(company.gscMetrics.ctr) : healthStatus === "loading" ? "..." : "—"}
+              </span>
+              {ctrIconType && (
+                <div className={cn("flex items-center gap-0.5", getChangeColor(ctrChange))}>
+                  {ctrIconType === 'up' ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span className="text-xs">{formatPercent(Math.abs(ctrChange || 0))}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Integration Status */}
         <div className="flex gap-1 flex-wrap">
-          {company.gaMetrics && !company.gaError && (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">GA</Badge>
-          )}
-          {company.gscMetrics && !company.gscError && (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">GSC</Badge>
-          )}
-          {company.ytMetrics && !company.ytError && (
+          {hasGAData ? (
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">GA</Badge>
+          ) : company.gaError ? (
+            <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`GA Error: ${company.gaError}`}>GA✗</Badge>
+          ) : company.gaMetrics === null ? (
+            <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-muted-foreground">GA—</Badge>
+          ) : null}
+          
+          {hasGSCData ? (
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">GSC</Badge>
+          ) : company.gscError ? (
+            <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`GSC Error: ${company.gscError}`}>GSC✗</Badge>
+          ) : company.gscMetrics === null ? (
+            <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-muted-foreground">GSC—</Badge>
+          ) : null}
+          
+          {company.ytMetrics && !company.ytError ? (
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5">YT</Badge>
-          )}
-          {company.liVisitorMetrics && !company.liError && (
+          ) : company.ytError ? (
+            <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`YT Error: ${company.ytError}`}>YT✗</Badge>
+          ) : null}
+          
+          {company.liVisitorMetrics && !company.liError ? (
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5">LI</Badge>
+          ) : company.liError ? (
+            <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`LI Error: ${company.liError}`}>LI✗</Badge>
+          ) : null}
+          
+          {!hasAnalyticsData && !company.gaError && !company.gscError && (
+            <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-amber-600">No Data</Badge>
           )}
         </div>
 
