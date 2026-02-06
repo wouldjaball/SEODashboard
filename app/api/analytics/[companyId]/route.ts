@@ -683,6 +683,7 @@ async function getCachedServiceData(
         serviceData.liVisitorMetrics = cachedData.liVisitorMetrics
         serviceData.liFollowerMetrics = cachedData.liFollowerMetrics
         serviceData.liContentMetrics = cachedData.liContentMetrics
+        serviceData.liSearchAppearanceMetrics = cachedData.liSearchAppearanceMetrics
         serviceData.liVisitorDaily = cachedData.liVisitorDaily || []
         serviceData.liFollowerDaily = cachedData.liFollowerDaily || []
         serviceData.liImpressionDaily = cachedData.liImpressionDaily || []

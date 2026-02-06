@@ -303,6 +303,7 @@ export async function GET(request: Request) {
             cacheData.liVisitorMetrics = data.visitorMetrics
             cacheData.liFollowerMetrics = data.followerMetrics
             cacheData.liContentMetrics = data.contentMetrics
+            cacheData.liSearchAppearanceMetrics = data.searchAppearanceMetrics
             cacheData.liVisitorDaily = data.visitorDaily
             cacheData.liFollowerDaily = data.followerDaily
             cacheData.liImpressionDaily = data.impressionDaily
