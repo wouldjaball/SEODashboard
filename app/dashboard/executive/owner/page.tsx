@@ -130,7 +130,7 @@ export default function OwnerExecutiveDashboard() {
       // Calculate aggregated metrics from analytics data
       const gaMetrics = analytics.gaMetrics || {}
       const gscMetrics = analytics.gscMetrics || {}
-      
+
       const dashboardData: OwnerDashboardData = {
         totalUsers: gaMetrics.totalUsers || 0,
         totalSessions: gaMetrics.sessions || 0,

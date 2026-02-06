@@ -23,7 +23,7 @@ export function DashboardHeader() {
   const canManageUsers = isOwner || isAdmin
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-top">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-top" data-testid="dashboard-header">
       <div className="container flex h-14 sm:h-16 items-center px-3 sm:px-4 gap-3 sm:gap-4">
         {/* Logo and Brand */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
@@ -70,7 +70,7 @@ export function DashboardHeader() {
           {canManageUsers && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" title="Admin">
+                <Button variant="ghost" size="icon" title="Admin" data-testid="admin-menu-trigger">
                   <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </DropdownMenuTrigger>

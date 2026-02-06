@@ -355,7 +355,7 @@ export default function AdminUsersPage() {
   if (!hasAdminAccess) {
     return (
       <div className="container max-w-4xl py-8">
-        <Card>
+        <Card data-testid="access-denied">
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
@@ -390,10 +390,11 @@ export default function AdminUsersPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
+            data-testid="users-search-input"
           />
         </div>
         <Select value={filterValue} onValueChange={(v) => setFilterValue(v as FilterValue)}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]" data-testid="users-filter-select">
             <SelectValue placeholder="Filter users" />
           </SelectTrigger>
           <SelectContent>
@@ -405,12 +406,12 @@ export default function AdminUsersPage() {
         </Select>
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button data-testid="invite-user-button">
               <UserPlus className="h-4 w-4 mr-2" />
               Invite User
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent data-testid="invite-user-dialog">
             <DialogHeader>
               <DialogTitle>Invite User</DialogTitle>
               <DialogDescription>
@@ -426,6 +427,7 @@ export default function AdminUsersPage() {
                   placeholder="user@example.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
+                  data-testid="invite-email-input"
                 />
               </div>
               <div className="space-y-2">
@@ -467,7 +469,7 @@ export default function AdminUsersPage() {
               <div className="space-y-2">
                 <Label htmlFor="invite-role">Role</Label>
                 <Select value={inviteRole} onValueChange={setInviteRole}>
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="invite-role-select">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -482,7 +484,7 @@ export default function AdminUsersPage() {
               <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleInviteUser} disabled={isInviting}>
+              <Button onClick={handleInviteUser} disabled={isInviting} data-testid="invite-user-submit">
                 {isInviting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -498,7 +500,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Users Table */}
-      <Card>
+      <Card data-testid="users-table-card">
         <CardHeader>
           <CardTitle>Users</CardTitle>
           <CardDescription>
@@ -531,6 +533,7 @@ export default function AdminUsersPage() {
                   <TableRow
                     key={user.id}
                     className={user.status === 'expired' ? 'bg-red-50/50' : ''}
+                    data-testid={`user-row-${user.email}`}
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -567,6 +570,7 @@ export default function AdminUsersPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleManageUser(user)}
+                          data-testid={`manage-user-${user.email}`}
                         >
                           Manage
                         </Button>
@@ -578,6 +582,7 @@ export default function AdminUsersPage() {
                             onClick={() => handleResendInvite(user.email)}
                             disabled={resendingEmail === user.email}
                             title="Resend invitation"
+                            data-testid={`resend-invite-${user.email}`}
                           >
                             {resendingEmail === user.email ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -591,6 +596,7 @@ export default function AdminUsersPage() {
                             onClick={() => setRevokeEmail(user.email)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             title="Revoke invitation"
+                            data-testid={`revoke-invite-${user.email}`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -616,7 +622,7 @@ export default function AdminUsersPage() {
 
       {/* Revoke Confirmation Dialog */}
       <AlertDialog open={!!revokeEmail} onOpenChange={(open) => !open && setRevokeEmail(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent data-testid="revoke-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke Invitation</AlertDialogTitle>
             <AlertDialogDescription>
@@ -630,6 +636,7 @@ export default function AdminUsersPage() {
               onClick={handleRevokeInvite}
               disabled={isRevoking}
               className="bg-red-600 hover:bg-red-700"
+              data-testid="revoke-confirm"
             >
               {isRevoking ? (
                 <>

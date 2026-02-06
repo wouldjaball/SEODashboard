@@ -56,6 +56,7 @@ export function LoginForm({ className, redirectTo = "/dashboard/executive", ...p
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
+              data-testid="login-email"
               type="email"
               placeholder="name@example.com"
               value={email}
@@ -79,6 +80,7 @@ export function LoginForm({ className, redirectTo = "/dashboard/executive", ...p
             </div>
             <Input
               id="password"
+              data-testid="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -88,9 +90,9 @@ export function LoginForm({ className, redirectTo = "/dashboard/executive", ...p
             />
           </div>
           {error && (
-            <div className="text-sm text-destructive">{error}</div>
+            <div className="text-sm text-destructive" data-testid="login-error">{error}</div>
           )}
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} data-testid="login-submit">
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In
           </Button>

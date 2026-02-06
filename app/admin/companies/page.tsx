@@ -134,14 +134,14 @@ export default function AdminCompaniesPage() {
             Manage companies in your SEO dashboard
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => setShowForm(!showForm)} data-testid="add-company-button">
           <Plus className="h-4 w-4 mr-2" />
           {showForm ? 'Cancel' : 'Add Company'}
         </Button>
       </div>
 
       {showForm && (
-        <Card>
+        <Card data-testid="add-company-form">
           <CardHeader>
             <CardTitle>Add New Company</CardTitle>
             <CardDescription>
@@ -202,7 +202,7 @@ export default function AdminCompaniesPage() {
                 />
               </div>
 
-              <Button type="submit" disabled={isSubmitting} className="w-full">
+              <Button type="submit" disabled={isSubmitting} className="w-full" data-testid="create-company-submit">
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -220,7 +220,7 @@ export default function AdminCompaniesPage() {
         </Card>
       )}
 
-      <Card>
+      <Card data-testid="companies-list">
         <CardHeader>
           <CardTitle>Companies ({companies.length})</CardTitle>
           <CardDescription>
@@ -239,7 +239,7 @@ export default function AdminCompaniesPage() {
           ) : (
             <div className="space-y-4">
               {companies.map((company) => (
-                <div key={company.id} className="border rounded-lg p-4">
+                <div key={company.id} className="border rounded-lg p-4" data-testid={`company-item-${company.id}`}>
                   <div className="flex items-center gap-3">
                     <div
                       className="h-12 w-12 rounded-full flex items-center justify-center text-white font-bold"
@@ -258,6 +258,7 @@ export default function AdminCompaniesPage() {
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => handleDelete(company.id, company.name)}
                       disabled={deletingId === company.id}
+                      data-testid={`delete-company-${company.id}`}
                     >
                       {deletingId === company.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

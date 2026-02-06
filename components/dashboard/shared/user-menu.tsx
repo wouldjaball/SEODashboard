@@ -45,7 +45,7 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="User menu">
+        <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="User menu" data-testid="user-menu-trigger">
           <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
             <AvatarFallback className="text-xs bg-primary text-primary-foreground">
               {getInitials(email)}
@@ -61,7 +61,7 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive" data-testid="sign-out-button">
           <LogOut className="mr-2 h-4 w-4" />
           Sign out
         </DropdownMenuItem>
