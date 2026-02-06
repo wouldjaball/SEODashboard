@@ -231,6 +231,13 @@ export interface LIContentMetrics {
   }
 }
 
+export interface LISearchAppearanceMetrics {
+  searchAppearances: number
+  previousPeriod?: {
+    searchAppearances: number
+  }
+}
+
 export interface LIVisitorDaily {
   date: string
   desktopVisitors: number
@@ -417,6 +424,7 @@ export interface Company {
   liVisitorMetrics: LIVisitorMetrics
   liFollowerMetrics: LIFollowerMetrics
   liContentMetrics: LIContentMetrics
+  liSearchAppearanceMetrics: LISearchAppearanceMetrics
   liVisitorDaily: LIVisitorDaily[]
   liFollowerDaily: LIFollowerDaily[]
   liImpressionDaily: LIImpressionDaily[]

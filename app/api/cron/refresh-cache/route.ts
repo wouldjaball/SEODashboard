@@ -6,6 +6,7 @@ import { LinkedInAnalyticsService } from '@/lib/services/linkedin-analytics-serv
 import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
 import { subDays, format, addDays } from 'date-fns'
+import { CronPerformanceTracker, chunkArray, withRetry } from '@/lib/utils/cron-utils'
 
 // This endpoint is called by cron at 12:33 AM PST daily to pre-build the 30-day cache
 // Vercel Cron or external scheduler should call: GET /api/cron/refresh-cache?secret=YOUR_CRON_SECRET
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  const tracker = new CronPerformanceTracker()
   console.log('[Cron] Starting daily cache refresh at', new Date().toISOString())
 
   try {
@@ -59,8 +61,28 @@ export async function GET(request: Request) {
 
     const results: { company: string; status: string; error?: string }[] = []
 
-    // Process each company
-    for (const company of companies) {
+    // Helper function to chunk array for batch processing
+    function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+      const chunks: T[][] = []
+      for (let i = 0; i < array.length; i += chunkSize) {
+        chunks.push(array.slice(i, i + chunkSize))
+      }
+      return chunks
+    }
+
+    // Process companies in parallel batches to avoid overwhelming the system
+    const BATCH_SIZE = 3 // Process 3 companies at once
+    const companyBatches = chunkArray(companies, BATCH_SIZE)
+
+    console.log(`[Cron] Processing ${companies.length} companies in ${companyBatches.length} batches of ${BATCH_SIZE}`)
+
+    // Process each batch
+    for (let batchIndex = 0; batchIndex < companyBatches.length; batchIndex++) {
+      const batch = companyBatches[batchIndex]
+      console.log(`[Cron] Processing batch ${batchIndex + 1}/${companyBatches.length} with ${batch.length} companies`)
+
+      // Process companies in this batch in parallel
+      const batchPromises = batch.map(async (company) => {
       console.log(`[Cron] Processing company: ${company.name} (${company.id})`)
       
       try {
@@ -311,28 +333,68 @@ export async function GET(request: Request) {
 
         if (insertError) {
           console.error(`[Cron] Failed to cache data for ${company.name}:`, insertError)
-          results.push({ company: company.name, status: 'error', error: insertError.message })
+          return { company: company.name, status: 'error', error: insertError.message }
         } else {
           console.log(`[Cron] Successfully cached data for ${company.name}`)
-          results.push({ company: company.name, status: 'success' })
+          return { company: company.name, status: 'success' }
         }
 
       } catch (companyError: any) {
         console.error(`[Cron] Error processing ${company.name}:`, companyError)
-        results.push({ company: company.name, status: 'error', error: companyError.message })
+        return { company: company.name, status: 'error', error: companyError.message }
       }
-    }
+      }) // End of company mapping function
 
+      // Wait for all companies in this batch to complete
+      try {
+        const batchResults = await Promise.all(batchPromises)
+        results.push(...batchResults)
+        
+        const successCount = batchResults.filter(r => r.status === 'success').length
+        const errorCount = batchResults.length - successCount
+        tracker.recordBatchCompleted(successCount, errorCount)
+        
+        console.log(`[Cron] Batch ${batchIndex + 1} completed: ${successCount}/${batchResults.length} successful`)
+        console.log(tracker.getProgressReport())
+      } catch (batchError) {
+        console.error(`[Cron] Batch ${batchIndex + 1} failed:`, batchError)
+        // Add error results for any companies that might have failed
+        batch.forEach(company => {
+          results.push({ company: company.name, status: 'error', error: 'Batch processing failed' })
+        })
+        tracker.recordBatchCompleted(0, batch.length)
+      }
+
+      // Small delay between batches to be nice to external APIs
+      if (batchIndex < companyBatches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay
+      }
+    } // End of batch processing loop
+
+    const performanceMetrics = tracker.finish()
     console.log('[Cron] Cache refresh complete:', results)
+    console.log('[Cron] Performance Summary:', performanceMetrics)
 
     return NextResponse.json({
       message: 'Cache refresh complete',
       timestamp: new Date().toISOString(),
-      results
+      results,
+      performance: {
+        ...performanceMetrics,
+        companiesTotal: companies.length,
+        batchesTotal: companyBatches.length,
+        batchSize: BATCH_SIZE,
+        parallelProcessing: true
+      }
     })
 
   } catch (error: any) {
+    const performanceMetrics = tracker.finish()
     console.error('[Cron] Cache refresh failed:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.log('[Cron] Performance Summary (Failed):', performanceMetrics)
+    return NextResponse.json({ 
+      error: error.message,
+      performance: performanceMetrics
+    }, { status: 500 })
   }
 }

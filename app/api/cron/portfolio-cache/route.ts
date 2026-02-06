@@ -60,11 +60,32 @@ export async function GET(request: Request) {
 
     console.log(`[Cron] Processing ${userCompanyMap.size} users`)
     
-    let processedUsers = 0
-    let errors = []
+    // Helper function to chunk array for batch processing
+    function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+      const chunks: T[][] = []
+      for (let i = 0; i < array.length; i += chunkSize) {
+        chunks.push(array.slice(i, i + chunkSize))
+      }
+      return chunks
+    }
 
-    // Process each user's portfolio
-    for (const [userId, companies] of userCompanyMap.entries()) {
+    let processedUsers = 0
+    let errors: string[] = []
+
+    // Convert map to array for batch processing
+    const userEntries = Array.from(userCompanyMap.entries())
+    const BATCH_SIZE = 3 // Process 3 users at once
+    const userBatches = chunkArray(userEntries, BATCH_SIZE)
+
+    console.log(`[Cron] Processing ${userEntries.length} users in ${userBatches.length} batches of ${BATCH_SIZE}`)
+
+    // Process users in batches
+    for (let batchIndex = 0; batchIndex < userBatches.length; batchIndex++) {
+      const batch = userBatches[batchIndex]
+      console.log(`[Cron] Processing user batch ${batchIndex + 1}/${userBatches.length} with ${batch.length} users`)
+
+      // Process users in this batch in parallel
+      const batchPromises = batch.map(async ([userId, companies]) => {
       try {
         console.log(`[Cron] Processing user ${userId} with ${companies.length} companies`)
         
@@ -238,17 +259,45 @@ export async function GET(request: Request) {
 
         if (cacheError) {
           console.error(`[Cron] Error saving cache for user ${userId}:`, cacheError)
-          errors.push(`User ${userId}: ${cacheError.message}`)
+          return { userId, success: false, error: cacheError.message }
         } else {
           console.log(`[Cron] Successfully cached data for user ${userId}`)
-          processedUsers++
+          return { userId, success: true }
         }
 
       } catch (error) {
         console.error(`[Cron] Error processing user ${userId}:`, error)
-        errors.push(`User ${userId}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        return { userId, success: false, error: error instanceof Error ? error.message : 'Unknown error' }
       }
-    }
+      }) // End of user mapping function
+
+      // Wait for all users in this batch to complete
+      try {
+        const batchResults = await Promise.all(batchPromises)
+        
+        // Update counters and errors
+        batchResults.forEach(result => {
+          if (result.success) {
+            processedUsers++
+          } else {
+            errors.push(`User ${result.userId}: ${result.error}`)
+          }
+        })
+        
+        console.log(`[Cron] User batch ${batchIndex + 1} completed: ${batchResults.filter(r => r.success).length}/${batchResults.length} successful`)
+      } catch (batchError) {
+        console.error(`[Cron] User batch ${batchIndex + 1} failed:`, batchError)
+        // Add error results for any users that might have failed
+        batch.forEach(([userId]) => {
+          errors.push(`User ${userId}: Batch processing failed`)
+        })
+      }
+
+      // Small delay between batches to be nice to external APIs
+      if (batchIndex < userBatches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000)) // 2 second delay for user batches
+      }
+    } // End of batch processing loop
 
     // Clean up old cache entries (keep last 7 days)
     const sevenDaysAgo = format(subDays(endDate, 7), 'yyyy-MM-dd')
@@ -268,9 +317,14 @@ export async function GET(request: Request) {
     return NextResponse.json({
       message: 'Portfolio cache generation completed',
       processed: processedUsers,
-      total: userCompanyMap.size,
+      total: userEntries.length,
       errors: errors.length > 0 ? errors : undefined,
-      cacheDate
+      cacheDate,
+      batchInfo: {
+        totalBatches: userBatches.length,
+        batchSize: BATCH_SIZE,
+        parallelProcessing: true
+      }
     })
 
   } catch (error) {

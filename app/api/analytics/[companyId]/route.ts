@@ -13,6 +13,7 @@ import {
   liVisitorMetrics,
   liFollowerMetrics,
   liContentMetrics,
+  liSearchAppearanceMetrics,
   liVisitorDaily,
   liFollowerDaily,
   liImpressionDaily,
@@ -380,6 +381,7 @@ export async function GET(
       results.liVisitorMetrics = li.visitorMetrics
       results.liFollowerMetrics = li.followerMetrics
       results.liContentMetrics = li.contentMetrics
+      results.liSearchAppearanceMetrics = li.searchAppearanceMetrics
       results.liVisitorDaily = li.visitorDaily
       results.liFollowerDaily = li.followerDaily
       results.liImpressionDaily = li.impressionDaily
@@ -522,6 +524,7 @@ function addLinkedInMockData(results: any) {
   results.liVisitorMetrics = liVisitorMetrics
   results.liFollowerMetrics = liFollowerMetrics
   results.liContentMetrics = liContentMetrics
+  results.liSearchAppearanceMetrics = liSearchAppearanceMetrics
   results.liVisitorDaily = liVisitorDaily
   results.liFollowerDaily = liFollowerDaily
   results.liImpressionDaily = liImpressionDaily

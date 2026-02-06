@@ -172,6 +172,7 @@ export default function DashboardPage() {
             visitorMetrics={company.liVisitorMetrics}
             followerMetrics={company.liFollowerMetrics}
             contentMetrics={company.liContentMetrics}
+            searchAppearanceMetrics={company.liSearchAppearanceMetrics}
             visitorDaily={company.liVisitorDaily}
             followerDaily={company.liFollowerDaily}
             impressionDaily={company.liImpressionDaily}

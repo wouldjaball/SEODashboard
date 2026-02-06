@@ -2,6 +2,7 @@ import type {
   LIVisitorMetrics,
   LIFollowerMetrics,
   LIContentMetrics,
+  LISearchAppearanceMetrics,
   LIVisitorDaily,
   LIDemographic,
   LIUpdate,
@@ -44,6 +45,13 @@ export const liContentMetrics: LIContentMetrics = {
     impressions: 4800,
     clicks: 290,
     engagementRate: 0.072,
+  },
+}
+
+export const liSearchAppearanceMetrics: LISearchAppearanceMetrics = {
+  searchAppearances: 12450,
+  previousPeriod: {
+    searchAppearances: 10800, // +15.3% change
   },
 }
 

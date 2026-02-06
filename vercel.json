@@ -10,7 +10,7 @@
   "crons": [
     {
       "path": "/api/cron/portfolio-cache",
-      "schedule": "33 8 * * *"
+      "schedule": "3 8 * * *"
     },
     {
       "path": "/api/cron/refresh-cache?secret=8883506154aaf56409681a23025934e1d209ea3e8ca25228a0584b1ffcdcbaad",
