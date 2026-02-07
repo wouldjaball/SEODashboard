@@ -4,13 +4,20 @@ import { useState, useEffect, useCallback } from "react"
 import { subDays } from "date-fns"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Loader2, Building2, Shield, RefreshCw } from "lucide-react"
+import { Loader2, Building2, Shield, RefreshCw, Clock, Calendar } from "lucide-react"
 import Link from "next/link"
 import { useCompany } from "@/lib/company-context"
 import type { Company } from "@/lib/types"
 
 // Import the company grid component and portfolio KPI summary
 import { CompanyGridView } from "@/components/dashboard/executive/company-grid-view"
+
+interface SyncInfo {
+  lastSyncAt: string | null
+  companiesWithData: number
+  totalCompanies: number
+  queryTimeMs?: number
+}
 
 interface PortfolioData {
   companies: Company[]
@@ -26,6 +33,19 @@ interface PortfolioData {
       totalRevenue: number
     }
   }
+  syncInfo?: SyncInfo
+  cached?: boolean
+}
+
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
 
 export default function ExecutiveDashboard() {
@@ -37,30 +57,29 @@ export default function ExecutiveDashboard() {
   }
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Allow all users to access executive dashboard
   const hasExecutiveAccess = true
 
-  // Load cached data with option to force refresh
+  // Load portfolio data from cache/normalized tables
   const loadCachedData = useCallback(async (forceRefresh = false) => {
     try {
       setIsLoading(true)
       setError(null)
 
-      // Fixed to last 30 days
       const params = new URLSearchParams({
         startDate: dateRange.from.toISOString().split('T')[0],
         endDate: dateRange.to.toISOString().split('T')[0]
       })
-      
-      // Add refresh parameter if forcing refresh
+
       if (forceRefresh) {
         params.set('refresh', 'true')
       }
 
       const response = await fetch(`/api/analytics/portfolio?${params}`)
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error('[Executive Dashboard] Data load failed:', response.status, errorText)
@@ -68,10 +87,11 @@ export default function ExecutiveDashboard() {
       }
 
       const data = await response.json()
-      console.log('[Executive Dashboard] Portfolio data loaded:', { 
-        cached: data.cached, 
+      console.log('[Executive Dashboard] Portfolio data loaded:', {
+        cached: data.cached,
         companiesCount: data.companies?.length,
         companiesWithData: data.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0,
+        queryTimeMs: data.syncInfo?.queryTimeMs,
         forceRefresh
       })
       setPortfolioData(data)
@@ -82,6 +102,19 @@ export default function ExecutiveDashboard() {
       setIsLoading(false)
     }
   }, [])
+
+  // Trigger a background sync then reload data
+  const handleRefreshData = useCallback(async () => {
+    setIsSyncing(true)
+    try {
+      // Trigger background sync
+      await fetch('/api/admin/trigger-sync', { method: 'POST' })
+      // Reload portfolio data (bypasses portfolio_cache)
+      await loadCachedData(true)
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [loadCachedData])
 
   // Load data on mount only
   useEffect(() => {
@@ -138,33 +171,50 @@ export default function ExecutiveDashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header - Clean and Simple */}
+      {/* Header */}
       <div className="flex flex-col gap-2 sm:gap-3">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Portfolio Overview</h1>
-            <p className="text-sm text-muted-foreground">
-              {companies.length} companies • Last 30 Days
-              {portfolioData && (
-                <span className="ml-2">
-                  • {portfolioData.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0} with data
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-0.5">
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                Last 30 days
+              </span>
+              <span>{companies.length} companies</span>
+              {portfolioData?.syncInfo && (
+                <>
+                  <span>
+                    {portfolioData.syncInfo.companiesWithData} of {portfolioData.syncInfo.totalCompanies} with data
+                  </span>
+                  {portfolioData.syncInfo.lastSyncAt && (
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      Synced {formatTimeAgo(new Date(portfolioData.syncInfo.lastSyncAt))}
+                    </span>
+                  )}
+                </>
+              )}
+              {portfolioData && !portfolioData.syncInfo && (
+                <span>
+                  {portfolioData.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0} with data
                 </span>
               )}
-            </p>
+            </div>
           </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => loadCachedData(true)}
-            disabled={isLoading}
+            onClick={handleRefreshData}
+            disabled={isLoading || isSyncing}
             className="shrink-0"
           >
-            {isLoading ? (
+            {isLoading || isSyncing ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : (
               <RefreshCw className="h-4 w-4 mr-2" />
             )}
-            Refresh Data
+            {isSyncing ? 'Syncing...' : 'Refresh Data'}
           </Button>
         </div>
       </div>

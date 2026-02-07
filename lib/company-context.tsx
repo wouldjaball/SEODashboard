@@ -126,11 +126,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
       const params = new URLSearchParams({
         startDate: dateRange.from.toISOString().split('T')[0],
-        endDate: dateRange.to.toISOString().split('T')[0],
-        // Add cache busting for development
-        nocache: process.env.NODE_ENV === 'development' ? 'true' : 'false',
-        // Add timestamp to ensure unique requests
-        _t: Date.now().toString()
+        endDate: dateRange.to.toISOString().split('T')[0]
       })
 
       console.log('[CompanyContext] Fetching from:', `/api/analytics/${companyId}?${params}`)
