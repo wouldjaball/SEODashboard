@@ -1,36 +1,24 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Eye, 
-  MousePointer, 
-  Search, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Eye,
+  MousePointer,
+  Search,
   Users,
   Target,
   Activity,
-  Globe,
   BarChart3
 } from "lucide-react"
 import type { Company } from "@/lib/types"
 
 interface PortfolioKPISummaryProps {
   companies: Company[]
-  aggregateMetrics?: {
-    totalTraffic: number
-    totalConversions: number
-    avgConversionRate: number
-    previousPeriod: {
-      totalTraffic: number
-      totalConversions: number
-      avgConversionRate: number
-    }
-  }
 }
 
-export function PortfolioKPISummary({ companies, aggregateMetrics }: PortfolioKPISummaryProps) {
+export function PortfolioKPISummary({ companies }: PortfolioKPISummaryProps) {
   // Calculate portfolio totals from individual company data
   const calculatePortfolioTotals = () => {
     let totalUsers = 0
@@ -117,23 +105,7 @@ export function PortfolioKPISummary({ companies, aggregateMetrics }: PortfolioKP
     }
   }
 
-  // Use aggregateMetrics if provided, otherwise calculate from companies
-  const metrics = aggregateMetrics ? {
-    totalUsers: aggregateMetrics.totalTraffic,
-    totalSessions: 0, // Not provided in aggregateMetrics
-    totalPageViews: 0, // Not provided in aggregateMetrics
-    totalKeyEvents: aggregateMetrics.totalConversions,
-    totalImpressions: 0, // Not provided in aggregateMetrics
-    totalClicks: 0, // Not provided in aggregateMetrics
-    totalKeywords: 0, // Not provided in aggregateMetrics
-    conversionRate: aggregateMetrics.avgConversionRate * 100,
-    periodComparison: {
-      usersGrowth: calculateGrowth(aggregateMetrics.totalTraffic, aggregateMetrics.previousPeriod.totalTraffic),
-      sessionsGrowth: 0,
-      impressionsGrowth: 0,
-      clicksGrowth: 0,
-    }
-  } : calculatePortfolioTotals()
+  const metrics = calculatePortfolioTotals()
 
   console.log('[Portfolio KPI] Calculated metrics:', metrics)
 
@@ -186,14 +158,6 @@ export function PortfolioKPISummary({ companies, aggregateMetrics }: PortfolioKP
       icon: BarChart3,
       growth: null,
       description: "Keywords driving traffic"
-    },
-    {
-      title: "Live Users",
-      value: "0", // Would need realtime data aggregation
-      icon: Globe,
-      growth: null,
-      description: "Currently across all sites",
-      isRealtime: true
     }
   ]
 
@@ -206,19 +170,12 @@ export function PortfolioKPISummary({ companies, aggregateMetrics }: PortfolioKP
             const Icon = kpi.icon
             
             return (
-              <Card key={index} className={kpi.isRealtime ? "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/50" : ""}>
+              <Card key={index}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     {kpi.title}
                   </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {kpi.isRealtime && (
-                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                        LIVE
-                      </Badge>
-                    )}
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                  </div>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">

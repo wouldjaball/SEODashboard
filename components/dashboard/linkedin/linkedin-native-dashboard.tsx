@@ -1,6 +1,7 @@
 "use client"
 
 import { Search, Users, Eye, MousePointerClick, TrendingUp, TrendingDown } from "lucide-react"
+import { format } from "date-fns"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn, formatNumber } from "@/lib/utils"
 import type { 
@@ -11,10 +12,11 @@ import type {
 } from "@/lib/types"
 
 interface LinkedInNativeDashboardProps {
-  searchAppearanceMetrics?: LISearchAppearanceMetrics
-  followerMetrics?: LIFollowerMetrics
-  contentMetrics?: LIContentMetrics
-  visitorMetrics?: LIVisitorMetrics
+  searchAppearanceMetrics?: LISearchAppearanceMetrics | null
+  followerMetrics?: LIFollowerMetrics | null
+  contentMetrics?: LIContentMetrics | null
+  visitorMetrics?: LIVisitorMetrics | null
+  dateRange?: { from: Date; to: Date }
   className?: string
 }
 
@@ -39,9 +41,7 @@ function LinkedInMetricCard({
   
   return (
     <Card className={cn(
-      "border-0 shadow-sm bg-white dark:bg-gray-900",
-      "hover:shadow-md transition-all duration-200",
-      "border border-gray-200 dark:border-gray-800",
+      "shadow-sm hover:shadow-md transition-all duration-200",
       className
     )}>
       <CardContent className="p-6">
@@ -55,19 +55,19 @@ function LinkedInMetricCard({
               )}>
                 <Icon className="h-4 w-4 text-white" />
               </div>
-              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <h3 className="text-sm font-medium text-muted-foreground">
                 {title}
               </h3>
             </div>
-            
+
             {/* Main Value */}
             <div className="space-y-1">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-2xl font-bold">
                 {formatNumber(value)}
               </p>
-              
+
               {/* Percentage Change */}
-              {change !== undefined && (
+              {change !== undefined && !isNaN(change) && isFinite(change) && (
                 <div className="flex items-center gap-1">
                   {isPositiveChange ? (
                     <TrendingUp className="h-3 w-3 text-green-600" />
@@ -80,7 +80,7 @@ function LinkedInMetricCard({
                   )}>
                     {isPositiveChange ? '+' : ''}{change.toFixed(1)}%
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-xs text-muted-foreground">
                     vs previous period
                   </span>
                 </div>
@@ -98,6 +98,7 @@ export function LinkedInNativeDashboard({
   followerMetrics,
   contentMetrics,
   visitorMetrics,
+  dateRange,
   className
 }: LinkedInNativeDashboardProps) {
   // Calculate percentage changes
@@ -121,11 +122,12 @@ export function LinkedInNativeDashboard({
     <div className={cn("space-y-6", className)}>
       {/* Header */}
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+        <h2 className="text-xl font-semibold">
           LinkedIn Analytics
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-muted-foreground">
           Key performance metrics for your LinkedIn company page
+          {dateRange && ` • ${format(dateRange.from, 'MMM d')} - ${format(dateRange.to, 'MMM d, yyyy')}`}
         </p>
       </div>
 

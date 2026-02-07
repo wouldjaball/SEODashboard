@@ -1466,27 +1466,32 @@ export class LinkedInAnalyticsService {
     updates: LIUpdate[]
   }> {
     console.log('[LinkedIn] Fetching enhanced metrics for organization:', organizationId)
-    
-    // Fetch all data in parallel using allSettled to handle partial failures
-    const results = await Promise.allSettled([
+
+    // Queue all API calls through rate limiter to avoid 429 errors.
+    // LinkedIn enforces ~30 requests/minute, so we use 2s delay between calls.
+    const fetchers = [
       // Core metrics (existing)
-      this.fetchPageStatistics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
-      this.fetchFollowerMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
-      this.fetchShareStatistics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
-      this.fetchSearchAppearanceMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
-      this.fetchVisitorDaily(userId, organizationId, startDate, endDate),
-      this.fetchFollowerDaily(userId, organizationId, startDate, endDate),
-      this.fetchImpressionDaily(userId, organizationId, startDate, endDate),
-      this.fetchDemographics(userId, organizationId),
-      this.fetchPosts(userId, organizationId, 20),
-      
+      () => this.fetchPageStatistics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
+      () => this.fetchFollowerMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
+      () => this.fetchShareStatistics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
+      () => this.fetchSearchAppearanceMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
+      () => this.fetchVisitorDaily(userId, organizationId, startDate, endDate),
+      () => this.fetchFollowerDaily(userId, organizationId, startDate, endDate),
+      () => this.fetchImpressionDaily(userId, organizationId, startDate, endDate),
+      () => this.fetchDemographics(userId, organizationId),
+      () => this.fetchPosts(userId, organizationId, 20),
       // Enhanced metrics (new)
-      this.fetchVideoAnalytics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
-      this.fetchEmployeeAdvocacyMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
-      this.fetchContentBreakdown(userId, organizationId, startDate, endDate),
-      this.fetchSocialListeningMetrics(userId, organizationId, startDate, endDate),
-      this.fetchVideoDaily(userId, organizationId, startDate, endDate)
-    ])
+      () => this.fetchVideoAnalytics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
+      () => this.fetchEmployeeAdvocacyMetrics(userId, organizationId, startDate, endDate, previousStartDate, previousEndDate),
+      () => this.fetchContentBreakdown(userId, organizationId, startDate, endDate),
+      () => this.fetchSocialListeningMetrics(userId, organizationId, startDate, endDate),
+      () => this.fetchVideoDaily(userId, organizationId, startDate, endDate)
+    ]
+
+    // Execute sequentially through rate-limited queue to avoid 429s
+    const results = await Promise.allSettled(
+      fetchers.map(fn => this.queueRequest<any>(fn))
+    )
 
     // Extract successful results and log failed ones
     const [

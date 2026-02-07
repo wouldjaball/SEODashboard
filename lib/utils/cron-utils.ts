@@ -110,7 +110,7 @@ export async function processBatchesWithTracking<T, R>(
         )
       )
 
-      const successfulResults = batchResults.filter((r): r is Awaited<R> => r !== null)
+      const successfulResults = batchResults.filter((r): r is Awaited<R> => r !== null) as R[]
       const errorCount = batchResults.length - successfulResults.length
 
       results.push(...successfulResults as R[])

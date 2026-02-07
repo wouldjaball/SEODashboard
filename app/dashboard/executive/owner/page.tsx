@@ -18,6 +18,7 @@ import { ContentPerformanceAnalysis } from "@/components/dashboard/executive/own
 import { AudienceIntelligence } from "@/components/dashboard/executive/owner/audience-intelligence"
 import { SearchPerformanceTracking } from "@/components/dashboard/executive/owner/search-performance-tracking"
 import { ChannelAnalysisVisualization } from "@/components/dashboard/executive/owner/channel-analysis-visualization"
+import { LinkedInNativeDashboard } from "@/components/dashboard/linkedin/linkedin-native-dashboard"
 
 interface OwnerDashboardData {
   // Core KPIs
@@ -239,19 +240,17 @@ export default function OwnerExecutiveDashboard() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
-              <Link href="/dashboard/executive">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only sm:not-sr-only sm:ml-2">Back to Portfolio</span>
-              </Link>
-            </Button>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Executive Dashboard
-            </h1>
-          </div>
-          <p className="text-muted-foreground ml-11 sm:ml-0">
-            {company.name} • Company View • {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
+          <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground -ml-2">
+            <Link href="/dashboard/executive">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only sm:not-sr-only sm:ml-2">Back to Portfolio</span>
+            </Link>
+          </Button>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            {company.name} Dashboard
+          </h1>
+          <p className="text-muted-foreground">
+            {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
             {dashboardData?.lastUpdated && (
               <span className="ml-2">
                 • Last updated: {format(new Date(dashboardData.lastUpdated), 'MMM d, h:mm a')}
@@ -293,6 +292,15 @@ export default function OwnerExecutiveDashboard() {
             key={`kpi-${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`}
           />
           
+          {/* LinkedIn Performance */}
+          <LinkedInNativeDashboard
+            searchAppearanceMetrics={dashboardData.analytics.liSearchAppearanceMetrics}
+            followerMetrics={dashboardData.analytics.liFollowerMetrics}
+            contentMetrics={dashboardData.analytics.liContentMetrics}
+            visitorMetrics={dashboardData.analytics.liVisitorMetrics}
+            dateRange={dateRange}
+          />
+
           {/* Business Growth Metrics */}
           <BusinessGrowthMetrics 
             data={dashboardData} 

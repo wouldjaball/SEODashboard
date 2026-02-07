@@ -114,58 +114,6 @@ export function SearchPerformanceTracking({ analytics, dateRange }: SearchPerfor
           })}
         </div>
 
-        {/* Search Performance Trends */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Search Performance Over Time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={gscWeeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="weekLabel" 
-                    className="text-sm"
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis className="text-sm" tick={{ fontSize: 12 }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px'
-                    }}
-                    formatter={(value: number | undefined, name: string | undefined) => [
-                      formatNumber(value || 0), 
-                      (name === 'impressions') ? 'Impressions' : 'Clicks'
-                    ]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="impressions"
-                    stroke="#3b82f6"
-                    strokeWidth={3}
-                    dot={{ r: 4 }}
-                    name="impressions"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="clicks"
-                    stroke="#10b981"
-                    strokeWidth={3}
-                    dot={{ r: 4 }}
-                    name="clicks"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Search Performance by Country - Pie Chart */}
         <Card>
           <CardHeader>

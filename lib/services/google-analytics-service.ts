@@ -74,7 +74,7 @@ export class GoogleAnalyticsService {
         { name: 'screenPageViews' },
         { name: 'averageSessionDuration' },
         { name: 'bounceRate' },
-        { name: 'eventCount' }
+        { name: 'keyEvents' }
       ]
     })
 
@@ -165,6 +165,57 @@ export class GoogleAnalyticsService {
         endDate: weekData.dates[weekData.dates.length - 1],
         views: weekData.views,
         sessions: weekData.sessions
+      }
+    })
+  }
+
+  /**
+   * Fetch daily-grain metrics for normalized table storage.
+   * Returns one row per day with all core metrics.
+   */
+  static async fetchDailyMetrics(
+    userId: string,
+    propertyId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<Array<{
+    date: string
+    totalUsers: number
+    newUsers: number
+    sessions: number
+    pageViews: number
+    avgSessionDuration: number
+    bounceRate: number
+    keyEvents: number
+    userKeyEventRate: number
+  }>> {
+    const data = await this.makeRequest(userId, propertyId, ':runReport', {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: 'date' }],
+      metrics: [
+        { name: 'totalUsers' },
+        { name: 'newUsers' },
+        { name: 'sessions' },
+        { name: 'screenPageViews' },
+        { name: 'averageSessionDuration' },
+        { name: 'bounceRate' },
+        { name: 'keyEvents' }
+      ],
+      orderBys: [{ dimension: { dimensionName: 'date' } }]
+    })
+
+    return (data.rows || []).map((row: any) => {
+      const dateStr = row.dimensionValues[0].value
+      return {
+        date: `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`,
+        totalUsers: parseInt(row.metricValues[0]?.value || '0'),
+        newUsers: parseInt(row.metricValues[1]?.value || '0'),
+        sessions: parseInt(row.metricValues[2]?.value || '0'),
+        pageViews: parseInt(row.metricValues[3]?.value || '0'),
+        avgSessionDuration: parseFloat(row.metricValues[4]?.value || '0'),
+        bounceRate: parseFloat(row.metricValues[5]?.value || '0'),
+        keyEvents: parseInt(row.metricValues[6]?.value || '0'),
+        userKeyEventRate: 0
       }
     })
   }
@@ -267,7 +318,7 @@ export class GoogleAnalyticsService {
         { name: 'screenPageViews' },
         { name: 'averageSessionDuration' },
         { name: 'bounceRate' },
-        { name: 'eventCount' }
+        { name: 'keyEvents' }
       ],
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
       limit: 20
@@ -309,7 +360,7 @@ export class GoogleAnalyticsService {
         { name: 'screenPageViews' },
         { name: 'averageSessionDuration' },
         { name: 'bounceRate' },
-        { name: 'eventCount' }
+        { name: 'keyEvents' }
       ],
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
       limit: 20
@@ -347,7 +398,7 @@ export class GoogleAnalyticsService {
       ],
       metrics: [
         { name: 'totalUsers' },
-        { name: 'eventCount' }
+        { name: 'keyEvents' }
       ],
       orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }],
       limit: 20
@@ -372,7 +423,7 @@ export class GoogleAnalyticsService {
       dimensions: [{ name: 'deviceCategory' }],
       metrics: [
         { name: 'totalUsers' },
-        { name: 'eventCount' }
+        { name: 'keyEvents' }
       ],
       orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }]
     })
@@ -396,7 +447,7 @@ export class GoogleAnalyticsService {
         dimensions: [{ name: 'userGender' }],
         metrics: [
           { name: 'totalUsers' },
-          { name: 'eventCount' }
+          { name: 'keyEvents' }
         ],
         orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }]
       })
@@ -425,7 +476,7 @@ export class GoogleAnalyticsService {
         dimensions: [{ name: 'userAgeBracket' }],
         metrics: [
           { name: 'totalUsers' },
-          { name: 'eventCount' }
+          { name: 'keyEvents' }
         ],
         orderBys: [{ dimension: { dimensionName: 'userAgeBracket' } }]
       })

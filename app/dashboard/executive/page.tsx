@@ -11,7 +11,6 @@ import type { Company } from "@/lib/types"
 
 // Import the company grid component and portfolio KPI summary
 import { CompanyGridView } from "@/components/dashboard/executive/company-grid-view"
-import { PortfolioKPISummary } from "@/components/dashboard/executive/portfolio-kpi-summary"
 
 interface PortfolioData {
   companies: Company[]
@@ -143,9 +142,9 @@ export default function ExecutiveDashboard() {
       <div className="flex flex-col gap-2 sm:gap-3">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Executive Overview</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Portfolio Overview</h1>
             <p className="text-sm text-muted-foreground">
-              Portfolio overview • {companies.length} companies • Last 30 Days
+              {companies.length} companies • Last 30 Days
               {portfolioData && (
                 <span className="ml-2">
                   • {portfolioData.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0} with data
@@ -185,14 +184,6 @@ export default function ExecutiveDashboard() {
             Loading portfolio overview...
           </span>
         </div>
-      )}
-
-      {/* Portfolio KPI Summary */}
-      {!isLoading && portfolioData && (
-        <PortfolioKPISummary 
-          companies={portfolioData.companies}
-          aggregateMetrics={portfolioData.aggregateMetrics}
-        />
       )}
 
       {/* Company Grid View */}

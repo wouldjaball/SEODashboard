@@ -6,6 +6,9 @@
     },
     "app/api/cron/refresh-cache/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/cron/sync-analytics/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -16,6 +19,14 @@
     {
       "path": "/api/cron/refresh-cache?secret=8883506154aaf56409681a23025934e1d209ea3e8ca25228a0584b1ffcdcbaad",
       "schedule": "33 8 * * *"
+    },
+    {
+      "path": "/api/cron/sync-analytics?secret=8883506154aaf56409681a23025934e1d209ea3e8ca25228a0584b1ffcdcbaad",
+      "schedule": "33 8 * * *"
+    },
+    {
+      "path": "/api/cron/sync-analytics?secret=8883506154aaf56409681a23025934e1d209ea3e8ca25228a0584b1ffcdcbaad",
+      "schedule": "33 20 * * *"
     }
   ]
 }

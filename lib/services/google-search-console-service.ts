@@ -143,6 +143,36 @@ export class GoogleSearchConsoleService {
     })
   }
 
+  /**
+   * Fetch daily-grain metrics for normalized table storage.
+   */
+  static async fetchDailyMetrics(
+    userId: string,
+    siteUrl: string,
+    startDate: string,
+    endDate: string
+  ): Promise<Array<{
+    date: string
+    impressions: number
+    clicks: number
+    ctr: number
+    avgPosition: number
+  }>> {
+    const data = await this.makeRequest(userId, siteUrl, {
+      startDate,
+      endDate,
+      dimensions: ['date']
+    })
+
+    return (data.rows || []).map((row: any) => ({
+      date: row.keys[0],
+      impressions: row.impressions || 0,
+      clicks: row.clicks || 0,
+      ctr: row.ctr || 0,
+      avgPosition: row.position || 0
+    }))
+  }
+
   static async fetchKeywords(
     userId: string,
     siteUrl: string,

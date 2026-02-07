@@ -1,9 +1,8 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { TrendingUp, TrendingDown, Users, MousePointer, Eye, Search } from "lucide-react"
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
+import { TrendingUp, MousePointer, Search } from "lucide-react"
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
 interface BusinessGrowthMetricsProps {
   data: {
@@ -38,86 +37,8 @@ export function BusinessGrowthMetrics({ data, dateRange }: BusinessGrowthMetrics
     }
   })
 
-  // Growth metrics for cards
-  const growthMetrics = [
-    {
-      title: "User Growth",
-      value: data.periodComparison.usersGrowth,
-      icon: Users,
-      description: "vs. previous 30 days",
-    },
-    {
-      title: "Session Growth", 
-      value: data.periodComparison.sessionsGrowth,
-      icon: Eye,
-      description: "vs. previous 30 days",
-    },
-    {
-      title: "Search Growth",
-      value: data.periodComparison.impressionsGrowth,
-      icon: Search,
-      description: "vs. previous 30 days",
-    },
-    {
-      title: "Click Growth",
-      value: data.periodComparison.clicksGrowth,
-      icon: MousePointer,
-      description: "vs. previous 30 days",
-    },
-  ]
-
-  const formatGrowth = (growth: number) => {
-    const isPositive = growth >= 0
-    return {
-      value: `${isPositive ? '+' : ''}${growth.toFixed(1)}%`,
-      isPositive,
-      color: isPositive ? 'text-green-600' : 'text-red-600',
-      bgColor: isPositive ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20',
-      borderColor: isPositive ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'
-    }
-  }
-
   return (
     <div className="space-y-6">
-      {/* Growth Overview Cards */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Business Growth Overview</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {growthMetrics.map((metric, index) => {
-            const Icon = metric.icon
-            const growth = formatGrowth(metric.value)
-            
-            return (
-              <Card key={index} className={`${growth.borderColor} transition-all hover:shadow-md`}>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">{metric.title}</p>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-2xl font-bold ${growth.color}`}>
-                          {growth.value}
-                        </span>
-                        {growth.isPositive ? (
-                          <TrendingUp className={`h-4 w-4 ${growth.color}`} />
-                        ) : (
-                          <TrendingDown className={`h-4 w-4 ${growth.color}`} />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {metric.description}
-                      </p>
-                    </div>
-                    <div className={`p-3 rounded-full ${growth.bgColor}`}>
-                      <Icon className={`h-5 w-5 ${growth.color}`} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Traffic Trends Chart */}
       <Card>
         <CardHeader>
@@ -168,53 +89,66 @@ export function BusinessGrowthMetrics({ data, dateRange }: BusinessGrowthMetrics
         </CardContent>
       </Card>
 
-      {/* Search Performance Trends */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Search Performance Trends
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={combinedWeeklyData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis 
-                  dataKey="week" 
-                  className="text-sm"
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis className="text-sm" tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="impressions"
-                  stroke="#f59e0b"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                  name="Search Impressions"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="clicks"
-                  stroke="#ef4444"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                  name="Search Clicks"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search Performance Trends - Side by Side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Search className="h-5 w-5" />
+              Search Impressions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={combinedWeeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="week" className="text-sm" tick={{ fontSize: 11 }} />
+                  <YAxis className="text-sm" tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                    formatter={(value: number | undefined) => [(value ?? 0).toLocaleString(), 'Impressions']}
+                  />
+                  <Line type="monotone" dataKey="impressions" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4 }} name="Impressions" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MousePointer className="h-5 w-5" />
+              Search Clicks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={combinedWeeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="week" className="text-sm" tick={{ fontSize: 11 }} />
+                  <YAxis className="text-sm" tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                    formatter={(value: number | undefined) => [(value ?? 0).toLocaleString(), 'Clicks']}
+                  />
+                  <Line type="monotone" dataKey="clicks" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} name="Clicks" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
