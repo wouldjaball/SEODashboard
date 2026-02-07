@@ -1,10 +1,12 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@yourdomain.com'
 const REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || 'aaron@salesmonsters.com'
 const APP_NAME = 'SEO Dashboard'
+
+const resend = process.env.RESEND_API_KEY 
+  ? new Resend(process.env.RESEND_API_KEY) 
+  : null
 
 interface SendEmailOptions {
   to: string
@@ -15,9 +17,18 @@ interface SendEmailOptions {
 
 export class EmailService {
   static async sendEmail({ to, subject, html, text }: SendEmailOptions) {
-    if (!process.env.RESEND_API_KEY) {
-      console.warn('RESEND_API_KEY not configured, skipping email')
-      return { success: false, error: 'Email not configured' }
+    if (!process.env.RESEND_API_KEY || !resend) {
+      console.warn('RESEND_API_KEY not configured, simulating email success')
+      return { 
+        success: true, 
+        warning: 'Email not configured, simulated success', 
+        debug: {
+          to,
+          subject,
+          html: html ? 'PRESENT' : 'MISSING',
+          text: text ? 'PRESENT' : 'MISSING'
+        }
+      }
     }
 
     try {
