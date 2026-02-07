@@ -1,4 +1,5 @@
 const { spawn } = require('child_process');
+const { execSync } = require('child_process');
 
 // Suppress console warnings during build
 const originalConsoleWarn = console.warn;
@@ -14,18 +15,26 @@ console.warn = (...args) => {
   originalConsoleWarn.apply(console, args);
 };
 
-const build = spawn('npx', ['next', 'build'], {
-  stdio: ['inherit', 'inherit', 'pipe'],
-  shell: true
-});
+try {
+  // Run build diagnostics
+  execSync('node ./scripts/build-debug.js', { stdio: 'inherit' });
 
-build.stderr.on('data', (data) => {
-  const output = data.toString();
-  if (!output.includes('width(-1) and height(-1)')) {
-    process.stderr.write(data);
-  }
-});
+  const build = spawn('npx', ['next', 'build'], {
+    stdio: ['inherit', 'inherit', 'pipe'],
+    shell: true
+  });
 
-build.on('close', (code) => {
-  process.exit(code);
-});
+  build.stderr.on('data', (data) => {
+    const output = data.toString();
+    if (!output.includes('width(-1) and height(-1)')) {
+      process.stderr.write(data);
+    }
+  });
+
+  build.on('close', (code) => {
+    process.exit(code);
+  });
+} catch (error) {
+  console.error('Build diagnostics failed:', error);
+  process.exit(1);
+}

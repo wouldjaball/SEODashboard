@@ -225,10 +225,10 @@ export function LIReport({
 
       {/* LinkedIn Native Dashboard - NEW */}
       <LinkedInNativeDashboard
-        searchAppearanceMetrics={searchAppearanceMetrics}
-        followerMetrics={followerMetrics}
-        contentMetrics={contentMetrics}
-        visitorMetrics={visitorMetrics}
+        searchAppearanceMetrics={searchAppearanceMetrics || undefined}
+        followerMetrics={followerMetrics || undefined}
+        contentMetrics={contentMetrics || undefined}
+        visitorMetrics={visitorMetrics || undefined}
       />
 
       <Separator />
