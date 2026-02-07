@@ -12,11 +12,18 @@ import { generateTempPassword } from '@/lib/utils/password'
  * Only owners of the company can assign users
  */
 export async function POST(request: Request) {
+  // Debug logging for page data collection
+  console.log('🔍 Page Data Collection Started: /api/admin/users/assign')
+  console.log('Request Method:', request.method)
+  
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
+    console.log('🔍 Authentication Status:', user ? 'Authenticated' : 'Unauthorized')
+
     if (!user) {
+      console.log('🚫 No user found - returning 401')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -105,6 +112,12 @@ export async function POST(request: Request) {
         const companyNames: string[] = []
 
         // Create user with Supabase Admin API
+        console.log('🔍 Attempting User Creation:', {
+          email: email.toLowerCase(),
+          mustChangePassword: true,
+          invitedBy: user.id
+        })
+
         const { data: newUser, error: createUserError } = await serviceClient.auth.admin.createUser({
           email: email.toLowerCase(),
           password: tempPassword,
@@ -114,6 +127,11 @@ export async function POST(request: Request) {
             invited_by: user.id,
             invited_at: new Date().toISOString()
           }
+        })
+
+        console.log('🔍 User Creation Result:', {
+          success: !!newUser,
+          error: createUserError ? JSON.stringify(createUserError) : null
         })
 
         if (createUserError) {
@@ -310,17 +328,22 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({
+    const finalResponse = {
       success: true,
       assignments,
       errors: errors.length > 0 ? errors : undefined,
       emailSent: newlyAssignedCompanyNames.length > 0 ? emailSent : undefined,
       message: `User assigned to ${assignments.length} company${assignments.length !== 1 ? 'ies' : ''}${errors.length > 0 ? ` (${errors.length} skipped)` : ''}`
-    }, { status: 201 })
+    }
+
+    console.log('🔍 Final Response:', finalResponse)
+
+    return NextResponse.json(finalResponse, { status: 201 })
   } catch (error) {
     console.error('Assign user error:', error)
+    console.log('🚨 Caught Critical Error in /api/admin/users/assign')
     return NextResponse.json(
-      { error: 'Failed to assign user' },
+      { error: 'Failed to assign user', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
