@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { subDays, format } from 'date-fns'
 
@@ -12,9 +12,9 @@ export async function GET(request: Request) {
     }
 
     console.log('[Cron] Starting portfolio cache generation...')
-    
-    // Use service role to access all data
-    const supabase = await createClient()
+
+    // Use service role to access all data (bypasses RLS)
+    const supabase = createServiceClient()
     
     // Get current date and calculate 30-day range
     const endDate = new Date()
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
               `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${companyId}?${params}`,
               {
                 headers: {
-                  'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                  'Authorization': `Bearer ${process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY}`,
                 }
               }
             )

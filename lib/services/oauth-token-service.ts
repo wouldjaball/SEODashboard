@@ -1,4 +1,4 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { encryptToken, decryptToken } from '@/lib/utils/token-encryption'
 
 // In-memory token cache to eliminate redundant OAuth refresh calls
@@ -172,7 +172,7 @@ export class OAuthTokenService {
       youtubeChannelName?: string
     }
   ): Promise<void> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const encryptedAccessToken = encryptToken(tokens.access_token)
     const encryptedRefreshToken = encryptToken(tokens.refresh_token)
@@ -566,7 +566,7 @@ export class OAuthTokenService {
       linkedinOrganizationName?: string
     }
   ): Promise<void> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const encryptedAccessToken = encryptToken(tokens.access_token)
     const encryptedRefreshToken = tokens.refresh_token ? encryptToken(tokens.refresh_token) : null

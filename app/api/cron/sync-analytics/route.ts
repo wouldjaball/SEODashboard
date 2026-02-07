@@ -32,9 +32,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseKey) {
+    console.error('[Sync] No Supabase secret key found (SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY)')
+    return NextResponse.json({ error: 'Missing Supabase secret key' }, { status: 500 })
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    supabaseKey
   )
 
   const tracker = new CronPerformanceTracker()
