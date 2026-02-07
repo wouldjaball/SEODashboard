@@ -645,7 +645,7 @@ async function getCachedServiceData(
     
     const { data, error } = await supabase
       .from('analytics_cache')
-      .select('data, created_at')
+      .select('cached_data, created_at')
       .eq('company_id', companyId)
       .eq('data_type', 'all')
       .gte('created_at', thirtyDaysAgo.toISOString())
@@ -658,12 +658,12 @@ async function getCachedServiceData(
       return null
     }
 
-    if (!data?.data) {
+    if (!data?.cached_data) {
       console.log(`[Cache] No cached ${service} data found for ${companyId}`)
       return null
     }
 
-    const cachedData = data.data
+    const cachedData = data.cached_data
     const serviceData: any = {}
 
     if (service === 'youtube') {

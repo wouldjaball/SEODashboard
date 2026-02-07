@@ -9,8 +9,9 @@ import Link from "next/link"
 import { useCompany } from "@/lib/company-context"
 import type { Company } from "@/lib/types"
 
-// Import the company grid component
+// Import the company grid component and portfolio KPI summary
 import { CompanyGridView } from "@/components/dashboard/executive/company-grid-view"
+import { PortfolioKPISummary } from "@/components/dashboard/executive/portfolio-kpi-summary"
 
 interface PortfolioData {
   companies: Company[]
@@ -184,6 +185,14 @@ export default function ExecutiveDashboard() {
             Loading portfolio overview...
           </span>
         </div>
+      )}
+
+      {/* Portfolio KPI Summary */}
+      {!isLoading && portfolioData && (
+        <PortfolioKPISummary 
+          companies={portfolioData.companies}
+          aggregateMetrics={portfolioData.aggregateMetrics}
+        />
       )}
 
       {/* Company Grid View */}

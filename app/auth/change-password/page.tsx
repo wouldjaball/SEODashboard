@@ -95,6 +95,7 @@ export default function ChangePasswordPage() {
               <Label htmlFor="current-password">Temporary Password</Label>
               <Input
                 id="current-password"
+                data-testid="change-current-password"
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -109,6 +110,7 @@ export default function ChangePasswordPage() {
               <Label htmlFor="new-password">New Password</Label>
               <Input
                 id="new-password"
+                data-testid="change-new-password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -123,6 +125,7 @@ export default function ChangePasswordPage() {
               <Label htmlFor="confirm-password">Confirm New Password</Label>
               <Input
                 id="confirm-password"
+                data-testid="change-confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -151,13 +154,13 @@ export default function ChangePasswordPage() {
             </div>
 
             {error && (
-              <div className="text-sm text-destructive flex items-center gap-2">
+              <div className="text-sm text-destructive flex items-center gap-2" data-testid="change-password-error">
                 <AlertCircle className="h-4 w-4" />
                 {error}
               </div>
             )}
 
-            <Button type="submit" disabled={isLoading} className="mt-2">
+            <Button type="submit" disabled={isLoading} className="mt-2" data-testid="change-password-submit">
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Set New Password
             </Button>

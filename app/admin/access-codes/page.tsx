@@ -148,7 +148,7 @@ export default function AdminAccessCodesPage() {
   if (!hasAdminAccess) {
     return (
       <div className="container max-w-4xl py-8">
-        <Card>
+        <Card data-testid="access-denied">
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
@@ -178,12 +178,12 @@ export default function AdminAccessCodesPage() {
       <div className="flex justify-end">
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button data-testid="create-code-button">
               <Plus className="h-4 w-4 mr-2" />
               Create Code
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent data-testid="create-code-dialog">
             <DialogHeader>
               <DialogTitle>Create Access Code</DialogTitle>
               <DialogDescription>
@@ -200,6 +200,7 @@ export default function AdminAccessCodesPage() {
                     value={newCode}
                     onChange={(e) => setNewCode(e.target.value.toUpperCase())}
                     className="uppercase"
+                    data-testid="new-code-input"
                   />
                   <Button
                     type="button"
@@ -207,6 +208,7 @@ export default function AdminAccessCodesPage() {
                     size="icon"
                     onClick={generateRandomCode}
                     title="Generate random code"
+                    data-testid="generate-random-code"
                   >
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -219,6 +221,7 @@ export default function AdminAccessCodesPage() {
                   placeholder="e.g., For beta testers"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
+                  data-testid="new-description-input"
                 />
               </div>
             </div>
@@ -226,7 +229,7 @@ export default function AdminAccessCodesPage() {
               <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreateCode} disabled={isCreating}>
+              <Button onClick={handleCreateCode} disabled={isCreating} data-testid="create-code-submit">
                 {isCreating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -242,7 +245,7 @@ export default function AdminAccessCodesPage() {
       </div>
 
       {/* Codes Table */}
-      <Card>
+      <Card data-testid="access-codes-table">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
@@ -274,7 +277,7 @@ export default function AdminAccessCodesPage() {
               </TableHeader>
               <TableBody>
                 {codes.map((code) => (
-                  <TableRow key={code.id}>
+                  <TableRow key={code.id} data-testid={`code-row-${code.code}`}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <code className="font-mono font-semibold">{code.code}</code>
@@ -283,6 +286,7 @@ export default function AdminAccessCodesPage() {
                           size="icon"
                           className="h-6 w-6"
                           onClick={() => handleCopyCode(code.code)}
+                          data-testid={`copy-code-${code.code}`}
                         >
                           {copiedCode === code.code ? (
                             <Check className="h-3 w-3 text-green-500" />
@@ -310,6 +314,7 @@ export default function AdminAccessCodesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleToggleActive(code)}
+                        data-testid={`toggle-code-${code.code}`}
                       >
                         {code.is_active ? (
                           <>
