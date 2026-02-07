@@ -108,8 +108,7 @@ export async function GET(request: Request) {
 
         if (!gaMapping && !gscMapping && !ytMapping && !linkedinMapping) {
           console.log(`[Cron] No mappings for ${company.name}, skipping`)
-          results.push({ company: company.name, status: 'skipped', error: 'no mappings' })
-          continue
+          return { company: company.name, status: 'skipped', error: 'no mappings' }
         }
 
         // Fetch property/site/channel details
