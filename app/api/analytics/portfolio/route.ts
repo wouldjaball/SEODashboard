@@ -157,6 +157,54 @@ export async function GET(request: Request) {
           queryTimeMs: queryMs
         }
 
+        // Fill companies without normalized data from legacy cache
+        const companiesNeedingLegacyCache = companyIds.filter(id => {
+          const a = bulkResults.get(id)
+          return !a || (!a.gaMetrics && !a.gscMetrics && !a.ytMetrics && !a.liVisitorMetrics)
+        })
+
+        if (companiesNeedingLegacyCache.length > 0) {
+          console.log(`[Portfolio API] ${companiesNeedingLegacyCache.length} companies have no normalized data, checking legacy cache...`)
+          const { data: legacyCacheEntries } = await supabase
+            .from('analytics_cache')
+            .select('company_id, cached_data')
+            .in('company_id', companiesNeedingLegacyCache)
+            .eq('data_type', 'daily_snapshot')
+            .gt('expires_at', new Date().toISOString())
+
+          if (legacyCacheEntries && legacyCacheEntries.length > 0) {
+            for (const entry of legacyCacheEntries) {
+              if (entry.cached_data) {
+                bulkResults.set(entry.company_id, entry.cached_data)
+              }
+            }
+            console.log(`[Portfolio API] Filled ${legacyCacheEntries.length} companies from legacy cache`)
+          }
+
+          // Also check on-demand cache entries for any still-missing companies
+          const stillMissing = companiesNeedingLegacyCache.filter(id => {
+            const a = bulkResults.get(id)
+            return !a || (!a.gaMetrics && !a.gscMetrics && !a.ytMetrics && !a.liVisitorMetrics)
+          })
+          if (stillMissing.length > 0) {
+            const { data: onDemandEntries } = await supabase
+              .from('analytics_cache')
+              .select('company_id, cached_data')
+              .in('company_id', stillMissing)
+              .eq('data_type', 'all')
+              .gt('expires_at', new Date().toISOString())
+
+            if (onDemandEntries && onDemandEntries.length > 0) {
+              for (const entry of onDemandEntries) {
+                if (entry.cached_data) {
+                  bulkResults.set(entry.company_id, entry.cached_data)
+                }
+              }
+              console.log(`[Portfolio API] Filled ${onDemandEntries.length} more companies from on-demand cache`)
+            }
+          }
+        }
+
         // Merge company metadata with analytics data
         const companiesWithData = userCompanies.map((uc: any) => {
           const analytics = bulkResults.get(uc.company_id) || {}

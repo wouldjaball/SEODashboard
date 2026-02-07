@@ -178,32 +178,8 @@ export async function GET(
         return NextResponse.json(normalizedResult)
       }
 
-      // DB-only mode: return empty data with sync status instead of blocking on external APIs
-      console.log(`[Analytics] Normalized tables returned no data for ${companyId} — returning empty with sync status`)
-      const { data: syncStatuses } = await supabase
-        .from('sync_status')
-        .select('platform, sync_state, last_sync_at, last_success_at, data_end_date')
-        .eq('company_id', companyId)
-
-      return NextResponse.json({
-        gaMetrics: null, gaWeeklyData: [], gaChannelData: [],
-        gaTrafficShare: [], gaSourcePerformance: [], gaLandingPages: [],
-        gaRegions: [], gaDevices: [], gaGender: [], gaAge: [],
-        gscMetrics: null, gscWeeklyData: [], gscIndexData: [],
-        gscKeywords: [], gscLandingPages: [], gscCountries: [], gscDevices: [],
-        ytMetrics: null, ytVideos: [],
-        ytViewsSparkline: [], ytWatchTimeSparkline: [], ytSharesSparkline: [], ytLikesSparkline: [],
-        liVisitorMetrics: null, liFollowerMetrics: null, liContentMetrics: null,
-        liVisitorDaily: [], liFollowerDaily: [], liImpressionDaily: [],
-        liIndustryDemographics: [], liSeniorityDemographics: [],
-        liJobFunctionDemographics: [], liCompanySizeDemographics: [],
-        liUpdates: [], liVideoDaily: [],
-        syncStatus: {
-          hasSyncedData: false,
-          platforms: syncStatuses || [],
-          message: 'Data is being synced. Please check back shortly.'
-        }
-      })
+      // No normalized data — fall through to legacy cache + API path
+      console.log(`[Analytics] No normalized data for ${companyId}, falling back to cache/API`)
     }
 
     // Check cache first (but allow bypass for debugging)
