@@ -1,15 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next@latest",
-      "config": {
-        "buildCommand": "npm run build:simple",
-        "outputDirectory": ".next"
-      }
-    }
-  ],
   "functions": {
     "app/api/cron/portfolio-cache/route.ts": {
       "maxDuration": 300
