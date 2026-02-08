@@ -168,6 +168,14 @@ export async function GET(
     const previousStartDate = format(subDays(new Date(startDate), daysDiff), 'yyyy-MM-dd')
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
 
+    // Pre-fetch LinkedIn mapping in parallel with normalized tables query
+    // This runs concurrently so it's ready if we need to supplement LinkedIn data
+    const linkedinMappingPromise = supabase
+      .from('company_linkedin_mappings')
+      .select('linkedin_page_id')
+      .eq('company_id', companyId)
+      .maybeSingle()
+
     // ============================================
     // NORMALIZED TABLES PATH (always try first)
     // ============================================
@@ -178,6 +186,25 @@ export async function GET(
       const hasData = normalizedResult.gaMetrics || normalizedResult.gscMetrics ||
                       normalizedResult.ytMetrics || normalizedResult.liVisitorMetrics
       if (hasData) {
+        // Check if LinkedIn data is missing from normalized tables
+        const hasLinkedInData = (
+          (normalizedResult.liVisitorMetrics?.pageViews ?? 0) > 0 ||
+          (normalizedResult.liFollowerMetrics?.totalFollowers ?? 0) > 0 ||
+          (normalizedResult.liFollowerMetrics?.newFollowers ?? 0) > 0 ||
+          (normalizedResult.liContentMetrics?.impressions ?? 0) > 0 ||
+          (normalizedResult.liContentMetrics?.engagementRate ?? 0) > 0
+        )
+        if (!hasLinkedInData) {
+          // LinkedIn data missing from normalized tables — try cache (fast DB query)
+          const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
+          if (cachedLiData) {
+            Object.assign(normalizedResult, cachedLiData)
+            console.log(`[Analytics] LinkedIn data supplemented from cache for ${companyId}`)
+          } else {
+            console.log(`[Analytics] No LinkedIn data in normalized tables or cache for ${companyId} — run sync to populate`)
+          }
+        }
+
         // Attach per-platform freshness from sync_status
         const { data: syncRows } = await supabase
           .from('sync_status')
@@ -242,7 +269,7 @@ export async function GET(
       supabase.from('company_ga_mappings').select('ga_property_id').eq('company_id', companyId).maybeSingle(),
       supabase.from('company_gsc_mappings').select('gsc_site_id').eq('company_id', companyId).maybeSingle(),
       supabase.from('company_youtube_mappings').select('youtube_channel_id').eq('company_id', companyId).maybeSingle(),
-      supabase.from('company_linkedin_mappings').select('linkedin_page_id').eq('company_id', companyId).maybeSingle()
+      linkedinMappingPromise // Reuse the already-started LinkedIn mapping query
     ])
 
     const { data: gaMapping } = gaMappingResult
