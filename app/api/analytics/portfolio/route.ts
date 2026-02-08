@@ -567,7 +567,7 @@ async function fetchCompanyAnalyticsViaHTTP(
     liVisitorDaily: [], liFollowerDaily: [], liImpressionDaily: [],
     liIndustryDemographics: [], liSeniorityDemographics: [],
     liJobFunctionDemographics: [], liCompanySizeDemographics: [],
-    liUpdates: [], liVideoDaily: []
+    liUpdates: []
   }
 
   try {

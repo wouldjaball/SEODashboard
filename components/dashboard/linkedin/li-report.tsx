@@ -5,8 +5,6 @@ import { VisitorDemographics } from "./visitor-demographics"
 import { FollowerAnalytics } from "./follower-analytics"
 import { ContentAnalytics } from "./content-analytics"
 import { UpdatesTable } from "./updates-table"
-import { EnhancedLinkedInAnalytics } from "./enhanced-linkedin-analytics"
-import { LinkedInNativeDashboard } from "./linkedin-native-dashboard"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,29 +13,22 @@ import { AlertTriangle, Linkedin, RefreshCw, Settings, Edit3, Database } from "l
 import Link from "next/link"
 import { useState } from "react"
 import { LinkedInDataEditor } from "./linkedin-data-editor"
-import { LinkedInDebugInfo } from "@/components/debug/linkedin-debug"
 import { useCompany } from "@/lib/company-context"
 import type {
   LIVisitorMetrics,
   LIFollowerMetrics,
   LIContentMetrics,
-  LISearchAppearanceMetrics,
   LIVisitorDaily,
   LIDemographic,
   LIUpdate,
   LIFollowerDaily,
   LIImpressionDaily,
-  LIVideoMetrics,
-  LIEmployeeAdvocacyMetrics,
-  LIContentBreakdown,
-  LISocialListeningMention,
 } from "@/lib/types"
 
 interface LIReportProps {
   visitorMetrics: LIVisitorMetrics | null
   followerMetrics: LIFollowerMetrics | null
   contentMetrics: LIContentMetrics | null
-  searchAppearanceMetrics?: LISearchAppearanceMetrics | null
   visitorDaily: LIVisitorDaily[]
   followerDaily: LIFollowerDaily[]
   impressionDaily: LIImpressionDaily[]
@@ -50,18 +41,12 @@ interface LIReportProps {
   errorType?: 'auth_required' | 'scope_missing' | 'api_error'
   dataSource?: 'api' | 'sheets' | 'mock' | 'none' | 'manual'
   dateRange?: { from: Date; to: Date }
-  // Enhanced LinkedIn metrics
-  videoMetrics?: LIVideoMetrics
-  employeeAdvocacyMetrics?: LIEmployeeAdvocacyMetrics
-  contentBreakdown?: LIContentBreakdown
-  socialListening?: LISocialListeningMention[]
 }
 
 export function LIReport({
   visitorMetrics,
   followerMetrics,
   contentMetrics,
-  searchAppearanceMetrics,
   visitorDaily,
   followerDaily,
   impressionDaily,
@@ -74,10 +59,6 @@ export function LIReport({
   errorType,
   dataSource,
   dateRange,
-  videoMetrics,
-  employeeAdvocacyMetrics,
-  contentBreakdown,
-  socialListening,
 }: LIReportProps) {
   const { company } = useCompany()
   const [showDataEditor, setShowDataEditor] = useState(false)
@@ -199,9 +180,6 @@ export function LIReport({
 
   return (
     <div className="space-y-8">
-      {/* Debug Info - Remove after fixing */}
-      <LinkedInDebugInfo />
-      
       {/* LinkedIn Data Header with Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -222,16 +200,6 @@ export function LIReport({
           Edit Data
         </Button>
       </div>
-
-      {/* LinkedIn Native Dashboard - NEW */}
-      <LinkedInNativeDashboard
-        searchAppearanceMetrics={searchAppearanceMetrics || undefined}
-        followerMetrics={followerMetrics || undefined}
-        contentMetrics={contentMetrics || undefined}
-        visitorMetrics={visitorMetrics || undefined}
-      />
-
-      <Separator />
 
       {/* Content Performance - TOP PRIORITY */}
       {contentMetrics && (
@@ -261,14 +229,6 @@ export function LIReport({
       {followerMetrics && (
         <FollowerAnalytics metrics={followerMetrics} dailyData={followerDaily} />
       )}
-
-      {/* Enhanced LinkedIn Analytics - only shows if data exists */}
-      <EnhancedLinkedInAnalytics
-        videoMetrics={videoMetrics}
-        employeeAdvocacyMetrics={employeeAdvocacyMetrics}
-        contentBreakdown={contentBreakdown}
-        socialListening={socialListening}
-      />
 
       {contentMetrics && updates.length > 0 && <Separator />}
 

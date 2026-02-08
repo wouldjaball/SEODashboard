@@ -258,10 +258,6 @@ export function assembleCompanyAnalytics(
     results.liJobFunctionDemographics = liSnapshot?.job_function_demographics || []
     results.liCompanySizeDemographics = liSnapshot?.company_size_demographics || []
     results.liUpdates = liSnapshot?.updates || []
-    results.liVideoMetrics = liSnapshot?.video_metrics
-    results.liEmployeeAdvocacyMetrics = liSnapshot?.employee_advocacy_metrics
-    results.liContentBreakdown = liSnapshot?.content_breakdown
-    results.liSocialListening = liSnapshot?.social_listening
     results.liDataSource = liSnapshot?.data_source || 'cache'
 
     const liDailyData = liDaily || []
@@ -277,7 +273,11 @@ export function assembleCompanyAnalytics(
     }))
     results.liImpressionDaily = liDailyData.map((d: any) => ({
       date: d.date,
-      impressions: d.impressions || 0
+      impressions: d.impressions || 0,
+      clicks: d.clicks || 0,
+      reactions: d.reactions || 0,
+      comments: d.comments || 0,
+      shares: d.shares || 0
     }))
   }
 

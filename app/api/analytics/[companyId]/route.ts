@@ -186,30 +186,68 @@ export async function GET(
       const hasData = normalizedResult.gaMetrics || normalizedResult.gscMetrics ||
                       normalizedResult.ytMetrics || normalizedResult.liVisitorMetrics
       if (hasData) {
-        // Check if LinkedIn data is missing from normalized tables
-        const hasLinkedInData = (
-          (normalizedResult.liVisitorMetrics?.pageViews ?? 0) > 0 ||
-          (normalizedResult.liFollowerMetrics?.totalFollowers ?? 0) > 0 ||
-          (normalizedResult.liFollowerMetrics?.newFollowers ?? 0) > 0 ||
-          (normalizedResult.liContentMetrics?.impressions ?? 0) > 0 ||
-          (normalizedResult.liContentMetrics?.engagementRate ?? 0) > 0
-        )
+        // Fetch sync_status to determine data availability and freshness
+        const { data: syncRows } = await supabase
+          .from('sync_status')
+          .select('platform, last_success_at, data_end_date, sync_state, consecutive_failures')
+          .eq('company_id', companyId)
+
+        // Check if LinkedIn sync has ever succeeded — trust synced data even if all zeros
+        const liSyncStatus = syncRows?.find((s: any) => s.platform === 'linkedin')
+        const hasLinkedInData = liSyncStatus?.last_success_at != null
         if (!hasLinkedInData) {
-          // LinkedIn data missing from normalized tables — try cache (fast DB query)
+          // LinkedIn has never been synced — try cache supplement (fast DB query)
           const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
           if (cachedLiData) {
             Object.assign(normalizedResult, cachedLiData)
             console.log(`[Analytics] LinkedIn data supplemented from cache for ${companyId}`)
           } else {
-            console.log(`[Analytics] No LinkedIn data in normalized tables or cache for ${companyId} — run sync to populate`)
+            // No cache either — try live LinkedIn API call as last resort
+            console.log(`[Analytics] No LinkedIn sync history or cache for ${companyId} — trying live API`)
+            try {
+              const { data: liMapping } = await linkedinMappingPromise
+              if (liMapping?.linkedin_page_id) {
+                const { data: liPage } = await supabase
+                  .from('linkedin_pages')
+                  .select('page_id, user_id')
+                  .eq('id', liMapping.linkedin_page_id)
+                  .single()
+
+                if (liPage?.page_id && liPage?.user_id) {
+                  const hasTokens = await OAuthTokenService.hasValidLinkedInTokens(liPage.user_id)
+                  if (hasTokens) {
+                    const li = await LinkedInAnalyticsService.fetchAllMetrics(
+                      liPage.user_id,
+                      liPage.page_id,
+                      startDate,
+                      endDate,
+                      previousStartDate,
+                      previousEndDate
+                    )
+                    normalizedResult.liVisitorMetrics = li.visitorMetrics
+                    normalizedResult.liFollowerMetrics = li.followerMetrics
+                    normalizedResult.liContentMetrics = li.contentMetrics
+                    normalizedResult.liSearchAppearanceMetrics = li.searchAppearanceMetrics
+                    normalizedResult.liVisitorDaily = li.visitorDaily
+                    normalizedResult.liFollowerDaily = li.followerDaily
+                    normalizedResult.liImpressionDaily = li.impressionDaily
+                    normalizedResult.liIndustryDemographics = li.industryDemographics
+                    normalizedResult.liSeniorityDemographics = li.seniorityDemographics
+                    normalizedResult.liJobFunctionDemographics = li.jobFunctionDemographics
+                    normalizedResult.liCompanySizeDemographics = li.companySizeDemographics
+                    normalizedResult.liUpdates = li.updates
+                    normalizedResult.liDataSource = 'api'
+                    console.log(`[Analytics] LinkedIn data fetched live for ${companyId}`)
+                  } else {
+                    console.log(`[Analytics] No valid LinkedIn tokens for ${companyId}`)
+                  }
+                }
+              }
+            } catch (liError) {
+              console.error(`[Analytics] Live LinkedIn API fallback failed for ${companyId}:`, liError)
+            }
           }
         }
-
-        // Attach per-platform freshness from sync_status
-        const { data: syncRows } = await supabase
-          .from('sync_status')
-          .select('platform, last_success_at, data_end_date, sync_state, consecutive_failures')
-          .eq('company_id', companyId)
 
         const platformFreshness = (platform: string) => {
           const row = syncRows?.find((s: any) => s.platform === platform)
@@ -552,10 +590,6 @@ export async function GET(
       results.liJobFunctionDemographics = li.jobFunctionDemographics
       results.liCompanySizeDemographics = li.companySizeDemographics
       results.liUpdates = li.updates
-      results.liVideoMetrics = li.videoMetrics
-      results.liEmployeeAdvocacyMetrics = li.employeeAdvocacyMetrics
-      results.liContentBreakdown = li.contentBreakdown
-      results.liSocialListening = li.socialListening
       results.liDataSource = 'api'
       console.log(`[LinkedIn] Successfully fetched data for company: ${companyId}`)
     } else if (liResult.status === 'rejected') {

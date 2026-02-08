@@ -484,6 +484,16 @@ async function syncLinkedIn(
       dateMap.get(d.date)!.impressions = d.impressions || 0
     })
 
+    // Merge daily content metrics (clicks, reactions, comments, shares)
+    const contentDaily = liData.contentDaily || []
+    contentDaily.forEach((d: any) => {
+      if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date })
+      dateMap.get(d.date)!.clicks = d.clicks || 0
+      dateMap.get(d.date)!.reactions = d.reactions || 0
+      dateMap.get(d.date)!.comments = d.comments || 0
+      dateMap.get(d.date)!.shares = d.shares || 0
+    })
+
     dateMap.forEach((row, date) => {
       dailyRows.push({
         company_id: company.id,
@@ -493,10 +503,10 @@ async function syncLinkedIn(
         organic_follower_gain: row.organic_follower_gain || 0,
         paid_follower_gain: row.paid_follower_gain || 0,
         impressions: row.impressions || 0,
-        clicks: 0,
-        reactions: 0,
-        comments: 0,
-        shares: 0
+        clicks: row.clicks || 0,
+        reactions: row.reactions || 0,
+        comments: row.comments || 0,
+        shares: row.shares || 0
       })
     })
 
@@ -520,10 +530,10 @@ async function syncLinkedIn(
       job_function_demographics: liData.jobFunctionDemographics,
       company_size_demographics: liData.companySizeDemographics,
       updates: liData.updates,
-      video_metrics: liData.videoMetrics,
-      employee_advocacy_metrics: liData.employeeAdvocacyMetrics,
-      content_breakdown: liData.contentBreakdown,
-      social_listening: liData.socialListening,
+      video_metrics: null,
+      employee_advocacy_metrics: null,
+      content_breakdown: null,
+      social_listening: null,
       data_source: 'api'
     }, { onConflict: 'company_id,period_start,period_end' })
 

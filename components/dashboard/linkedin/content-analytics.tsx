@@ -29,6 +29,22 @@ const chartConfig = {
     label: "Impressions",
     color: "var(--chart-1)",
   },
+  clicks: {
+    label: "Clicks",
+    color: "var(--chart-2)",
+  },
+  reactions: {
+    label: "Reactions",
+    color: "var(--chart-3)",
+  },
+  comments: {
+    label: "Comments",
+    color: "var(--chart-4)",
+  },
+  shares: {
+    label: "Shares",
+    color: "var(--chart-5)",
+  },
 } satisfies ChartConfig
 
 export function ContentAnalytics({ metrics, dailyData }: ContentAnalyticsProps) {
@@ -39,10 +55,15 @@ export function ContentAnalytics({ metrics, dailyData }: ContentAnalyticsProps) 
 
   const prev = metrics.previousPeriod
 
-  const formattedData = dailyData.map((d) => ({
+  const formattedData = dailyData.map((d: any) => ({
     ...d,
     formattedDate: format(parseISO(d.date), "MMM d"),
   }))
+
+  // Check if daily data includes engagement metrics (clicks/reactions/comments/shares)
+  const hasEngagementData = formattedData.some((d: any) =>
+    (d.clicks || 0) > 0 || (d.reactions || 0) > 0 || (d.comments || 0) > 0 || (d.shares || 0) > 0
+  )
 
   return (
     <div className="space-y-4">
@@ -124,6 +145,34 @@ export function ContentAnalytics({ metrics, dailyData }: ContentAnalyticsProps) 
                 strokeWidth={2}
                 dot={{ fill: "var(--color-impressions)", strokeWidth: 2, r: 3 }}
               />
+            </LineChart>
+          </ChartContainer>
+        </ChartCard>
+      )}
+
+      {/* Engagement Metrics Chart - clicks, reactions, comments, shares */}
+      {formattedData.length > 0 && hasEngagementData && (
+        <ChartCard title="Daily Engagement Breakdown">
+          <ChartContainer config={chartConfig} className="h-[250px] w-full">
+            <LineChart data={formattedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="formattedDate"
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => formatNumber(value)}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Line type="monotone" dataKey="clicks" stroke="var(--color-clicks)" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="reactions" stroke="var(--color-reactions)" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="comments" stroke="var(--color-comments)" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="shares" stroke="var(--color-shares)" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ChartContainer>
         </ChartCard>

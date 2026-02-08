@@ -167,11 +167,6 @@ export async function GET(request: Request) {
                 liJobFunctionDemographics: analyticsData.liJobFunctionDemographics || [],
                 liCompanySizeDemographics: analyticsData.liCompanySizeDemographics || [],
                 liUpdates: analyticsData.liUpdates || [],
-                liVideoMetrics: analyticsData.liVideoMetrics,
-                liEmployeeAdvocacyMetrics: analyticsData.liEmployeeAdvocacyMetrics,
-                liContentBreakdown: analyticsData.liContentBreakdown,
-                liSocialListening: analyticsData.liSocialListening,
-                liVideoDaily: analyticsData.liVideoDaily || [],
                 liError: analyticsData.liError,
                 liErrorType: analyticsData.liErrorType,
                 liDataSource: analyticsData.liDataSource

@@ -312,10 +312,6 @@ export async function GET(request: Request) {
             cacheData.liJobFunctionDemographics = data.jobFunctionDemographics
             cacheData.liCompanySizeDemographics = data.companySizeDemographics
             cacheData.liUpdates = data.updates
-            cacheData.liVideoMetrics = data.videoMetrics
-            cacheData.liEmployeeAdvocacyMetrics = data.employeeAdvocacyMetrics
-            cacheData.liContentBreakdown = data.contentBreakdown
-            cacheData.liSocialListening = data.socialListening
             cacheData.liDataSource = 'api'
           } else if (key === 'linkedin' && data.error) {
             cacheData.liError = data.error

@@ -1,44 +1,46 @@
 "use client"
 
-import { Search, Users, Eye, MousePointerClick, TrendingUp, TrendingDown } from "lucide-react"
+import { BarChart3, Users, Eye, MousePointerClick, TrendingUp, TrendingDown, ArrowRight } from "lucide-react"
 import { format } from "date-fns"
 import { Card, CardContent } from "@/components/ui/card"
-import { cn, formatNumber } from "@/lib/utils"
-import type { 
-  LIFollowerMetrics, 
-  LIContentMetrics, 
+import { Button } from "@/components/ui/button"
+import { cn, formatNumber, formatPercent } from "@/lib/utils"
+import Link from "next/link"
+import type {
+  LIFollowerMetrics,
+  LIContentMetrics,
   LIVisitorMetrics,
-  LISearchAppearanceMetrics 
 } from "@/lib/types"
 
 interface LinkedInNativeDashboardProps {
-  searchAppearanceMetrics?: LISearchAppearanceMetrics | null
   followerMetrics?: LIFollowerMetrics | null
   contentMetrics?: LIContentMetrics | null
   visitorMetrics?: LIVisitorMetrics | null
   dateRange?: { from: Date; to: Date }
   className?: string
+  /** Hide the "View Full Analytics" link (e.g. when already on the full page) */
+  hideFullLink?: boolean
 }
 
 interface LinkedInMetricCardProps {
   title: string
-  value: number
+  value: string | number
   change?: number
   icon: React.ComponentType<{ className?: string }>
   color: string
   className?: string
 }
 
-function LinkedInMetricCard({ 
-  title, 
-  value, 
-  change, 
-  icon: Icon, 
-  color, 
-  className 
+function LinkedInMetricCard({
+  title,
+  value,
+  change,
+  icon: Icon,
+  color,
+  className
 }: LinkedInMetricCardProps) {
   const isPositiveChange = change !== undefined && change >= 0
-  
+
   return (
     <Card className={cn(
       "shadow-sm hover:shadow-md transition-all duration-200",
@@ -63,7 +65,7 @@ function LinkedInMetricCard({
             {/* Main Value */}
             <div className="space-y-1">
               <p className="text-2xl font-bold">
-                {formatNumber(value)}
+                {typeof value === 'number' ? formatNumber(value) : value}
               </p>
 
               {/* Percentage Change */}
@@ -94,16 +96,47 @@ function LinkedInMetricCard({
 }
 
 export function LinkedInNativeDashboard({
-  searchAppearanceMetrics,
   followerMetrics,
   contentMetrics,
   visitorMetrics,
   dateRange,
-  className
+  className,
+  hideFullLink
 }: LinkedInNativeDashboardProps) {
+  // Guard: if no LinkedIn data at all, show a friendly message
+  // Note: API returns zeroed objects (e.g. { pageViews: 0 }) even when LinkedIn isn't connected,
+  // so we must check for actual non-zero values rather than just object truthiness.
+  const hasAnyData =
+    (contentMetrics?.impressions ?? 0) > 0 ||
+    (contentMetrics?.engagementRate ?? 0) > 0 ||
+    (followerMetrics?.newFollowers ?? 0) > 0 ||
+    (followerMetrics?.totalFollowers ?? 0) > 0 ||
+    (visitorMetrics?.pageViews ?? 0) > 0
+  if (!hasAnyData) {
+    return (
+      <div className={cn("space-y-6", className)}>
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold">LinkedIn Analytics</h2>
+            <p className="text-sm text-muted-foreground">
+              Key performance metrics for your LinkedIn company page
+            </p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            No LinkedIn data available. Connect a LinkedIn company page in Integration Mappings to see analytics here.
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   // Calculate percentage changes
-  const searchAppearanceChange = searchAppearanceMetrics?.previousPeriod 
-    ? ((searchAppearanceMetrics.searchAppearances - searchAppearanceMetrics.previousPeriod.searchAppearances) / searchAppearanceMetrics.previousPeriod.searchAppearances) * 100
+  const engagementRate = contentMetrics?.engagementRate || 0
+  const previousEngagementRate = contentMetrics?.previousPeriod?.engagementRate || 0
+  const engagementRateChange = previousEngagementRate > 0
+    ? ((engagementRate - previousEngagementRate) / previousEngagementRate) * 100
     : undefined
 
   const followerChange = followerMetrics?.previousPeriod
@@ -121,24 +154,34 @@ export function LinkedInNativeDashboard({
   return (
     <div className={cn("space-y-6", className)}>
       {/* Header */}
-      <div className="space-y-2">
-        <h2 className="text-xl font-semibold">
-          LinkedIn Analytics
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Key performance metrics for your LinkedIn company page
-          {dateRange && ` • ${format(dateRange.from, 'MMM d')} - ${format(dateRange.to, 'MMM d, yyyy')}`}
-        </p>
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold">
+            LinkedIn Analytics
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Key performance metrics for your LinkedIn company page
+            {dateRange && ` • ${format(dateRange.from, 'MMM d')} - ${format(dateRange.to, 'MMM d, yyyy')}`}
+          </p>
+        </div>
+        {!hideFullLink && (
+          <Button variant="outline" size="sm" asChild className="gap-2">
+            <Link href="/dashboard/executive/owner/linkedin">
+              View Full LinkedIn Analytics
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* 4-Card Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Search Appearances */}
+        {/* Engagement Rate */}
         <LinkedInMetricCard
-          title="Search Appearances"
-          value={searchAppearanceMetrics?.searchAppearances || 0}
-          change={searchAppearanceChange}
-          icon={Search}
+          title="Engagement Rate"
+          value={formatPercent(engagementRate)}
+          change={engagementRateChange}
+          icon={BarChart3}
           color="bg-blue-600"
         />
 

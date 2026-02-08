@@ -294,7 +294,6 @@ export default function OwnerExecutiveDashboard() {
           
           {/* LinkedIn Performance */}
           <LinkedInNativeDashboard
-            searchAppearanceMetrics={dashboardData.analytics.liSearchAppearanceMetrics}
             followerMetrics={dashboardData.analytics.liFollowerMetrics}
             contentMetrics={dashboardData.analytics.liContentMetrics}
             visitorMetrics={dashboardData.analytics.liVisitorMetrics}

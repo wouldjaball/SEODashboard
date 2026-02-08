@@ -275,6 +275,10 @@ export interface LIFollowerDaily {
 export interface LIImpressionDaily {
   date: string
   impressions: number
+  clicks?: number
+  reactions?: number
+  comments?: number
+  shares?: number
 }
 
 // Enhanced LinkedIn Types for Community Management API
@@ -433,13 +437,6 @@ export interface Company {
   liJobFunctionDemographics: LIDemographic[]
   liCompanySizeDemographics: LIDemographic[]
   liUpdates: LIUpdate[]
-  
-  // LinkedIn - Enhanced metrics
-  liVideoMetrics?: LIVideoMetrics
-  liEmployeeAdvocacyMetrics?: LIEmployeeAdvocacyMetrics
-  liContentBreakdown?: LIContentBreakdown
-  liSocialListening?: LISocialListeningMention[]
-  liVideoDaily?: LIVideoDaily[]
 
   // Data freshness metadata
   dataFreshness?: {

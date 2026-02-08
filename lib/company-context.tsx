@@ -87,7 +87,6 @@ const emptyCompany: Company = {
   liJobFunctionDemographics: [],
   liCompanySizeDemographics: [],
   liUpdates: [],
-  // Optional enhanced metrics
   liDataSource: 'none',
   dataFreshness: undefined,
   gaError: undefined,
@@ -96,12 +95,6 @@ const emptyCompany: Company = {
   gscErrorType: undefined,
   liError: undefined,
   liErrorType: undefined,
-  // Enhanced LinkedIn metrics
-  liVideoMetrics: undefined,
-  liEmployeeAdvocacyMetrics: undefined,
-  liContentBreakdown: undefined,
-  liSocialListening: undefined,
-  liVideoDaily: []
 }
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
@@ -198,13 +191,6 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         liJobFunctionDemographics: data.liJobFunctionDemographics || [],
         liCompanySizeDemographics: data.liCompanySizeDemographics || [],
         liUpdates: data.liUpdates || [],
-        
-        // LinkedIn enhanced metrics (new)
-        liVideoMetrics: data.liVideoMetrics || undefined,
-        liEmployeeAdvocacyMetrics: data.liEmployeeAdvocacyMetrics || undefined,
-        liContentBreakdown: data.liContentBreakdown || undefined,
-        liSocialListening: data.liSocialListening || undefined,
-        liVideoDaily: data.liVideoDaily || []
         }
         
         console.log('[CompanyContext] Updated company state:', {
