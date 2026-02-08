@@ -182,24 +182,22 @@ export default function ExecutiveDashboard() {
                 Last 30 days
               </span>
               <span>{companies.length} companies</span>
-              {portfolioData?.syncInfo && (
-                <>
-                  <span>
-                    {portfolioData.syncInfo.companiesWithData} of {portfolioData.syncInfo.totalCompanies} with data
-                  </span>
-                  {portfolioData.syncInfo.lastSyncAt && (
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      Synced {formatTimeAgo(new Date(portfolioData.syncInfo.lastSyncAt))}
-                    </span>
-                  )}
-                </>
-              )}
-              {portfolioData && !portfolioData.syncInfo && (
-                <span>
-                  {portfolioData.companies?.filter((c: Company) => c.gaMetrics || c.gscMetrics).length || 0} with data
-                </span>
-              )}
+              {portfolioData && (() => {
+                const actualDataCount = portfolioData.companies?.filter(
+                  (c: Company) => c.gaMetrics || c.gscMetrics || c.ytMetrics || c.liVisitorMetrics
+                ).length || 0
+                return (
+                  <>
+                    <span>{actualDataCount} with data</span>
+                    {portfolioData.syncInfo?.lastSyncAt && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        Synced {formatTimeAgo(new Date(portfolioData.syncInfo.lastSyncAt))}
+                      </span>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </div>
           <Button
@@ -226,8 +224,22 @@ export default function ExecutiveDashboard() {
         </Alert>
       )}
 
+      {/* Empty Data Banner */}
+      {portfolioData && !isLoading && (() => {
+        const hasAnyData = portfolioData.companies?.some(
+          (c: Company) => c.gaMetrics || c.gscMetrics || c.ytMetrics || c.liVisitorMetrics
+        )
+        return !hasAnyData && portfolioData.companies?.length > 0 ? (
+          <Alert>
+            <AlertDescription>
+              No analytics data synced yet. Click &apos;Refresh Data&apos; to start the initial sync.
+            </AlertDescription>
+          </Alert>
+        ) : null
+      })()}
+
       {/* Loading State - Simplified */}
-      {isLoading && (
+      {isLoading && portfolioData && (
         <div className="flex items-center justify-center gap-2 p-8 bg-muted/50 rounded-lg border">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm text-muted-foreground">
@@ -240,7 +252,7 @@ export default function ExecutiveDashboard() {
       <CompanyGridView 
         companies={portfolioData?.companies || companies}
         dateRange={dateRange}
-        isLoading={isLoading}
+        isLoading={!portfolioData}
       />
     </div>
   )

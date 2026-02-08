@@ -322,13 +322,13 @@ export async function GET(request: Request) {
           }
         })
 
-        // Store in cache with 'daily_snapshot' type using cached_data column
+        // Store in cache with 'daily_snapshot' type
         const { error: insertError } = await supabase.from('analytics_cache').insert({
           company_id: company.id,
           data_type: 'daily_snapshot',
           date_range_start: startDateStr,
           date_range_end: endDateStr,
-          cached_data: cacheData,
+          data: cacheData,
           expires_at: expiresAt
         })
 

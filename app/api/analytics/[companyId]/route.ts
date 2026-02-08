@@ -169,18 +169,47 @@ export async function GET(
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
 
     // ============================================
-    // NORMALIZED TABLES PATH (feature flag)
+    // NORMALIZED TABLES PATH (always try first)
     // ============================================
-    if (process.env.USE_NORMALIZED_TABLES === 'true') {
-      console.log(`[Analytics] Using normalized tables for ${companyId} (${startDate} to ${endDate})`)
-      const normalizedResult = await fetchFromNormalizedTables(supabase, companyId, startDate, endDate, previousStartDate, previousEndDate)
-      if (normalizedResult) {
+    console.log(`[Analytics] Trying normalized tables for ${companyId} (${startDate} to ${endDate})`)
+    const normalizedResult = await fetchFromNormalizedTables(supabase, companyId, startDate, endDate, previousStartDate, previousEndDate)
+    if (normalizedResult) {
+      // Only use normalized result if it has actual metric data
+      const hasData = normalizedResult.gaMetrics || normalizedResult.gscMetrics ||
+                      normalizedResult.ytMetrics || normalizedResult.liVisitorMetrics
+      if (hasData) {
+        // Attach per-platform freshness from sync_status
+        const { data: syncRows } = await supabase
+          .from('sync_status')
+          .select('platform, last_success_at, data_end_date, sync_state, consecutive_failures')
+          .eq('company_id', companyId)
+
+        const platformFreshness = (platform: string) => {
+          const row = syncRows?.find((s: any) => s.platform === platform)
+          return row ? {
+            lastSync: row.last_success_at,
+            dataThrough: row.data_end_date,
+            state: row.sync_state || 'unknown',
+            failures: row.consecutive_failures || 0
+          } : undefined
+        }
+
+        normalizedResult.dataFreshness = {
+          source: 'normalized' as const,
+          fetchedAt: new Date().toISOString(),
+          ga: platformFreshness('ga'),
+          gsc: platformFreshness('gsc'),
+          youtube: platformFreshness('youtube'),
+          linkedin: platformFreshness('linkedin')
+        }
+
         return NextResponse.json(normalizedResult)
       }
-
-      // No normalized data — fall through to legacy cache + API path
-      console.log(`[Analytics] No normalized data for ${companyId}, falling back to cache/API`)
+      console.log(`[Analytics] Normalized tables returned empty data for ${companyId}, falling back`)
     }
+
+    // No normalized data — fall through to legacy cache + API path
+    console.log(`[Analytics] No normalized data for ${companyId}, falling back to cache/API`)
 
     // Check cache first (but allow bypass for debugging)
     const bypassCache = searchParams.get('nocache') === 'true'
@@ -188,6 +217,7 @@ export async function GET(
 
     if (cached && !bypassCache) {
       console.log(`[Analytics] Serving cached data for ${companyId} (${startDate} to ${endDate})`)
+      cached.dataFreshness = { source: 'cache', cachedAt: new Date().toISOString() }
       return NextResponse.json(cached)
     } else if (bypassCache) {
       console.log(`[Analytics] Cache bypass requested for ${companyId}`)
@@ -532,6 +562,9 @@ export async function GET(
     // LEGACY CODE REMOVED - All fetches now done in parallel above  
     // ============================================
 
+    // Attach freshness metadata for live API fetch
+    results.dataFreshness = { source: 'api', fetchedAt: new Date().toISOString() }
+
     // Cache the results (1 hour expiry) - use the adjusted dates that were actually used for API calls
     await cacheData(supabase, companyId, startDate, endDate, results)
 
@@ -558,9 +591,9 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
     .limit(1)
     .maybeSingle()
 
-  if (dailySnapshot?.cached_data) {
+  if (dailySnapshot?.data) {
     console.log(`[Cache] Using daily snapshot for ${companyId}, expires: ${dailySnapshot.expires_at}`)
-    return dailySnapshot.cached_data
+    return dailySnapshot.data
   }
 
   // PRIORITY 2: Check for on-demand cache entry (fallback if cron hasn't run yet)
@@ -586,7 +619,7 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
     created: data.created_at,
     expires: data.expires_at,
     ageMinutes: Math.round((now.getTime() - cacheDate.getTime()) / (1000 * 60)),
-    hasData: !!data.cached_data
+    hasData: !!data.data
   })
 
   // Check if cache is from a previous day (daily cache invalidation)
@@ -613,7 +646,7 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
   }
 
   console.log(`[Cache] Using on-demand cache for ${companyId}, expires: ${data.expires_at}`)
-  return data?.cached_data || null
+  return data?.data || null
 }
 
 async function cacheData(
@@ -634,7 +667,7 @@ async function cacheData(
     data_type: 'all',
     date_range_start: startDate,
     date_range_end: endDate,
-    cached_data: data, // Note: using cached_data to match the schema
+    data: data,
     expires_at: expiresAt.toISOString()
   })
 
@@ -660,7 +693,7 @@ async function getCachedServiceData(
     
     const { data, error } = await supabase
       .from('analytics_cache')
-      .select('cached_data, created_at')
+      .select('data, created_at')
       .eq('company_id', companyId)
       .eq('data_type', 'all')
       .gte('created_at', thirtyDaysAgo.toISOString())
@@ -673,12 +706,12 @@ async function getCachedServiceData(
       return null
     }
 
-    if (!data?.cached_data) {
+    if (!data?.data) {
       console.log(`[Cache] No cached ${service} data found for ${companyId}`)
       return null
     }
 
-    const cachedData = data.cached_data
+    const cachedData = data.data
     const serviceData: any = {}
 
     if (service === 'youtube') {

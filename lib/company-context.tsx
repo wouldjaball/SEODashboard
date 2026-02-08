@@ -89,6 +89,7 @@ const emptyCompany: Company = {
   liUpdates: [],
   // Optional enhanced metrics
   liDataSource: 'none',
+  dataFreshness: undefined,
   gaError: undefined,
   gaErrorType: undefined,
   gscError: undefined,
@@ -183,6 +184,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         liError: data.liError || undefined,
         liErrorType: data.liErrorType || undefined,
         liDataSource: data.liDataSource || undefined,
+        dataFreshness: data.dataFreshness || undefined,
         // LinkedIn core metrics
         liVisitorMetrics: data.liVisitorMetrics || null,
         liFollowerMetrics: data.liFollowerMetrics || null,

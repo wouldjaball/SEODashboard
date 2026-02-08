@@ -47,32 +47,43 @@ export async function GET(request: Request) {
         const isStale = cacheAge > 12 * 60 * 60 * 1000
 
         if (!isVeryStale) {
-          console.log(`[Portfolio API] Serving cached data for user ${user.id} (age: ${Math.floor(cacheAge / (60 * 60 * 1000))}h)`)
+          // Check if cached data has actual metrics (not empty placeholders)
+          const cachedCompanies = cachedData.companies_data || []
+          const hasAnyMetrics = cachedCompanies.some((c: any) =>
+            c.gaMetrics || c.gscMetrics || c.ytMetrics || c.liVisitorMetrics
+          )
 
-          if (isStale) {
-            console.log(`[Portfolio API] Cache is stale, will trigger background refresh...`)
-            setImmediate(async () => {
-              try {
-                await refreshCacheInBackground(user.id, startDate, endDate, cacheDate, supabase)
-              } catch (error) {
-                console.error(`[Portfolio API] Background refresh failed for user ${user.id}:`, error)
-              }
+          if (!hasAnyMetrics && cachedCompanies.length > 0) {
+            console.log(`[Portfolio API] Cache exists but has no metrics for any company, treating as miss`)
+            // Fall through to live fetch
+          } else {
+            console.log(`[Portfolio API] Serving cached data for user ${user.id} (age: ${Math.floor(cacheAge / (60 * 60 * 1000))}h)`)
+
+            if (isStale) {
+              console.log(`[Portfolio API] Cache is stale, will trigger background refresh...`)
+              setImmediate(async () => {
+                try {
+                  await refreshCacheInBackground(user.id, startDate, endDate, cacheDate, supabase)
+                } catch (error) {
+                  console.error(`[Portfolio API] Background refresh failed for user ${user.id}:`, error)
+                }
+              })
+            }
+
+            const response = NextResponse.json({
+              companies: cachedData.companies_data,
+              aggregateMetrics: cachedData.aggregate_metrics,
+              cached: true,
+              cacheAge: Math.floor(cacheAge / (60 * 1000)),
+              cacheDate: cacheDate
             })
+
+            response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300')
+            response.headers.set('CDN-Cache-Control', 'public, max-age=300')
+            response.headers.set('Vary', 'Authorization, Cookie')
+
+            return response
           }
-
-          const response = NextResponse.json({
-            companies: cachedData.companies_data,
-            aggregateMetrics: cachedData.aggregate_metrics,
-            cached: true,
-            cacheAge: Math.floor(cacheAge / (60 * 1000)),
-            cacheDate: cacheDate
-          })
-
-          response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300')
-          response.headers.set('CDN-Cache-Control', 'public, max-age=300')
-          response.headers.set('Vary', 'Authorization, Cookie')
-
-          return response
         } else {
           console.log(`[Portfolio API] Cache is very stale for user ${user.id}, forcing refresh...`)
         }
@@ -123,9 +134,9 @@ export async function GET(request: Request) {
     const companyIds = userCompanies.map((uc: any) => uc.company_id)
 
     // ============================================
-    // FAST PATH: Bulk query from normalized tables
+    // FAST PATH: Bulk query from normalized tables (always tried first)
     // ============================================
-    if (process.env.USE_NORMALIZED_TABLES === 'true') {
+    {
       console.log(`[Portfolio API] Trying bulk normalized tables for ${companyIds.length} companies...`)
       const bulkStartTime = Date.now()
 
@@ -167,15 +178,15 @@ export async function GET(request: Request) {
           console.log(`[Portfolio API] ${companiesNeedingLegacyCache.length} companies have no normalized data, checking legacy cache...`)
           const { data: legacyCacheEntries } = await supabase
             .from('analytics_cache')
-            .select('company_id, cached_data')
+            .select('company_id, data')
             .in('company_id', companiesNeedingLegacyCache)
             .eq('data_type', 'daily_snapshot')
             .gt('expires_at', new Date().toISOString())
 
           if (legacyCacheEntries && legacyCacheEntries.length > 0) {
             for (const entry of legacyCacheEntries) {
-              if (entry.cached_data) {
-                bulkResults.set(entry.company_id, entry.cached_data)
+              if (entry.data) {
+                bulkResults.set(entry.company_id, entry.data)
               }
             }
             console.log(`[Portfolio API] Filled ${legacyCacheEntries.length} companies from legacy cache`)
@@ -189,23 +200,75 @@ export async function GET(request: Request) {
           if (stillMissing.length > 0) {
             const { data: onDemandEntries } = await supabase
               .from('analytics_cache')
-              .select('company_id, cached_data')
+              .select('company_id, data')
               .in('company_id', stillMissing)
               .eq('data_type', 'all')
               .gt('expires_at', new Date().toISOString())
 
             if (onDemandEntries && onDemandEntries.length > 0) {
               for (const entry of onDemandEntries) {
-                if (entry.cached_data) {
-                  bulkResults.set(entry.company_id, entry.cached_data)
+                if (entry.data) {
+                  bulkResults.set(entry.company_id, entry.data)
                 }
               }
               console.log(`[Portfolio API] Filled ${onDemandEntries.length} more companies from on-demand cache`)
             }
+
+            // Second tier: accept stale cache entries up to 7 days old for companies still missing
+            const stillMissingAfterFresh = stillMissing.filter(id => {
+              const a = bulkResults.get(id)
+              return !a || (!a.gaMetrics && !a.gscMetrics && !a.ytMetrics && !a.liVisitorMetrics)
+            })
+            if (stillMissingAfterFresh.length > 0) {
+              const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+              const { data: staleEntries } = await supabase
+                .from('analytics_cache')
+                .select('company_id, data, expires_at')
+                .in('company_id', stillMissingAfterFresh)
+                .in('data_type', ['daily_snapshot', 'all'])
+                .gt('expires_at', sevenDaysAgo)
+                .order('expires_at', { ascending: false })
+
+              if (staleEntries && staleEntries.length > 0) {
+                const filled = new Set<string>()
+                for (const entry of staleEntries) {
+                  if (entry.data && !filled.has(entry.company_id)) {
+                    bulkResults.set(entry.company_id, entry.data)
+                    filled.add(entry.company_id)
+                  }
+                }
+                console.log(`[Portfolio API] Filled ${filled.size} companies from stale cache (up to 7 days old)`)
+              }
+            }
           }
         }
 
-        // Merge company metadata with analytics data
+        // Check which companies STILL have no meaningful data after normalized + cache
+        const companiesStillMissing = companyIds.filter(id => {
+          const a = bulkResults.get(id)
+          return !a || (!a.gaMetrics && !a.gscMetrics && !a.ytMetrics && !a.liVisitorMetrics)
+        })
+
+        if (companiesStillMissing.length > 0) {
+          console.log(`[Portfolio API] ${companiesStillMissing.length} companies still missing data, fetching via HTTP...`)
+          const missingUCs = userCompanies.filter((uc: any) =>
+            companiesStillMissing.includes(uc.company_id)
+          )
+          const httpStartTime = Date.now()
+          const httpResults = await Promise.all(
+            missingUCs.map((uc: any) => fetchCompanyAnalyticsViaHTTP(uc, startDate, endDate, request))
+          )
+          console.log(`[Portfolio API] HTTP fallback for ${missingUCs.length} companies completed in ${Date.now() - httpStartTime}ms`)
+
+          // Merge HTTP results back into bulkResults
+          for (const result of httpResults) {
+            if (result?.id) {
+              bulkResults.set(result.id, result)
+            }
+          }
+        }
+
+        // Merge company metadata with analytics data (always — no more all-or-nothing check)
         const companiesWithData = userCompanies.map((uc: any) => {
           const analytics = bulkResults.get(uc.company_id) || {}
           return {
@@ -218,8 +281,10 @@ export async function GET(request: Request) {
         const aggregateMetrics = calculatePortfolioAggregateMetrics(companiesWithData)
         const result = { companies: companiesWithData, aggregateMetrics, cached: false, syncInfo }
 
-        // Update portfolio cache for next time
-        if (isDefaultRange) {
+        const hasAnyMetrics = companiesWithData.some((c: any) =>
+          c.gaMetrics || c.gscMetrics || c.ytMetrics || c.liVisitorMetrics
+        )
+        if (isDefaultRange && hasAnyMetrics) {
           await updatePortfolioCache(supabase, user.id, cacheDate, companiesWithData, aggregateMetrics)
         }
 
@@ -230,30 +295,106 @@ export async function GET(request: Request) {
         return response
       }
 
-      console.log(`[Portfolio API] Normalized tables returned no data, falling back to per-company HTTP calls`)
-    }
+      // fetchPortfolioFromNormalizedTables returned null — no sync data at all
+      // Try direct legacy cache lookup before falling back to HTTP
+      console.log(`[Portfolio API] No normalized data available, trying legacy cache for ${companyIds.length} companies...`)
 
-    // ============================================
-    // SLOW PATH: Per-company HTTP calls (fallback when normalized tables are empty)
-    // ============================================
-    console.log(`[Portfolio API] Fetching analytics for ${userCompanies.length} companies via HTTP...`)
+      const legacyCacheResults = new Map<string, any>()
+      const now = new Date().toISOString()
 
-    const startTime = Date.now()
-    const companiesWithData = await Promise.all(userCompanies.map((uc: any) => fetchCompanyAnalyticsViaHTTP(uc, startDate, endDate, request)))
-    console.log(`[Portfolio API] HTTP fetch completed in ${Date.now() - startTime}ms`)
+      // First: try unexpired cache entries
+      const { data: freshCacheEntries } = await supabase
+        .from('analytics_cache')
+        .select('company_id, data')
+        .in('company_id', companyIds)
+        .in('data_type', ['daily_snapshot', 'all'])
+        .gt('expires_at', now)
+        .order('expires_at', { ascending: false })
 
-    const aggregateMetrics = calculatePortfolioAggregateMetrics(companiesWithData)
-    const result = { companies: companiesWithData, aggregateMetrics, cached: false }
+      if (freshCacheEntries && freshCacheEntries.length > 0) {
+        for (const entry of freshCacheEntries) {
+          if (entry.data && !legacyCacheResults.has(entry.company_id)) {
+            legacyCacheResults.set(entry.company_id, entry.data)
+          }
+        }
+        console.log(`[Portfolio API] Found ${legacyCacheResults.size} companies in fresh legacy cache`)
+      }
 
-    if (isDefaultRange) {
-      await updatePortfolioCache(supabase, user.id, cacheDate, companiesWithData, aggregateMetrics)
-    }
+      // Second: accept stale entries up to 7 days old for remaining companies
+      const companiesStillMissing = companyIds.filter(id => !legacyCacheResults.has(id))
+      if (companiesStillMissing.length > 0) {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        const { data: staleCacheEntries } = await supabase
+          .from('analytics_cache')
+          .select('company_id, data, expires_at')
+          .in('company_id', companiesStillMissing)
+          .in('data_type', ['daily_snapshot', 'all'])
+          .gt('expires_at', sevenDaysAgo)
+          .order('expires_at', { ascending: false })
 
-    const response = NextResponse.json(result)
-    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60')
-    response.headers.set('CDN-Cache-Control', 'public, max-age=60')
-    response.headers.set('Vary', 'Authorization, Cookie')
-    return response
+        if (staleCacheEntries && staleCacheEntries.length > 0) {
+          for (const entry of staleCacheEntries) {
+            if (entry.data && !legacyCacheResults.has(entry.company_id)) {
+              legacyCacheResults.set(entry.company_id, entry.data)
+            }
+          }
+          console.log(`[Portfolio API] Found ${legacyCacheResults.size} total companies after stale cache check`)
+        }
+      }
+
+      // Only use HTTP fallback for companies with ZERO cached data
+      const companiesNeedingHTTP = companyIds.filter(id => !legacyCacheResults.has(id))
+      if (companiesNeedingHTTP.length > 0) {
+        console.log(`[Portfolio API] ${companiesNeedingHTTP.length} companies not in any cache, fetching via HTTP...`)
+        const httpUCs = userCompanies.filter((uc: any) => companiesNeedingHTTP.includes(uc.company_id))
+        const startTime = Date.now()
+        const httpResults = await Promise.all(
+          httpUCs.map((uc: any) => fetchCompanyAnalyticsViaHTTP(uc, startDate, endDate, request))
+        )
+        console.log(`[Portfolio API] HTTP fallback for ${httpUCs.length} companies completed in ${Date.now() - startTime}ms`)
+        for (const result of httpResults) {
+          if (result?.id) {
+            legacyCacheResults.set(result.id, result)
+          }
+        }
+      } else {
+        console.log(`[Portfolio API] All companies served from legacy cache, no HTTP needed`)
+      }
+
+      // Merge company metadata with analytics data
+      const companiesWithData = userCompanies.map((uc: any) => {
+        const analytics = legacyCacheResults.get(uc.company_id) || {}
+        return {
+          ...uc.companies,
+          role: uc.role,
+          ...analytics
+        }
+      })
+
+      const aggregateMetrics = calculatePortfolioAggregateMetrics(companiesWithData)
+
+      // Build syncInfo for display consistency
+      const actualDataCount = companiesWithData.filter(
+        (c: any) => c.gaMetrics || c.gscMetrics || c.ytMetrics || c.liVisitorMetrics
+      ).length
+      const syncInfo = {
+        lastSyncAt: null,
+        companiesWithData: actualDataCount,
+        totalCompanies: companyIds.length
+      }
+
+      const result = { companies: companiesWithData, aggregateMetrics, cached: false, syncInfo }
+
+      if (isDefaultRange && actualDataCount > 0) {
+        await updatePortfolioCache(supabase, user.id, cacheDate, companiesWithData, aggregateMetrics)
+      }
+
+      const response = NextResponse.json(result)
+      response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60')
+      response.headers.set('CDN-Cache-Control', 'public, max-age=60')
+      response.headers.set('Vary', 'Authorization, Cookie')
+      return response
+    } // end normalized tables block
   } catch (error) {
     console.error('Portfolio analytics error:', error)
     return NextResponse.json({ error: 'Failed to fetch portfolio analytics' }, { status: 500 })
@@ -521,24 +662,32 @@ async function refreshCacheInBackground(
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
     const companyIds = userCompanies.map((uc: any) => uc.company_id)
 
-    // Try bulk normalized tables first
-    if (process.env.USE_NORMALIZED_TABLES === 'true') {
-      const bulkResults = await fetchPortfolioFromNormalizedTables(
-        supabase, companyIds, startDate, endDate, previousStartDate, previousEndDate
+    // Try bulk normalized tables
+    const bulkResults = await fetchPortfolioFromNormalizedTables(
+      supabase, companyIds, startDate, endDate, previousStartDate, previousEndDate
+    )
+
+    if (bulkResults) {
+      const companiesWithData = userCompanies.map((uc: any) => ({
+        ...uc.companies,
+        role: uc.role,
+        ...(bulkResults.get(uc.company_id) || {})
+      }))
+
+      // Don't overwrite good cache with empty data
+      const hasAnyMetrics = companiesWithData.some((c: any) =>
+        c.gaMetrics || c.gscMetrics || c.ytMetrics || c.liVisitorMetrics
       )
 
-      if (bulkResults) {
-        const companiesWithData = userCompanies.map((uc: any) => ({
-          ...uc.companies,
-          role: uc.role,
-          ...(bulkResults.get(uc.company_id) || {})
-        }))
-
-        const aggregateMetrics = calculatePortfolioAggregateMetrics(companiesWithData)
-        await updatePortfolioCache(supabase, userId, cacheDate, companiesWithData, aggregateMetrics)
-        console.log(`[Portfolio API] Background refresh completed for user ${userId} (bulk)`)
+      if (!hasAnyMetrics) {
+        console.log(`[Portfolio API] Background refresh produced no metrics, skipping cache update`)
         return
       }
+
+      const aggregateMetrics = calculatePortfolioAggregateMetrics(companiesWithData)
+      await updatePortfolioCache(supabase, userId, cacheDate, companiesWithData, aggregateMetrics)
+      console.log(`[Portfolio API] Background refresh completed for user ${userId} (bulk)`)
+      return
     }
 
     console.log(`[Portfolio API] Background refresh: no normalized data, skipping`)

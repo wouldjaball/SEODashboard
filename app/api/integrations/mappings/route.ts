@@ -262,6 +262,19 @@ export async function POST(request: Request) {
     }
 
     console.log('All mappings saved successfully')
+
+    // Fire-and-forget: trigger targeted sync for the saved companies
+    const savedCompanyIds = Object.keys(mappings)
+    const cronSecret = process.env.CRON_SECRET
+    if (cronSecret && savedCompanyIds.length > 0) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const syncUrl = `${baseUrl}/api/cron/sync-analytics?secret=${cronSecret}&companyIds=${savedCompanyIds.join(',')}&force=true`
+      fetch(syncUrl, { method: 'GET' }).catch(err => {
+        console.error('[Mappings] Background sync trigger failed:', err)
+      })
+      console.log(`[Mappings] Triggered sync for companies: ${savedCompanyIds.join(', ')}`)
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('=== Save mappings error ===')

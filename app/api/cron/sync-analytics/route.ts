@@ -32,6 +32,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Optional: target specific companies (comma-separated UUIDs)
+  const companyIdsParam = searchParams.get('companyIds')
+  const targetCompanyIds = companyIdsParam ? companyIdsParam.split(',').filter(Boolean) : null
+  const forceSync = searchParams.get('force') === 'true'
+
+  if (targetCompanyIds) {
+    console.log(`[Sync] Targeted sync for ${targetCompanyIds.length} companies (force=${forceSync})`)
+  }
+
   const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseKey) {
     console.error('[Sync] No Supabase secret key found (SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY)')
@@ -60,10 +69,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch companies' }, { status: 500 })
     }
 
-    console.log(`[Sync] Found ${companies.length} companies to sync`)
+    // Filter to targeted companies if specified
+    const filteredCompanies = targetCompanyIds
+      ? companies.filter(c => targetCompanyIds.includes(c.id))
+      : companies
+
+    if (targetCompanyIds && filteredCompanies.length === 0) {
+      return NextResponse.json({ error: 'No matching companies found for provided IDs' }, { status: 404 })
+    }
+
+    console.log(`[Sync] Found ${filteredCompanies.length} companies to sync${targetCompanyIds ? ` (targeted from ${companies.length} total)` : ''}`)
 
     // Ensure sync_status rows exist for all companies
-    await ensureSyncStatusRows(supabase, companies)
+    await ensureSyncStatusRows(supabase, filteredCompanies)
 
     // Get sync status to determine what needs updating (most stale first)
     const { data: syncStatuses } = await supabase
@@ -81,7 +99,7 @@ export async function GET(request: Request) {
     })
 
     // Sort companies by staleness (most stale first)
-    const sortedCompanies = [...companies].sort((a, b) => {
+    const sortedCompanies = [...filteredCompanies].sort((a, b) => {
       const aStatuses = companySync.get(a.id)
       const bStatuses = companySync.get(b.id)
       const aOldest = getOldestSync(aStatuses)
@@ -105,7 +123,7 @@ export async function GET(request: Request) {
       console.log(`[Sync] Batch ${batchIndex + 1}/${batches.length} - ${batch.map(c => c.name).join(', ')}`)
 
       const batchResults = await Promise.all(
-        batch.map(company => syncCompany(supabase, company, companySync.get(company.id)))
+        batch.map(company => syncCompany(supabase, company, companySync.get(company.id), forceSync))
       )
 
       batchResults.forEach(companyResults => results.push(...companyResults))
@@ -145,7 +163,8 @@ export async function GET(request: Request) {
 async function syncCompany(
   supabase: any,
   company: { id: string; name: string },
-  syncStatuses: Map<string, any> | undefined
+  syncStatuses: Map<string, any> | undefined,
+  forceSync: boolean = false
 ): Promise<SyncResult[]> {
   const results: SyncResult[] = []
 
@@ -180,13 +199,28 @@ async function syncCompany(
   const parallelSyncs: Promise<SyncResult>[] = []
 
   if (gaProperty) {
-    parallelSyncs.push(syncGA(supabase, company, gaProperty, syncStatuses?.get('ga'), yesterday))
+    if (forceSync || !shouldSkipPlatform(syncStatuses?.get('ga'))) {
+      parallelSyncs.push(syncGA(supabase, company, gaProperty, syncStatuses?.get('ga'), yesterday))
+    } else {
+      console.log(`[Sync] Skipping GA for ${company.name} (backoff)`)
+      results.push({ company: company.name, platform: 'ga', status: 'skipped', error: 'backoff' })
+    }
   }
   if (gscSite) {
-    parallelSyncs.push(syncGSC(supabase, company, gscSite, syncStatuses?.get('gsc'), yesterday))
+    if (forceSync || !shouldSkipPlatform(syncStatuses?.get('gsc'))) {
+      parallelSyncs.push(syncGSC(supabase, company, gscSite, syncStatuses?.get('gsc'), yesterday))
+    } else {
+      console.log(`[Sync] Skipping GSC for ${company.name} (backoff)`)
+      results.push({ company: company.name, platform: 'gsc', status: 'skipped', error: 'backoff' })
+    }
   }
   if (ytChannel) {
-    parallelSyncs.push(syncYouTube(supabase, company, ytChannel, syncStatuses?.get('youtube'), yesterday))
+    if (forceSync || !shouldSkipPlatform(syncStatuses?.get('youtube'))) {
+      parallelSyncs.push(syncYouTube(supabase, company, ytChannel, syncStatuses?.get('youtube'), yesterday))
+    } else {
+      console.log(`[Sync] Skipping YouTube for ${company.name} (backoff)`)
+      results.push({ company: company.name, platform: 'youtube', status: 'skipped', error: 'backoff' })
+    }
   }
 
   const parallelResults = await Promise.allSettled(parallelSyncs)
@@ -197,11 +231,16 @@ async function syncCompany(
 
   // LinkedIn sync - sequential due to rate limits
   if (liPage) {
-    try {
-      const liResult = await syncLinkedIn(supabase, company, liPage, syncStatuses?.get('linkedin'), yesterday)
-      results.push(liResult)
-    } catch (e: any) {
-      results.push({ company: company.name, platform: 'linkedin', status: 'error', error: e.message })
+    if (forceSync || !shouldSkipPlatform(syncStatuses?.get('linkedin'))) {
+      try {
+        const liResult = await syncLinkedIn(supabase, company, liPage, syncStatuses?.get('linkedin'), yesterday)
+        results.push(liResult)
+      } catch (e: any) {
+        results.push({ company: company.name, platform: 'linkedin', status: 'error', error: e.message })
+      }
+    } else {
+      console.log(`[Sync] Skipping LinkedIn for ${company.name} (backoff)`)
+      results.push({ company: company.name, platform: 'linkedin', status: 'skipped', error: 'backoff' })
     }
   }
 
@@ -284,9 +323,10 @@ async function syncGA(
     console.log(`[Sync:GA] ${company.name}: synced ${rowsSynced} days`)
     return { company: company.name, platform, status: 'success', rowsSynced }
   } catch (e: any) {
-    console.error(`[Sync:GA] ${company.name} failed:`, e.message)
-    await updateSyncError(supabase, company.id, platform, e.message)
-    return { company: company.name, platform, status: 'error', error: e.message }
+    const errorMsg = classifyError(e.message)
+    console.error(`[Sync:GA] ${company.name} failed:`, errorMsg)
+    await updateSyncError(supabase, company.id, platform, errorMsg)
+    return { company: company.name, platform, status: 'error', error: errorMsg }
   }
 }
 
@@ -332,9 +372,10 @@ async function syncGSC(
     console.log(`[Sync:GSC] ${company.name}: synced ${dailyMetrics.length} days`)
     return { company: company.name, platform, status: 'success', rowsSynced: dailyMetrics.length }
   } catch (e: any) {
-    console.error(`[Sync:GSC] ${company.name} failed:`, e.message)
-    await updateSyncError(supabase, company.id, platform, e.message)
-    return { company: company.name, platform, status: 'error', error: e.message }
+    const errorMsg = classifyError(e.message)
+    console.error(`[Sync:GSC] ${company.name} failed:`, errorMsg)
+    await updateSyncError(supabase, company.id, platform, errorMsg)
+    return { company: company.name, platform, status: 'error', error: errorMsg }
   }
 }
 
@@ -382,9 +423,10 @@ async function syncYouTube(
     console.log(`[Sync:YT] ${company.name}: synced ${dailyData.length} days`)
     return { company: company.name, platform, status: 'success', rowsSynced: dailyData.length }
   } catch (e: any) {
-    console.error(`[Sync:YT] ${company.name} failed:`, e.message)
-    await updateSyncError(supabase, company.id, platform, e.message)
-    return { company: company.name, platform, status: 'error', error: e.message }
+    const errorMsg = classifyError(e.message)
+    console.error(`[Sync:YT] ${company.name} failed:`, errorMsg)
+    await updateSyncError(supabase, company.id, platform, errorMsg)
+    return { company: company.name, platform, status: 'error', error: errorMsg }
   }
 }
 
@@ -401,8 +443,9 @@ async function syncLinkedIn(
   try {
     const hasTokens = await OAuthTokenService.hasValidLinkedInTokens(liPage.user_id)
     if (!hasTokens) {
-      await updateSyncError(supabase, company.id, platform, 'No valid LinkedIn tokens')
-      return { company: company.name, platform, status: 'error', error: 'No valid LinkedIn tokens' }
+      const errorMsg = classifyError('No valid LinkedIn tokens')
+      await updateSyncError(supabase, company.id, platform, errorMsg)
+      return { company: company.name, platform, status: 'error', error: errorMsg }
     }
 
     const startDate = getSyncStartDate(syncStatus, yesterday)
@@ -490,9 +533,10 @@ async function syncLinkedIn(
     console.log(`[Sync:LI] ${company.name}: synced ${dailyRows.length} days`)
     return { company: company.name, platform, status: 'success', rowsSynced: dailyRows.length }
   } catch (e: any) {
-    console.error(`[Sync:LI] ${company.name} failed:`, e.message)
-    await updateSyncError(supabase, company.id, platform, e.message)
-    return { company: company.name, platform, status: 'error', error: e.message }
+    const errorMsg = classifyError(e.message)
+    console.error(`[Sync:LI] ${company.name} failed:`, errorMsg)
+    await updateSyncError(supabase, company.id, platform, errorMsg)
+    return { company: company.name, platform, status: 'error', error: errorMsg }
   }
 }
 
@@ -702,6 +746,33 @@ async function updateSyncError(supabase: any, companyId: string, platform: strin
     last_error_at: new Date().toISOString(),
     consecutive_failures: (current?.consecutive_failures || 0) + 1
   }).eq('company_id', companyId).eq('platform', platform)
+}
+
+// Consecutive failure backoff: skip after 3+ failures with exponential backoff (1h → 4h → 16h → cap 48h)
+function shouldSkipPlatform(syncStatus: any): boolean {
+  if (!syncStatus) return false
+  const failures = syncStatus.consecutive_failures || 0
+  if (failures < 3) return false
+
+  const lastErrorAt = syncStatus.last_error_at ? new Date(syncStatus.last_error_at).getTime() : 0
+  if (!lastErrorAt) return false
+
+  // Exponential backoff: 1h * 4^(failures-3), capped at 48h
+  const backoffHours = Math.min(Math.pow(4, failures - 3), 48)
+  const backoffMs = backoffHours * 60 * 60 * 1000
+  const elapsed = Date.now() - lastErrorAt
+
+  if (elapsed < backoffMs) {
+    return true // Still in backoff window
+  }
+  return false
+}
+
+// Detect token-specific errors and prefix sync_status.last_error
+function classifyError(errorMessage: string): string {
+  const tokenPatterns = ['invalid_grant', 'NO_TOKENS', 'REFRESH_FAILED', 'No valid', 'token', 'Token']
+  const isTokenError = tokenPatterns.some(p => errorMessage.includes(p))
+  return isTokenError ? `Token issue: ${errorMessage}` : errorMessage
 }
 
 async function cleanupOldData(supabase: any) {

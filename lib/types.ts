@@ -440,4 +440,15 @@ export interface Company {
   liContentBreakdown?: LIContentBreakdown
   liSocialListening?: LISocialListeningMention[]
   liVideoDaily?: LIVideoDaily[]
+
+  // Data freshness metadata
+  dataFreshness?: {
+    source: 'normalized' | 'cache' | 'api'
+    fetchedAt?: string
+    cachedAt?: string
+    ga?: { lastSync: string | null; dataThrough: string | null; state: string; failures: number }
+    gsc?: { lastSync: string | null; dataThrough: string | null; state: string; failures: number }
+    youtube?: { lastSync: string | null; dataThrough: string | null; state: string; failures: number }
+    linkedin?: { lastSync: string | null; dataThrough: string | null; state: string; failures: number }
+  }
 }

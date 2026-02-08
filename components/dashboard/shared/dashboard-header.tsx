@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, Settings, LayoutDashboard, Building2, Users, Link2, Key } from "lucide-react"
+import { BarChart3, Settings, LayoutDashboard, Building2, Users, Link2, Key, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import { useCompany } from "@/lib/company-context"
 import { CompanySwitcher } from "./company-switcher"
 import { UserMenu } from "./user-menu"
 import { ModeToggle } from "@/components/mode-toggle"
+import { DataFreshnessIndicator } from "./data-freshness-indicator"
 
 export function DashboardHeader() {
   const { company } = useCompany()
@@ -101,9 +102,18 @@ export function DashboardHeader() {
                     </Link>
                   </DropdownMenuItem>
                 )}
+                {isOwner && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/sync-status" className="flex items-center cursor-pointer">
+                      <Activity className="mr-2 h-4 w-4" />
+                      Sync Status
+                    </Link>
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          <DataFreshnessIndicator />
           <ModeToggle />
           <UserMenu />
           <CompanySwitcher />
