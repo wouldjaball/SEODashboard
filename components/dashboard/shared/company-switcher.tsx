@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import {
   Select,
@@ -22,13 +23,17 @@ function getInitials(name: string): string {
 
 export function CompanySwitcher() {
   const { company, setCompany, companies } = useCompany()
+  const router = useRouter()
 
   return (
     <Select
       value={company.id}
       onValueChange={(value) => {
         const selected = companies.find((c) => c.id === value)
-        if (selected) setCompany(selected)
+        if (selected) {
+          setCompany(selected)
+          router.push('/dashboard/executive/owner')
+        }
       }}
     >
       <SelectTrigger className="w-[180px] sm:w-[220px] h-10 sm:h-11 text-sm bg-secondary border-border hover:bg-accent transition-colors">
