@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 interface CompanyWithRole {
   id: string
@@ -18,7 +18,7 @@ export async function getUserRole(
   companyId: string
 ): Promise<'owner' | 'admin' | 'client' | null> {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from('user_companies')
@@ -28,6 +28,7 @@ export async function getUserRole(
       .single()
 
     if (error || !data) {
+      console.error('getUserRole query failed:', { userId, companyId, error })
       return null
     }
 
@@ -67,7 +68,7 @@ export async function getUserCompaniesWithRole(
   userId: string
 ): Promise<CompanyWithRole[]> {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from('user_companies')
@@ -84,6 +85,7 @@ export async function getUserCompaniesWithRole(
       .eq('user_id', userId)
 
     if (error || !data) {
+      console.error('getUserCompaniesWithRole query failed:', { userId, error })
       return []
     }
 
