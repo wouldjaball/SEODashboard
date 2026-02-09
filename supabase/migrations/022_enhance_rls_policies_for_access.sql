@@ -76,52 +76,63 @@ CREATE POLICY "Service can manage user_companies" ON user_companies
     auth.role() = 'service_role'
   );
 
--- Improve the google_analytics_accounts policy to work with all roles
-DROP POLICY IF EXISTS "Users can access GA accounts for their companies" ON google_analytics_accounts;
+-- Improve the ga_properties policy to work with all roles
+-- ga_properties uses user_id directly; company access is via company_ga_mappings
+DROP POLICY IF EXISTS "Users can access GA accounts for their companies" ON ga_properties;
 
-CREATE POLICY "Users can access GA accounts for their companies" ON google_analytics_accounts
+CREATE POLICY "Users can access GA accounts for their companies" ON ga_properties
   FOR SELECT USING (
-    -- Allow access for any user role (not just admin)
-    company_id IN (
-      SELECT company_id FROM user_companies
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'admin', 'client', 'viewer')
+    user_id = auth.uid()
+    OR
+    EXISTS (
+      SELECT 1 FROM company_ga_mappings cgm
+      JOIN user_companies uc ON uc.company_id = cgm.company_id
+      WHERE cgm.ga_property_id = ga_properties.id
+      AND uc.user_id = auth.uid()
+      AND uc.role IN ('owner', 'admin', 'client', 'viewer')
     )
   );
 
--- Similar improvements for other analytics tables
-DROP POLICY IF EXISTS "Users can access GSC sites for their companies" ON google_search_console_sites;
+-- gsc_sites uses user_id directly; company access is via company_gsc_mappings
+DROP POLICY IF EXISTS "Users can access GSC sites for their companies" ON gsc_sites;
 
-CREATE POLICY "Users can access GSC sites for their companies" ON google_search_console_sites
+CREATE POLICY "Users can access GSC sites for their companies" ON gsc_sites
   FOR SELECT USING (
-    company_id IN (
-      SELECT company_id FROM user_companies
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'admin', 'client', 'viewer')
+    user_id = auth.uid()
+    OR
+    EXISTS (
+      SELECT 1 FROM company_gsc_mappings cgsm
+      JOIN user_companies uc ON uc.company_id = cgsm.company_id
+      WHERE cgsm.gsc_site_id = gsc_sites.id
+      AND uc.user_id = auth.uid()
+      AND uc.role IN ('owner', 'admin', 'client', 'viewer')
     )
   );
 
+-- youtube_channels uses user_id directly; company access is via company_youtube_mappings
 DROP POLICY IF EXISTS "Users can access YouTube channels for their companies" ON youtube_channels;
 
 CREATE POLICY "Users can access YouTube channels for their companies" ON youtube_channels
   FOR SELECT USING (
-    company_id IN (
-      SELECT company_id FROM user_companies
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'admin', 'client', 'viewer')
+    user_id = auth.uid()
+    OR
+    EXISTS (
+      SELECT 1 FROM company_youtube_mappings cym
+      JOIN user_companies uc ON uc.company_id = cym.company_id
+      WHERE cym.youtube_channel_id = youtube_channels.id
+      AND uc.user_id = auth.uid()
+      AND uc.role IN ('owner', 'admin', 'client', 'viewer')
     )
   );
 
-DROP POLICY IF EXISTS "Users can access LinkedIn sheet configs for their companies" ON linkedin_sheet_configs;
-
-CREATE POLICY "Users can access LinkedIn sheet configs for their companies" ON linkedin_sheet_configs
-  FOR SELECT USING (
-    company_id IN (
-      SELECT company_id FROM user_companies
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'admin', 'client', 'viewer')
-    )
-  );
+-- linkedin_sheet_configs: only apply policy if the table exists on this database
+-- (migration 011 already creates equivalent policies for this table)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'linkedin_sheet_configs' AND table_schema = 'public') THEN
+    EXECUTE 'DROP POLICY IF EXISTS "Users can access LinkedIn sheet configs for their companies" ON linkedin_sheet_configs';
+    EXECUTE 'CREATE POLICY "Users can access LinkedIn sheet configs for their companies" ON linkedin_sheet_configs FOR SELECT USING (company_id IN (SELECT company_id FROM user_companies WHERE user_id = auth.uid() AND role IN (''owner'', ''admin'', ''client'', ''viewer'')))';
+  END IF;
+END $$;
 
 -- Add explicit policy for oauth_tokens to ensure users can access tokens for their companies
 DROP POLICY IF EXISTS "Users can access OAuth tokens for their companies" ON oauth_tokens;
@@ -157,20 +168,8 @@ ORDER BY u.email, c.name;
 -- Grant access to the view
 GRANT SELECT ON user_access_summary TO authenticated;
 
--- Add RLS policy for the view
-CREATE POLICY "Users can view access summary" ON user_access_summary
-  FOR SELECT USING (
-    -- Users can see their own access
-    user_id = auth.uid()
-    OR
-    -- Admins can see access for companies they manage
-    EXISTS (
-      SELECT 1 FROM user_companies uc
-      WHERE uc.user_id = auth.uid()
-      AND uc.role IN ('owner', 'admin')
-      AND uc.company_id = company_id
-    )
-  );
+-- Note: RLS policies cannot be applied to views (PostgreSQL limitation).
+-- The view is already protected by the underlying tables' RLS policies.
 
 -- Log the policy updates
 DO $$

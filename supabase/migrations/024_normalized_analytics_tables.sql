@@ -220,6 +220,7 @@ CREATE INDEX IF NOT EXISTS idx_li_snapshot_company ON li_period_snapshots(compan
 -- sync_status: Users can view sync status for their companies
 ALTER TABLE sync_status ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view sync status for their companies" ON sync_status;
 CREATE POLICY "Users can view sync status for their companies" ON sync_status
     FOR SELECT USING (
         company_id IN (
@@ -229,6 +230,7 @@ CREATE POLICY "Users can view sync status for their companies" ON sync_status
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages sync_status" ON sync_status;
 CREATE POLICY "Service role manages sync_status" ON sync_status
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -236,6 +238,7 @@ CREATE POLICY "Service role manages sync_status" ON sync_status
 -- ga_daily_metrics
 ALTER TABLE ga_daily_metrics ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view GA daily metrics for their companies" ON ga_daily_metrics;
 CREATE POLICY "Users can view GA daily metrics for their companies" ON ga_daily_metrics
     FOR SELECT USING (
         company_id IN (
@@ -245,6 +248,7 @@ CREATE POLICY "Users can view GA daily metrics for their companies" ON ga_daily_
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages ga_daily_metrics" ON ga_daily_metrics;
 CREATE POLICY "Service role manages ga_daily_metrics" ON ga_daily_metrics
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -252,6 +256,7 @@ CREATE POLICY "Service role manages ga_daily_metrics" ON ga_daily_metrics
 -- ga_channel_daily
 ALTER TABLE ga_channel_daily ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view GA channel data for their companies" ON ga_channel_daily;
 CREATE POLICY "Users can view GA channel data for their companies" ON ga_channel_daily
     FOR SELECT USING (
         company_id IN (
@@ -261,6 +266,7 @@ CREATE POLICY "Users can view GA channel data for their companies" ON ga_channel
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages ga_channel_daily" ON ga_channel_daily;
 CREATE POLICY "Service role manages ga_channel_daily" ON ga_channel_daily
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -268,6 +274,7 @@ CREATE POLICY "Service role manages ga_channel_daily" ON ga_channel_daily
 -- ga_period_snapshots
 ALTER TABLE ga_period_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view GA snapshots for their companies" ON ga_period_snapshots;
 CREATE POLICY "Users can view GA snapshots for their companies" ON ga_period_snapshots
     FOR SELECT USING (
         company_id IN (
@@ -277,6 +284,7 @@ CREATE POLICY "Users can view GA snapshots for their companies" ON ga_period_sna
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages ga_period_snapshots" ON ga_period_snapshots;
 CREATE POLICY "Service role manages ga_period_snapshots" ON ga_period_snapshots
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -284,6 +292,7 @@ CREATE POLICY "Service role manages ga_period_snapshots" ON ga_period_snapshots
 -- gsc_daily_metrics
 ALTER TABLE gsc_daily_metrics ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view GSC daily metrics for their companies" ON gsc_daily_metrics;
 CREATE POLICY "Users can view GSC daily metrics for their companies" ON gsc_daily_metrics
     FOR SELECT USING (
         company_id IN (
@@ -293,6 +302,7 @@ CREATE POLICY "Users can view GSC daily metrics for their companies" ON gsc_dail
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages gsc_daily_metrics" ON gsc_daily_metrics;
 CREATE POLICY "Service role manages gsc_daily_metrics" ON gsc_daily_metrics
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -300,6 +310,7 @@ CREATE POLICY "Service role manages gsc_daily_metrics" ON gsc_daily_metrics
 -- gsc_period_snapshots
 ALTER TABLE gsc_period_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view GSC snapshots for their companies" ON gsc_period_snapshots;
 CREATE POLICY "Users can view GSC snapshots for their companies" ON gsc_period_snapshots
     FOR SELECT USING (
         company_id IN (
@@ -309,6 +320,7 @@ CREATE POLICY "Users can view GSC snapshots for their companies" ON gsc_period_s
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages gsc_period_snapshots" ON gsc_period_snapshots;
 CREATE POLICY "Service role manages gsc_period_snapshots" ON gsc_period_snapshots
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -316,6 +328,7 @@ CREATE POLICY "Service role manages gsc_period_snapshots" ON gsc_period_snapshot
 -- yt_daily_metrics
 ALTER TABLE yt_daily_metrics ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view YT daily metrics for their companies" ON yt_daily_metrics;
 CREATE POLICY "Users can view YT daily metrics for their companies" ON yt_daily_metrics
     FOR SELECT USING (
         company_id IN (
@@ -325,6 +338,7 @@ CREATE POLICY "Users can view YT daily metrics for their companies" ON yt_daily_
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages yt_daily_metrics" ON yt_daily_metrics;
 CREATE POLICY "Service role manages yt_daily_metrics" ON yt_daily_metrics
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -332,6 +346,7 @@ CREATE POLICY "Service role manages yt_daily_metrics" ON yt_daily_metrics
 -- yt_period_snapshots
 ALTER TABLE yt_period_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view YT snapshots for their companies" ON yt_period_snapshots;
 CREATE POLICY "Users can view YT snapshots for their companies" ON yt_period_snapshots
     FOR SELECT USING (
         company_id IN (
@@ -341,6 +356,7 @@ CREATE POLICY "Users can view YT snapshots for their companies" ON yt_period_sna
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages yt_period_snapshots" ON yt_period_snapshots;
 CREATE POLICY "Service role manages yt_period_snapshots" ON yt_period_snapshots
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -348,6 +364,7 @@ CREATE POLICY "Service role manages yt_period_snapshots" ON yt_period_snapshots
 -- li_daily_metrics
 ALTER TABLE li_daily_metrics ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view LI daily metrics for their companies" ON li_daily_metrics;
 CREATE POLICY "Users can view LI daily metrics for their companies" ON li_daily_metrics
     FOR SELECT USING (
         company_id IN (
@@ -357,6 +374,7 @@ CREATE POLICY "Users can view LI daily metrics for their companies" ON li_daily_
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages li_daily_metrics" ON li_daily_metrics;
 CREATE POLICY "Service role manages li_daily_metrics" ON li_daily_metrics
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -364,6 +382,7 @@ CREATE POLICY "Service role manages li_daily_metrics" ON li_daily_metrics
 -- li_period_snapshots
 ALTER TABLE li_period_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view LI snapshots for their companies" ON li_period_snapshots;
 CREATE POLICY "Users can view LI snapshots for their companies" ON li_period_snapshots
     FOR SELECT USING (
         company_id IN (
@@ -373,6 +392,7 @@ CREATE POLICY "Users can view LI snapshots for their companies" ON li_period_sna
         )
     );
 
+DROP POLICY IF EXISTS "Service role manages li_period_snapshots" ON li_period_snapshots;
 CREATE POLICY "Service role manages li_period_snapshots" ON li_period_snapshots
     FOR ALL USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
@@ -388,6 +408,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_sync_status_updated_at ON sync_status;
 CREATE TRIGGER trigger_sync_status_updated_at
     BEFORE UPDATE ON sync_status
     FOR EACH ROW
