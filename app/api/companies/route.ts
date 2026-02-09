@@ -11,12 +11,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('[Companies API] === USER ACCESS DEBUG ===')
-    console.log('[Companies API] User ID:', user.id)
-    console.log('[Companies API] User email:', user.email)
-    console.log('[Companies API] User metadata:', user.user_metadata)
+    console.log('[Companies API] User:', user.id, user.email)
 
-    // Fetch user's companies with detailed logging
+    // Fetch user's companies — try authenticated client first, fall back to service client
     const { data: userCompanies, error } = await supabase
       .from('user_companies')
       .select(`
@@ -26,30 +23,44 @@ export async function GET() {
       `)
       .eq('user_id', user.id)
 
-    console.log('[Companies API] User companies query result:')
-    console.log('[Companies API] - Error:', error)
-    console.log('[Companies API] - Data count:', userCompanies?.length || 0)
-    console.log('[Companies API] - Raw data:', JSON.stringify(userCompanies, null, 2))
-
     if (error) {
-      console.error('[Companies API] Error fetching user companies:', error)
-      throw error
+      console.warn('[Companies API] Authenticated query failed, trying service client fallback:', error.message)
+
+      // Fall back to service client (bypasses RLS)
+      const { data: serviceCompanies, error: serviceError } = await serviceClient
+        .from('user_companies')
+        .select(`
+          company_id,
+          role,
+          companies (*)
+        `)
+        .eq('user_id', user.id)
+
+      if (serviceError) {
+        console.error('[Companies API] Service client query also failed:', serviceError)
+        throw serviceError
+      }
+
+      if (serviceCompanies && serviceCompanies.length > 0) {
+        const companies = serviceCompanies.map(uc => ({
+          ...uc.companies,
+          role: uc.role
+        }))
+        console.warn('[Companies API] Returning', companies.length, 'companies via service client fallback (RLS issue)')
+        return NextResponse.json({ companies })
+      }
+
+      // Service client found 0 rows — fall through to auto-assignment
     }
 
     // If user has no company assignments, auto-assign them to all available companies
     if (!userCompanies || userCompanies.length === 0) {
-      console.log('[Companies API] === AUTO-ASSIGNMENT TRIGGERED ===')
-      console.log('[Companies API] User has no company assignments, starting auto-assignment process')
-      
+      console.log('[Companies API] No company assignments found, auto-assigning')
+
       // Get all companies using service client to bypass RLS
       const { data: allCompanies, error: allCompaniesError } = await serviceClient
         .from('companies')
         .select('id, name')
-
-      console.log('[Companies API] Available companies for assignment:')
-      console.log('[Companies API] - Error:', allCompaniesError)
-      console.log('[Companies API] - Count:', allCompanies?.length || 0)
-      console.log('[Companies API] - Companies:', allCompanies?.map(c => ({ id: c.id, name: c.name })))
 
       if (allCompaniesError) {
         console.error('[Companies API] Error fetching all companies:', allCompaniesError)
@@ -64,8 +75,6 @@ export async function GET() {
           role: 'viewer'
         }))
 
-        console.log('[Companies API] Creating assignments:', assignments)
-
         // Use upsert to handle potential race conditions
         const { data: insertResult, error: assignError } = await serviceClient
           .from('user_companies')
@@ -76,14 +85,9 @@ export async function GET() {
           .select()
 
         if (assignError) {
-          console.error('[Companies API] Failed to auto-assign user to companies:', assignError)
-          console.error('[Companies API] Assignment details:', JSON.stringify(assignError, null, 2))
-          
-          // Try to proceed with existing assignments instead of failing completely
-          console.log('[Companies API] Attempting to fetch any existing user companies despite assignment failure')
+          console.error('[Companies API] Auto-assign upsert failed:', assignError.message)
         } else {
-          console.log('[Companies API] Successfully auto-assigned user to companies')
-          console.log('[Companies API] Insert result:', insertResult?.length || 0, 'new assignments created')
+          console.log('[Companies API] Auto-assigned', insertResult?.length || 0, 'companies')
         }
 
         // Verify the upsert worked using service client (bypasses RLS)
@@ -95,10 +99,6 @@ export async function GET() {
             companies (*)
           `)
           .eq('user_id', user.id)
-
-        console.log('[Companies API] Service client verification after upsert:')
-        console.log('[Companies API] - Error:', verifyError)
-        console.log('[Companies API] - Count:', verifiedRows?.length || 0)
 
         if (verifyError || !verifiedRows || verifiedRows.length === 0) {
           console.error('[Companies API] Auto-assignment failed: service client sees 0 rows after upsert')
@@ -118,16 +118,11 @@ export async function GET() {
           `)
           .eq('user_id', user.id)
 
-        console.log('[Companies API] Authenticated re-fetch after assignment:')
-        console.log('[Companies API] - Error:', refetchError)
-        console.log('[Companies API] - Count:', newUserCompanies?.length || 0)
-
         if (!refetchError && newUserCompanies && newUserCompanies.length > 0) {
           const companies = newUserCompanies.map(uc => ({
             ...uc.companies,
             role: uc.role
           }))
-          console.log('[Companies API] Successfully returning', companies.length, 'companies after auto-assignment')
           return NextResponse.json({ companies })
         }
 
@@ -154,32 +149,13 @@ export async function GET() {
       role: uc.role
     })) || []
 
-    console.log('[Companies API] === FINAL RESULT ===')
-    console.log('[Companies API] Returning companies count:', companies.length)
-    companies.forEach((company: any, index: number) => {
-      console.log(`[Companies API] Company ${index + 1}: ID=${company.id}, Name="${company.name}", Role=${company.role}`)
-    })
-
-    // Final safety check: If we still have no companies, this is a critical issue
     if (companies.length === 0) {
-      console.error('[Companies API] === CRITICAL: USER HAS NO COMPANY ACCESS ===')
-      console.error('[Companies API] This user cannot access any companies, which should not happen')
-      console.error('[Companies API] Recommend running diagnostic: GET /api/admin/user-access-diagnostic?userId=' + user.id)
-      
-      // Return error with helpful debug info instead of empty list
-      return NextResponse.json({ 
+      console.error('[Companies API] User', user.email, 'has no company access')
+      return NextResponse.json({
         error: 'No company access',
-        message: 'You do not have access to any companies. This may indicate a configuration issue.',
-        debug: {
-          userId: user.id,
-          userEmail: user.email,
-          diagnosticUrl: `/api/admin/user-access-diagnostic?userId=${user.id}`,
-          suggestedAction: 'Contact your administrator to assign you to companies'
-        }
+        message: 'You do not have access to any companies. Please contact your administrator.'
       }, { status: 403 })
     }
-
-    console.log('[Companies API] === END DEBUG ===')
 
     return NextResponse.json({ companies })
   } catch (error) {
