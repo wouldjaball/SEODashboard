@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { subDays, format } from 'date-fns'
 import {
@@ -12,6 +12,7 @@ import {
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
+    const serviceClient = createServiceClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
     const cacheDate = format(defaultEndDate, 'yyyy-MM-dd')
 
     if (isDefaultRange && !forceRefresh) {
-      const { data: cachedData, error: cacheError } = await supabase
+      const { data: cachedData, error: cacheError } = await serviceClient
         .from('portfolio_cache')
         .select('companies_data, aggregate_metrics, updated_at')
         .eq('user_id', user.id)
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
               console.log(`[Portfolio API] Cache is stale, will trigger background refresh...`)
               setImmediate(async () => {
                 try {
-                  await refreshCacheInBackground(user.id, startDate, endDate, cacheDate, supabase)
+                  await refreshCacheInBackground(user.id, startDate, endDate, cacheDate, serviceClient)
                 } catch (error) {
                   console.error(`[Portfolio API] Background refresh failed for user ${user.id}:`, error)
                 }
@@ -96,7 +97,8 @@ export async function GET(request: Request) {
     console.log(`[Portfolio API] Cache miss for user ${user.id}, fetching live data`)
 
     // Get all companies the user has access to
-    const { data: userCompanies, error: companiesError } = await supabase
+    let userCompanies: any[] | null = null
+    const { data: authCompanies, error: companiesError } = await supabase
       .from('user_companies')
       .select(`
         company_id,
@@ -106,7 +108,23 @@ export async function GET(request: Request) {
       .eq('user_id', user.id)
 
     if (companiesError) {
-      throw companiesError
+      console.warn('[Portfolio API] Authenticated query failed, trying service client fallback:', companiesError.message)
+      const { data: serviceCompanies, error: serviceError } = await serviceClient
+        .from('user_companies')
+        .select(`
+          company_id,
+          role,
+          companies (*)
+        `)
+        .eq('user_id', user.id)
+
+      if (serviceError) {
+        console.error('[Portfolio API] Service client query also failed:', serviceError)
+        throw serviceError
+      }
+      userCompanies = serviceCompanies
+    } else {
+      userCompanies = authCompanies
     }
 
     if (!userCompanies || userCompanies.length === 0) {
@@ -141,7 +159,7 @@ export async function GET(request: Request) {
       const bulkStartTime = Date.now()
 
       const bulkResults = await fetchPortfolioFromNormalizedTables(
-        supabase, companyIds, startDate, endDate, previousStartDate, previousEndDate
+        serviceClient, companyIds, startDate, endDate, previousStartDate, previousEndDate
       )
 
       if (bulkResults) {
@@ -149,7 +167,7 @@ export async function GET(request: Request) {
         console.log(`[Portfolio API] Bulk normalized query completed in ${queryMs}ms`)
 
         // Fetch sync info for all companies
-        const { data: syncStatuses } = await supabase
+        const { data: syncStatuses } = await serviceClient
           .from('sync_status')
           .select('company_id, platform, last_success_at, data_end_date, sync_state')
           .in('company_id', companyIds)
@@ -176,7 +194,7 @@ export async function GET(request: Request) {
 
         if (companiesNeedingLegacyCache.length > 0) {
           console.log(`[Portfolio API] ${companiesNeedingLegacyCache.length} companies have no normalized data, checking legacy cache...`)
-          const { data: legacyCacheEntries } = await supabase
+          const { data: legacyCacheEntries } = await serviceClient
             .from('analytics_cache')
             .select('company_id, data')
             .in('company_id', companiesNeedingLegacyCache)
@@ -198,7 +216,7 @@ export async function GET(request: Request) {
             return !a || (!a.gaMetrics && !a.gscMetrics && !a.ytMetrics && !a.liVisitorMetrics)
           })
           if (stillMissing.length > 0) {
-            const { data: onDemandEntries } = await supabase
+            const { data: onDemandEntries } = await serviceClient
               .from('analytics_cache')
               .select('company_id, data')
               .in('company_id', stillMissing)
@@ -221,7 +239,7 @@ export async function GET(request: Request) {
             })
             if (stillMissingAfterFresh.length > 0) {
               const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-              const { data: staleEntries } = await supabase
+              const { data: staleEntries } = await serviceClient
                 .from('analytics_cache')
                 .select('company_id, data, expires_at')
                 .in('company_id', stillMissingAfterFresh)
@@ -285,7 +303,7 @@ export async function GET(request: Request) {
           c.gaMetrics || c.gscMetrics || c.ytMetrics || c.liVisitorMetrics
         )
         if (isDefaultRange && hasAnyMetrics) {
-          await updatePortfolioCache(supabase, user.id, cacheDate, companiesWithData, aggregateMetrics)
+          await updatePortfolioCache(serviceClient, user.id, cacheDate, companiesWithData, aggregateMetrics)
         }
 
         const response = NextResponse.json(result)
@@ -303,7 +321,7 @@ export async function GET(request: Request) {
       const now = new Date().toISOString()
 
       // First: try unexpired cache entries
-      const { data: freshCacheEntries } = await supabase
+      const { data: freshCacheEntries } = await serviceClient
         .from('analytics_cache')
         .select('company_id, data')
         .in('company_id', companyIds)
@@ -324,7 +342,7 @@ export async function GET(request: Request) {
       const companiesStillMissing = companyIds.filter(id => !legacyCacheResults.has(id))
       if (companiesStillMissing.length > 0) {
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        const { data: staleCacheEntries } = await supabase
+        const { data: staleCacheEntries } = await serviceClient
           .from('analytics_cache')
           .select('company_id, data, expires_at')
           .in('company_id', companiesStillMissing)
