@@ -86,8 +86,29 @@ export async function GET() {
           console.log('[Companies API] Insert result:', insertResult?.length || 0, 'new assignments created')
         }
 
-        // Always try to re-fetch user companies, even if assignment had issues
-        // This handles cases where some assignments already existed
+        // Verify the upsert worked using service client (bypasses RLS)
+        const { data: verifiedRows, error: verifyError } = await serviceClient
+          .from('user_companies')
+          .select(`
+            company_id,
+            role,
+            companies (*)
+          `)
+          .eq('user_id', user.id)
+
+        console.log('[Companies API] Service client verification after upsert:')
+        console.log('[Companies API] - Error:', verifyError)
+        console.log('[Companies API] - Count:', verifiedRows?.length || 0)
+
+        if (verifyError || !verifiedRows || verifiedRows.length === 0) {
+          console.error('[Companies API] Auto-assignment failed: service client sees 0 rows after upsert')
+          return NextResponse.json({
+            error: 'Auto-assignment failed',
+            message: 'Could not assign you to companies. Please contact your administrator.'
+          }, { status: 500 })
+        }
+
+        // Try re-fetch with authenticated client (respects RLS)
         const { data: newUserCompanies, error: refetchError } = await supabase
           .from('user_companies')
           .select(`
@@ -97,7 +118,7 @@ export async function GET() {
           `)
           .eq('user_id', user.id)
 
-        console.log('[Companies API] Re-fetch after assignment attempt:')
+        console.log('[Companies API] Authenticated re-fetch after assignment:')
         console.log('[Companies API] - Error:', refetchError)
         console.log('[Companies API] - Count:', newUserCompanies?.length || 0)
 
@@ -108,11 +129,15 @@ export async function GET() {
           }))
           console.log('[Companies API] Successfully returning', companies.length, 'companies after auto-assignment')
           return NextResponse.json({ companies })
-        } else if (refetchError) {
-          console.error('[Companies API] Error re-fetching user companies after assignment:', refetchError)
-        } else {
-          console.warn('[Companies API] Still no user companies found after assignment attempt')
         }
+
+        // Fallback: authenticated client can't see rows but service client can (RLS issue)
+        console.warn('[Companies API] RLS issue: service client sees rows but authenticated client does not. Falling back to service client data.')
+        const fallbackCompanies = verifiedRows.map(uc => ({
+          ...uc.companies,
+          role: uc.role
+        }))
+        return NextResponse.json({ companies: fallbackCompanies })
       } else {
         console.warn('[Companies API] No companies found in database for auto-assignment')
         

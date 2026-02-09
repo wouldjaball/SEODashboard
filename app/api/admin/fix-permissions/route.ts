@@ -1,9 +1,27 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminAccess } from '@/lib/auth/check-admin'
 import { NextResponse } from 'next/server'
+
+const SYSTEM_OWNER_EMAIL = 'aaron@salesmonsters.com'
 
 // POST /api/admin/fix-permissions - Grant aaron@salesmonsters.com owner access to all companies
 export async function POST() {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Allow access if user is system owner OR has admin access in at least one company
+    const isSystemOwner = user.email === SYSTEM_OWNER_EMAIL
+    const isAdmin = await hasAdminAccess(user.id)
+
+    if (!isSystemOwner && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const serviceClient = createServiceClient()
 
     // Get Aaron's user ID from auth.users
