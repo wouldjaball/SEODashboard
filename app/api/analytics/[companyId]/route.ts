@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { GoogleAnalyticsService } from '@/lib/services/google-analytics-service'
 import { GoogleSearchConsoleService } from '@/lib/services/google-search-console-service'
 import { YouTubeAnalyticsService } from '@/lib/services/youtube-analytics-service'
@@ -31,6 +31,7 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient()
+    const serviceClient = createServiceClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -45,7 +46,7 @@ export async function GET(
     console.log('[Analytics API] Requested company ID:', companyId)
 
     // First, let's get the company details to verify it exists
-    const { data: companyData, error: companyError } = await supabase
+    const { data: companyData, error: companyError } = await serviceClient
       .from('companies')
       .select('id, name, industry')
       .eq('id', companyId)
@@ -68,7 +69,7 @@ export async function GET(
     }
 
     // Verify user has access to this company
-    const { data: userCompanyAccess, error: accessError } = await supabase
+    const { data: userCompanyAccess, error: accessError } = await serviceClient
       .from('user_companies')
       .select('role, company_id, user_id')
       .eq('user_id', user.id)
@@ -80,7 +81,7 @@ export async function GET(
     console.log('[Analytics API] - Access data:', userCompanyAccess)
 
     // Let's also check what companies this user DOES have access to
-    const { data: allUserCompanies, error: allAccessError } = await supabase
+    const { data: allUserCompanies, error: allAccessError } = await serviceClient
       .from('user_companies')
       .select('company_id, role, companies(id, name)')
       .eq('user_id', user.id)
@@ -180,7 +181,7 @@ export async function GET(
     // NORMALIZED TABLES PATH (always try first)
     // ============================================
     console.log(`[Analytics] Trying normalized tables for ${companyId} (${startDate} to ${endDate})`)
-    const normalizedResult = await fetchFromNormalizedTables(supabase, companyId, startDate, endDate, previousStartDate, previousEndDate)
+    const normalizedResult = await fetchFromNormalizedTables(serviceClient, companyId, startDate, endDate, previousStartDate, previousEndDate)
     if (normalizedResult) {
       // Only use normalized result if it has actual metric data
       const hasData = normalizedResult.gaMetrics || normalizedResult.gscMetrics ||
@@ -197,7 +198,7 @@ export async function GET(
         const hasLinkedInData = liSyncStatus?.last_success_at != null
         if (!hasLinkedInData) {
           // LinkedIn has never been synced — try cache supplement (fast DB query)
-          const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
+          const cachedLiData = await getCachedServiceData(serviceClient, companyId, 'linkedin')
           if (cachedLiData) {
             Object.assign(normalizedResult, cachedLiData)
             console.log(`[Analytics] LinkedIn data supplemented from cache for ${companyId}`)
@@ -278,7 +279,7 @@ export async function GET(
 
     // Check cache first (but allow bypass for debugging)
     const bypassCache = searchParams.get('nocache') === 'true'
-    const cached = bypassCache ? null : await checkCache(supabase, companyId, startDate, endDate)
+    const cached = bypassCache ? null : await checkCache(serviceClient, companyId, startDate, endDate)
 
     if (cached && !bypassCache) {
       console.log(`[Analytics] Serving cached data for ${companyId} (${startDate} to ${endDate})`)
@@ -304,9 +305,9 @@ export async function GET(
       ytMappingResult,
       linkedinMappingResult
     ] = await Promise.all([
-      supabase.from('company_ga_mappings').select('ga_property_id').eq('company_id', companyId).maybeSingle(),
-      supabase.from('company_gsc_mappings').select('gsc_site_id').eq('company_id', companyId).maybeSingle(),
-      supabase.from('company_youtube_mappings').select('youtube_channel_id').eq('company_id', companyId).maybeSingle(),
+      serviceClient.from('company_ga_mappings').select('ga_property_id').eq('company_id', companyId).maybeSingle(),
+      serviceClient.from('company_gsc_mappings').select('gsc_site_id').eq('company_id', companyId).maybeSingle(),
+      serviceClient.from('company_youtube_mappings').select('youtube_channel_id').eq('company_id', companyId).maybeSingle(),
       linkedinMappingPromise // Reuse the already-started LinkedIn mapping query
     ])
 
@@ -322,25 +323,25 @@ export async function GET(
 
     if (gaMapping?.ga_property_id) {
       detailFetchers.push(async () => {
-        const { data } = await supabase.from('ga_properties').select('*').eq('id', gaMapping.ga_property_id).single()
+        const { data } = await serviceClient.from('ga_properties').select('*').eq('id', gaMapping.ga_property_id).single()
         return { key: 'ga', data }
       })
     }
     if (gscMapping?.gsc_site_id) {
       detailFetchers.push(async () => {
-        const { data } = await supabase.from('gsc_sites').select('*').eq('id', gscMapping.gsc_site_id).single()
+        const { data } = await serviceClient.from('gsc_sites').select('*').eq('id', gscMapping.gsc_site_id).single()
         return { key: 'gsc', data }
       })
     }
     if (ytMapping?.youtube_channel_id) {
       detailFetchers.push(async () => {
-        const { data } = await supabase.from('youtube_channels').select('*').eq('id', ytMapping.youtube_channel_id).single()
+        const { data } = await serviceClient.from('youtube_channels').select('*').eq('id', ytMapping.youtube_channel_id).single()
         return { key: 'yt', data }
       })
     }
     if (linkedinMapping?.linkedin_page_id) {
       detailFetchers.push(async () => {
-        const { data } = await supabase.from('linkedin_pages').select('*').eq('id', linkedinMapping.linkedin_page_id).single()
+        const { data } = await serviceClient.from('linkedin_pages').select('*').eq('id', linkedinMapping.linkedin_page_id).single()
         return { key: 'linkedin', data }
       })
     }
@@ -561,14 +562,14 @@ export async function GET(
       results.ytError = ytResult.reason?.message || 'YouTube fetch failed'
       
       // Try to fall back to cached YouTube data
-      const cachedYtData = await getCachedServiceData(supabase, companyId, 'youtube')
+      const cachedYtData = await getCachedServiceData(serviceClient, companyId, 'youtube')
       if (cachedYtData) {
         Object.assign(results, cachedYtData)
         console.log(`[YouTube] Using cached data fallback for ${companyId}`)
       }
     } else {
       // No YouTube connection configured, try cached data
-      const cachedYtData = await getCachedServiceData(supabase, companyId, 'youtube')
+      const cachedYtData = await getCachedServiceData(serviceClient, companyId, 'youtube')
       if (cachedYtData) {
         Object.assign(results, cachedYtData)
         console.log(`[YouTube] No connection configured, using cached data for ${companyId}`)
@@ -604,7 +605,7 @@ export async function GET(
       }
       
       // Try to fall back to cached LinkedIn data
-      const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
+      const cachedLiData = await getCachedServiceData(serviceClient, companyId, 'linkedin')
       if (cachedLiData) {
         Object.assign(results, cachedLiData)
         console.log(`[LinkedIn] Using cached data fallback for ${companyId}${isRateLimit ? ' (rate limited)' : ''}`)
@@ -612,7 +613,7 @@ export async function GET(
       }
     } else {
       // No LinkedIn connection configured, try cached data
-      const cachedLiData = await getCachedServiceData(supabase, companyId, 'linkedin')
+      const cachedLiData = await getCachedServiceData(serviceClient, companyId, 'linkedin')
       if (cachedLiData) {
         Object.assign(results, cachedLiData)
         console.log(`[LinkedIn] No connection configured, using cached data for ${companyId}`)
@@ -627,7 +628,7 @@ export async function GET(
     results.dataFreshness = { source: 'api', fetchedAt: new Date().toISOString() }
 
     // Cache the results (1 hour expiry) - use the adjusted dates that were actually used for API calls
-    await cacheData(supabase, companyId, startDate, endDate, results)
+    await cacheData(serviceClient, companyId, startDate, endDate, results)
 
     return NextResponse.json(results)
   } catch (error) {
@@ -702,7 +703,7 @@ async function checkCache(supabase: any, companyId: string, startDate: string, e
       .from('analytics_cache')
       .delete()
       .eq('id', data.id)
-    
+
     return null // Force fresh data fetch
   }
 
