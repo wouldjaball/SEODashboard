@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUserRole } from '@/lib/auth/check-admin'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -15,26 +16,21 @@ export async function GET(
 
     const { companyId } = await params
 
-    // Check user's role for this company
-    const { data: userCompanyAccess } = await supabase
-      .from('user_companies')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('company_id', companyId)
-      .maybeSingle()
+    // Check user's role using service client (bypasses RLS)
+    const role = await getUserRole(user.id, companyId)
 
-    if (!userCompanyAccess) {
-      return NextResponse.json({ 
-        hasAccess: false, 
+    if (!role) {
+      return NextResponse.json({
+        hasAccess: false,
         role: null,
-        message: 'No access to this company' 
+        message: 'No access to this company'
       }, { status: 403 })
     }
 
     return NextResponse.json({
       hasAccess: true,
-      role: userCompanyAccess.role,
-      message: `Access granted with ${userCompanyAccess.role} permissions`
+      role,
+      message: `Access granted with ${role} permissions`
     })
   } catch (error) {
     console.error('Access check error:', error)

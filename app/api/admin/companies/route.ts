@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminAccess } from '@/lib/auth/check-admin'
 import { NextResponse } from 'next/server'
 
 // Admin endpoint to get ALL companies (not filtered by user)
@@ -11,8 +12,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch all companies (admin view)
-    const { data: companies, error } = await supabase
+    // Verify user has admin/owner access
+    const isAdmin = await hasAdminAccess(user.id)
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Use service client to fetch all companies (bypasses RLS)
+    const serviceClient = createServiceClient()
+    const { data: companies, error } = await serviceClient
       .from('companies')
       .select('*')
       .order('name')
