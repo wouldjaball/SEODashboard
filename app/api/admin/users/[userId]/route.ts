@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { isUserOwner } from '@/lib/auth/check-admin'
 
@@ -125,8 +125,9 @@ export async function PATCH(
 
 /**
  * DELETE /api/admin/users/[userId]
- * Remove a user from a specific company
- * Only company owners can remove users
+ * Without companyId: Full account deletion (removes from all companies, deletes auth account)
+ * With companyId: Remove a user from a specific company
+ * Only company owners can perform these actions
  */
 export async function DELETE(
   request: Request,
@@ -144,57 +145,187 @@ export async function DELETE(
     const { searchParams } = new URL(request.url)
     const companyId = searchParams.get('companyId')
 
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'companyId query parameter is required' },
-        { status: 400 }
-      )
+    // If companyId is provided, remove from one company (existing behavior)
+    if (companyId) {
+      return handleRemoveFromCompany(supabase, user, userId, companyId)
     }
 
-    // Check if current user is owner of the company
-    const isOwner = await isUserOwner(user.id, companyId)
-    if (!isOwner) {
-      return NextResponse.json(
-        { error: 'Forbidden: Only company owners can remove users' },
-        { status: 403 }
-      )
-    }
-
-    // Prevent removing the last owner
-    const { data: owners, error: ownersError } = await supabase
-      .from('user_companies')
-      .select('user_id')
-      .eq('company_id', companyId)
-      .eq('role', 'owner')
-
-    if (ownersError) {
-      throw ownersError
-    }
-
-    if (owners && owners.length === 1 && owners[0].user_id === userId) {
-      return NextResponse.json(
-        { error: 'Cannot remove the last owner from a company' },
-        { status: 400 }
-      )
-    }
-
-    // Delete the assignment
-    const { error } = await supabase
-      .from('user_companies')
-      .delete()
-      .eq('user_id', userId)
-      .eq('company_id', companyId)
-
-    if (error) {
-      throw error
-    }
-
-    return NextResponse.json({ success: true })
+    // Otherwise, full account deletion
+    return handleFullDeletion(user, userId)
   } catch (error) {
-    console.error('Remove user error:', error)
+    console.error('Delete user error:', error)
     return NextResponse.json(
-      { error: 'Failed to remove user' },
+      { error: 'Failed to delete user' },
       { status: 500 }
     )
   }
+}
+
+async function handleRemoveFromCompany(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: { id: string },
+  userId: string,
+  companyId: string
+) {
+  // Check if current user is owner of the company
+  const ownerCheck = await isUserOwner(user.id, companyId)
+  if (!ownerCheck) {
+    return NextResponse.json(
+      { error: 'Forbidden: Only company owners can remove users' },
+      { status: 403 }
+    )
+  }
+
+  // Prevent removing the last owner
+  const { data: owners, error: ownersError } = await supabase
+    .from('user_companies')
+    .select('user_id')
+    .eq('company_id', companyId)
+    .eq('role', 'owner')
+
+  if (ownersError) {
+    throw ownersError
+  }
+
+  if (owners && owners.length === 1 && owners[0].user_id === userId) {
+    return NextResponse.json(
+      { error: 'Cannot remove the last owner from a company' },
+      { status: 400 }
+    )
+  }
+
+  // Delete the assignment
+  const { error } = await supabase
+    .from('user_companies')
+    .delete()
+    .eq('user_id', userId)
+    .eq('company_id', companyId)
+
+  if (error) {
+    throw error
+  }
+
+  return NextResponse.json({ success: true })
+}
+
+async function handleFullDeletion(
+  user: { id: string },
+  userId: string
+) {
+  const serviceClient = createServiceClient()
+
+  // Prevent self-deletion
+  if (userId === user.id) {
+    return NextResponse.json(
+      { error: 'Cannot delete your own account' },
+      { status: 400 }
+    )
+  }
+
+  // Fetch target user info
+  const { data: targetUserData, error: userError } = await serviceClient.auth.admin.getUserById(userId)
+  if (userError || !targetUserData?.user) {
+    return NextResponse.json(
+      { error: 'User not found' },
+      { status: 404 }
+    )
+  }
+  const targetUser = targetUserData.user
+
+  // Fetch all company assignments for the target user
+  const { data: assignments, error: assignError } = await serviceClient
+    .from('user_companies')
+    .select('company_id, role, companies(name)')
+    .eq('user_id', userId)
+
+  if (assignError) {
+    throw assignError
+  }
+
+  // Verify requesting user is owner of all companies the target belongs to
+  for (const assignment of (assignments || [])) {
+    const ownerCheck = await isUserOwner(user.id, assignment.company_id)
+    if (!ownerCheck) {
+      return NextResponse.json(
+        { error: 'Forbidden: You must be an owner of all companies this user belongs to' },
+        { status: 403 }
+      )
+    }
+  }
+
+  // Check last-owner safety: target must not be the sole owner of any company
+  for (const assignment of (assignments || [])) {
+    if (assignment.role === 'owner') {
+      const { data: owners } = await serviceClient
+        .from('user_companies')
+        .select('user_id')
+        .eq('company_id', assignment.company_id)
+        .eq('role', 'owner')
+
+      if (owners && owners.length === 1) {
+        const companyName = (assignment.companies as unknown as { name: string } | null)?.name || 'Unknown'
+        return NextResponse.json(
+          { error: `Cannot delete user: they are the sole owner of "${companyName}". Transfer ownership first.` },
+          { status: 400 }
+        )
+      }
+    }
+  }
+
+  // Remove user from all companies
+  const companyIds = (assignments || []).map(a => a.company_id)
+  if (companyIds.length > 0) {
+    const { error: deleteCompaniesError } = await serviceClient
+      .from('user_companies')
+      .delete()
+      .eq('user_id', userId)
+
+    if (deleteCompaniesError) {
+      throw deleteCompaniesError
+    }
+  }
+
+  // Delete any pending invitations for the user's email
+  if (targetUser.email) {
+    await serviceClient
+      .from('pending_invitations')
+      .delete()
+      .eq('email', targetUser.email.toLowerCase())
+  }
+
+  // Null out access_codes.created_by FK (no CASCADE on this FK)
+  await serviceClient
+    .from('access_codes')
+    .update({ created_by: null })
+    .eq('created_by', userId)
+
+  // Delete the auth account
+  const { error: deleteUserError } = await serviceClient.auth.admin.deleteUser(userId)
+  if (deleteUserError) {
+    console.error('Error deleting user account:', deleteUserError)
+    return NextResponse.json(
+      { error: 'User removed from companies but account deletion failed' },
+      { status: 500 }
+    )
+  }
+
+  // Log to audit trail
+  await serviceClient
+    .from('invite_audit_log')
+    .insert({
+      admin_id: user.id,
+      action: 'revoke',
+      target_email: targetUser.email?.toLowerCase() || '',
+      company_ids: companyIds,
+      metadata: {
+        type: 'full_deletion',
+        accountDeleted: true
+      }
+    })
+
+  return NextResponse.json({
+    success: true,
+    accountDeleted: true,
+    message: 'User account deleted successfully'
+  })
 }

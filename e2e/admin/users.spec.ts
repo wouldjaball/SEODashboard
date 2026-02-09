@@ -108,12 +108,12 @@ test.describe('Admin Users Management', () => {
     // Wait for user to appear
     await expect(page.getByTestId(`user-row-${inviteEmail}`)).toBeVisible({ timeout: 10_000 });
 
-    // Click revoke button
-    await page.getByTestId(`revoke-invite-${inviteEmail}`).click();
+    // Click delete button
+    await page.getByTestId(`delete-user-${inviteEmail}`).click();
 
-    // Confirm in revoke dialog
-    await expect(page.getByTestId('revoke-dialog')).toBeVisible();
-    await page.getByTestId('revoke-confirm').click();
+    // Confirm in delete dialog
+    await expect(page.getByTestId('delete-user-dialog')).toBeVisible();
+    await page.getByTestId('delete-user-confirm').click();
 
     // User should be removed from table
     await expect(page.getByTestId(`user-row-${inviteEmail}`)).not.toBeVisible({ timeout: 15_000 });

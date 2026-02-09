@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminAccess } from '@/lib/auth/check-admin'
 import { NextResponse } from 'next/server'
 
 // Delete a company
@@ -14,10 +15,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Verify user has admin/owner access
+    const isAdmin = await hasAdminAccess(user.id)
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { companyId } = await params
 
-    // Delete the company (cascades to all related tables due to ON DELETE CASCADE)
-    const { error } = await supabase
+    // Use service client to bypass RLS (no DELETE policy exists on companies table)
+    const serviceClient = createServiceClient()
+    const { error } = await serviceClient
       .from('companies')
       .delete()
       .eq('id', companyId)

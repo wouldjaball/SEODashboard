@@ -229,7 +229,7 @@ export async function GET() {
 
     console.log('[Admin Users API] Returning users:', users.length, 'pending:', pendingInvitations.length)
 
-    return NextResponse.json({ users, pendingInvitations })
+    return NextResponse.json({ users, pendingInvitations, currentUserEmail: user.email })
   } catch (error) {
     console.error('Fetch users error:', error)
     return NextResponse.json(

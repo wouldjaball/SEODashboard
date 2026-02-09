@@ -109,9 +109,10 @@ export default function AdminUsersPage() {
   const [inviteCompanyIds, setInviteCompanyIds] = useState<string[]>([])
   const [inviteRole, setInviteRole] = useState('viewer')
   const [isInviting, setIsInviting] = useState(false)
-  const [revokeEmail, setRevokeEmail] = useState<string | null>(null)
-  const [isRevoking, setIsRevoking] = useState(false)
+  const [deleteUser, setDeleteUser] = useState<UnifiedUser | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [resendingEmail, setResendingEmail] = useState<string | null>(null)
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -139,6 +140,7 @@ export default function AdminUsersPage() {
       setUsers(usersData.users || [])
       setPendingInvitations(usersData.pendingInvitations || [])
       setCompanies(companiesData.companies || [])
+      setCurrentUserEmail(usersData.currentUserEmail || null)
       setHasAdminAccess(true)
     } catch (error) {
       console.error('Failed to fetch data:', error)
@@ -302,29 +304,40 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleRevokeInvite() {
-    if (!revokeEmail) return
+  async function handleDeleteUser() {
+    if (!deleteUser) return
 
-    setIsRevoking(true)
+    setIsDeleting(true)
     try {
-      const response = await fetch(`/api/admin/users/pending?email=${encodeURIComponent(revokeEmail)}`, {
-        method: 'DELETE'
-      })
+      let response: Response
+
+      if (deleteUser.isInvitation) {
+        // Pure invitation user (no auth account) — use existing pending endpoint
+        response = await fetch(
+          `/api/admin/users/pending?email=${encodeURIComponent(deleteUser.email)}`,
+          { method: 'DELETE' }
+        )
+      } else {
+        // User with auth account (active or pending) — use full deletion endpoint
+        response = await fetch(`/api/admin/users/${deleteUser.id}`, {
+          method: 'DELETE'
+        })
+      }
 
       const data = await response.json()
 
       if (response.ok) {
-        alert('Invitation revoked successfully!')
-        setRevokeEmail(null)
+        alert(data.message || 'User deleted successfully.')
+        setDeleteUser(null)
         fetchData()
       } else {
-        alert(data.error || 'Failed to revoke invitation.')
+        alert(data.error || 'Failed to delete user.')
       }
     } catch (error) {
-      console.error('Failed to revoke invitation:', error)
-      alert('Failed to revoke invitation.')
+      console.error('Failed to delete user:', error)
+      alert('Failed to delete user.')
     } finally {
-      setIsRevoking(false)
+      setIsDeleting(false)
     }
   }
 
@@ -565,17 +578,21 @@ export default function AdminUsersPage() {
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      {user.status === 'active' ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleManageUser(user)}
-                          data-testid={`manage-user-${user.email}`}
-                        >
-                          Manage
-                        </Button>
-                      ) : (
-                        <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Manage button for active users */}
+                        {user.status === 'active' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleManageUser(user)}
+                            data-testid={`manage-user-${user.email}`}
+                          >
+                            Manage
+                          </Button>
+                        )}
+
+                        {/* Resend button for pending/expired users */}
+                        {user.status !== 'active' && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -590,18 +607,22 @@ export default function AdminUsersPage() {
                               <RotateCcw className="h-4 w-4" />
                             )}
                           </Button>
+                        )}
+
+                        {/* Delete button for all users except current user */}
+                        {currentUserEmail?.toLowerCase() !== user.email.toLowerCase() && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setRevokeEmail(user.email)}
+                            onClick={() => setDeleteUser(user)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            title="Revoke invitation"
-                            data-testid={`revoke-invite-${user.email}`}
+                            title={user.status === 'active' ? 'Delete user' : 'Revoke invitation'}
+                            data-testid={`delete-user-${user.email}`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -620,31 +641,42 @@ export default function AdminUsersPage() {
         onSave={handleSave}
       />
 
-      {/* Revoke Confirmation Dialog */}
-      <AlertDialog open={!!revokeEmail} onOpenChange={(open) => !open && setRevokeEmail(null)}>
-        <AlertDialogContent data-testid="revoke-dialog">
+      {/* Delete/Revoke Confirmation Dialog */}
+      <AlertDialog open={!!deleteUser} onOpenChange={(open) => !open && setDeleteUser(null)}>
+        <AlertDialogContent data-testid="delete-user-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke Invitation</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteUser?.status === 'active' ? 'Delete User' : 'Revoke Invitation'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to revoke the invitation for <strong>{revokeEmail}</strong>?
-              This will delete their account and they will no longer be able to log in.
+              {deleteUser?.status === 'active' ? (
+                <>
+                  Are you sure you want to delete <strong>{deleteUser?.email}</strong>?
+                  This will remove them from all your companies and delete their account.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to revoke the invitation for <strong>{deleteUser?.email}</strong>?
+                  This will delete their pending account and they will no longer be able to log in.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isRevoking}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleRevokeInvite}
-              disabled={isRevoking}
+              onClick={handleDeleteUser}
+              disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700"
-              data-testid="revoke-confirm"
+              data-testid="delete-user-confirm"
             >
-              {isRevoking ? (
+              {isDeleting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Revoking...
+                  {deleteUser?.status === 'active' ? 'Deleting...' : 'Revoking...'}
                 </>
               ) : (
-                'Revoke Invitation'
+                deleteUser?.status === 'active' ? 'Delete User' : 'Revoke Invitation'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
