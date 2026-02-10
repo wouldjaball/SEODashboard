@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminAccess } from '@/lib/auth/check-admin'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -10,12 +11,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: pages, error } = await supabase
+    const isAdmin = await hasAdminAccess(user.id)
+    const queryClient = isAdmin ? createServiceClient() : supabase
+
+    let query = queryClient
       .from('linkedin_pages')
       .select('*')
-      .eq('user_id', user.id)
       .eq('is_active', true)
       .order('page_name')
+
+    if (!isAdmin) {
+      query = query.eq('user_id', user.id)
+    }
+
+    const { data: pages, error } = await query
 
     if (error) {
       throw error

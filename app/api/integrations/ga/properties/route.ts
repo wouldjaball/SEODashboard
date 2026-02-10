@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminAccess } from '@/lib/auth/check-admin'
 import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
 
@@ -22,15 +23,38 @@ export async function GET(request: Request) {
     console.log('[GA Properties] Fetching for user:', user.id)
     console.log('[GA Properties] User email:', user.email)
 
+    const isAdmin = await hasAdminAccess(user.id)
+
     const accessTokenResult = await OAuthTokenService.refreshAccessTokenWithDetails(user.id)
     if (!accessTokenResult.success) {
       console.log('[GA Properties] No access token available for user:', user.id)
       console.log('[GA Properties] Token error:', accessTokenResult.error)
       console.log('[GA Properties] Token details:', accessTokenResult.details)
-      return NextResponse.json({ 
-        error: 'No access token', 
+
+      // Admin users: fall back to reading ALL properties from DB
+      if (isAdmin) {
+        console.log('[GA Properties] Admin user - falling back to all DB properties')
+        const serviceClient = createServiceClient()
+        const { data: dbProperties } = await serviceClient
+          .from('ga_properties')
+          .select('id, property_id, display_name, account_id, account_name')
+          .eq('is_active', true)
+
+        const properties = (dbProperties || []).map(prop => ({
+          id: prop.id,
+          propertyId: prop.property_id,
+          displayName: prop.display_name,
+          accountId: prop.account_id,
+          accountName: prop.account_name
+        }))
+        console.log(`[GA Properties] Returning ${properties.length} properties from DB for admin`)
+        return NextResponse.json({ properties })
+      }
+
+      return NextResponse.json({
+        error: 'No access token',
         details: 'Google OAuth connection may have expired. Please reconnect your Google account.',
-        tokenError: accessTokenResult.error 
+        tokenError: accessTokenResult.error
       }, { status: 401 })
     }
 
@@ -148,17 +172,45 @@ export async function GET(request: Request) {
     // If no fresh data but not force refresh, try to get from database
     if (properties.length === 0 && !forceRefresh) {
       console.log('[GA Properties] No fresh data from API, checking database for existing properties')
-      const { data: dbProperties, error: dbError } = await supabase
+      const queryClient = isAdmin ? createServiceClient() : supabase
+      let query = queryClient
         .from('ga_properties')
         .select('id, property_id, display_name, account_id, account_name')
-        .eq('user_id', user.id)
         .eq('is_active', true)
-      
+
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id)
+      }
+
+      const { data: dbProperties, error: dbError } = await query
+
       if (dbError) {
         console.error('[GA Properties] Database query error:', dbError)
       } else {
         console.log(`[GA Properties] Found ${dbProperties?.length || 0} properties in database`)
         for (const prop of dbProperties || []) {
+          properties.push({
+            id: prop.id,
+            propertyId: prop.property_id,
+            displayName: prop.display_name,
+            accountId: prop.account_id,
+            accountName: prop.account_name
+          })
+        }
+      }
+    }
+
+    // Admin users: also include properties from other users not yet in results
+    if (isAdmin && properties.length > 0) {
+      const serviceClient = createServiceClient()
+      const { data: allDbProperties } = await serviceClient
+        .from('ga_properties')
+        .select('id, property_id, display_name, account_id, account_name')
+        .eq('is_active', true)
+
+      const existingIds = new Set(properties.map(p => p.id))
+      for (const prop of allDbProperties || []) {
+        if (!existingIds.has(prop.id)) {
           properties.push({
             id: prop.id,
             propertyId: prop.property_id,

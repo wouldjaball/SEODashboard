@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminAccess } from '@/lib/auth/check-admin'
 import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
 
@@ -14,12 +15,32 @@ export async function GET() {
 
     console.log('[GSC Sites] Fetching for user:', user.id)
 
+    const isAdmin = await hasAdminAccess(user.id)
+
     const accessToken = await OAuthTokenService.refreshAccessToken(user.id)
     if (!accessToken) {
       console.log('[GSC Sites] No access token available for user:', user.id)
-      return NextResponse.json({ 
-        error: 'No access token', 
-        details: 'Google OAuth connection may have expired. Please reconnect your Google account.' 
+
+      // Admin users: fall back to reading ALL sites from DB
+      if (isAdmin) {
+        console.log('[GSC Sites] Admin user - falling back to all DB sites')
+        const serviceClient = createServiceClient()
+        const { data: dbSites } = await serviceClient
+          .from('gsc_sites')
+          .select('id, site_url, permission_level')
+
+        const sites = (dbSites || []).map(site => ({
+          id: site.id,
+          siteUrl: site.site_url,
+          permissionLevel: site.permission_level
+        }))
+        console.log(`[GSC Sites] Returning ${sites.length} sites from DB for admin`)
+        return NextResponse.json({ sites })
+      }
+
+      return NextResponse.json({
+        error: 'No access token',
+        details: 'Google OAuth connection may have expired. Please reconnect your Google account.'
       }, { status: 401 })
     }
 
@@ -89,6 +110,25 @@ export async function GET() {
           siteUrl: site.siteUrl,  // External site URL for display
           permissionLevel: site.permissionLevel
         })
+      }
+    }
+
+    // Admin users: also include sites from other users not yet in results
+    if (isAdmin) {
+      const serviceClient = createServiceClient()
+      const { data: allDbSites } = await serviceClient
+        .from('gsc_sites')
+        .select('id, site_url, permission_level')
+
+      const existingIds = new Set(sites.map((s: any) => s.id))
+      for (const site of allDbSites || []) {
+        if (!existingIds.has(site.id)) {
+          sites.push({
+            id: site.id,
+            siteUrl: site.site_url,
+            permissionLevel: site.permission_level
+          })
+        }
       }
     }
 

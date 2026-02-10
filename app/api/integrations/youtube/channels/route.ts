@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminAccess } from '@/lib/auth/check-admin'
 import { YouTubeAnalyticsService } from '@/lib/services/youtube-analytics-service'
 import { NextResponse } from 'next/server'
 
@@ -82,20 +83,12 @@ export async function GET(request: Request) {
       }
     }
 
-    // Check if user is an admin (owner or admin role in any company)
-    const { data: userRole } = await supabase
-      .from('user_companies')
-      .select('role')
-      .eq('user_id', user.id)
-      .in('role', ['owner', 'admin'])
-      .limit(1)
-      .single()
-
-    const isAdmin = !!userRole
+    const isAdmin = await hasAdminAccess(user.id)
+    const queryClient = isAdmin ? createServiceClient() : supabase
 
     // Return cached channels from database
     // Admins can see all channels; regular users only see their own
-    let query = supabase
+    let query = queryClient
       .from('youtube_channels')
       .select('id, channel_id, channel_name, channel_handle, thumbnail_url, created_at')
       .eq('is_active', true)
