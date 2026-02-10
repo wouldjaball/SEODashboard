@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminAccess } from '@/lib/auth/check-admin'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -10,39 +11,55 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch all mappings for user's companies
-    const { data: companies } = await supabase
-      .from('user_companies')
-      .select('company_id')
-      .eq('user_id', user.id)
+    const isAdmin = await hasAdminAccess(user.id)
 
-    if (!companies) {
+    // Admin users: fetch mappings for ALL companies (bypasses RLS)
+    // Non-admin users: fetch mappings only for their assigned companies
+    let companyIds: string[]
+
+    if (isAdmin) {
+      const serviceClient = createServiceClient()
+      const { data: allCompanies } = await serviceClient
+        .from('companies')
+        .select('id')
+      companyIds = (allCompanies || []).map(c => c.id)
+    } else {
+      const { data: userCompanies } = await supabase
+        .from('user_companies')
+        .select('company_id')
+        .eq('user_id', user.id)
+      companyIds = (userCompanies || []).map(c => c.company_id)
+    }
+
+    if (companyIds.length === 0) {
       return NextResponse.json({ mappings: {} })
     }
 
+    // Use service client for admin to bypass RLS on mapping tables
+    const queryClient = isAdmin ? createServiceClient() : supabase
+
     const mappings: Record<string, { gaPropertyId: string; gscSiteId: string; youtubeChannelId: string; linkedinPageId: string }> = {}
 
-    for (const { company_id } of companies) {
-      // Get the database UUIDs directly - this matches what the frontend Select uses
-      const { data: gaMapping } = await supabase
+    for (const company_id of companyIds) {
+      const { data: gaMapping } = await queryClient
         .from('company_ga_mappings')
         .select('ga_property_id')
         .eq('company_id', company_id)
         .maybeSingle()
 
-      const { data: gscMapping } = await supabase
+      const { data: gscMapping } = await queryClient
         .from('company_gsc_mappings')
         .select('gsc_site_id')
         .eq('company_id', company_id)
         .maybeSingle()
 
-      const { data: youtubeMapping } = await supabase
+      const { data: youtubeMapping } = await queryClient
         .from('company_youtube_mappings')
         .select('youtube_channel_id')
         .eq('company_id', company_id)
         .maybeSingle()
 
-      const { data: linkedinMapping } = await supabase
+      const { data: linkedinMapping } = await queryClient
         .from('company_linkedin_mappings')
         .select('linkedin_page_id')
         .eq('company_id', company_id)
@@ -85,43 +102,49 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid mappings format' }, { status: 400 })
     }
 
-    // Verify user has owner/admin role for all companies they're trying to modify
+    const isAdmin = await hasAdminAccess(user.id)
     const companyIds = Object.keys(mappings)
-    const { data: userCompanies, error: roleError } = await supabase
-      .from('user_companies')
-      .select('company_id, role')
-      .eq('user_id', user.id)
-      .in('company_id', companyIds)
 
-    console.log('User company roles:', userCompanies, 'Error:', roleError)
+    if (!isAdmin) {
+      // Non-admin users: verify they have owner/admin role for all companies
+      const { data: userCompanies, error: roleError } = await supabase
+        .from('user_companies')
+        .select('company_id, role')
+        .eq('user_id', user.id)
+        .in('company_id', companyIds)
 
-    if (roleError) {
-      return NextResponse.json({
-        error: 'Failed to verify permissions',
-        details: roleError.message
-      }, { status: 500 })
+      console.log('User company roles:', userCompanies, 'Error:', roleError)
+
+      if (roleError) {
+        return NextResponse.json({
+          error: 'Failed to verify permissions',
+          details: roleError.message
+        }, { status: 500 })
+      }
+
+      const userRolesMap = new Map(
+        (userCompanies || []).map(uc => [uc.company_id, uc.role])
+      )
+
+      for (const companyId of companyIds) {
+        const role = userRolesMap.get(companyId)
+        if (!role) {
+          return NextResponse.json({
+            error: `No access to company ${companyId}`,
+            details: 'You are not assigned to this company'
+          }, { status: 403 })
+        }
+        if (!['owner', 'admin'].includes(role)) {
+          return NextResponse.json({
+            error: `Insufficient permissions for company ${companyId}`,
+            details: `Your role is "${role}" but owner/admin is required to manage mappings`
+          }, { status: 403 })
+        }
+      }
     }
 
-    // Check if user has admin/owner role for all requested companies
-    const userRolesMap = new Map(
-      (userCompanies || []).map(uc => [uc.company_id, uc.role])
-    )
-
-    for (const companyId of companyIds) {
-      const role = userRolesMap.get(companyId)
-      if (!role) {
-        return NextResponse.json({
-          error: `No access to company ${companyId}`,
-          details: 'You are not assigned to this company'
-        }, { status: 403 })
-      }
-      if (!['owner', 'admin'].includes(role)) {
-        return NextResponse.json({
-          error: `Insufficient permissions for company ${companyId}`,
-          details: `Your role is "${role}" but owner/admin is required to manage mappings`
-        }, { status: 403 })
-      }
-    }
+    // Admin users: use service client to bypass RLS for mapping operations
+    const writeClient = isAdmin ? createServiceClient() : supabase
 
     // Save mappings for each company using upsert to preserve existing mappings
     for (const [companyId, mapping] of Object.entries(mappings)) {
@@ -139,7 +162,7 @@ export async function POST(request: Request) {
         console.log(`Upserting GA mapping: company_id=${companyId}, ga_property_id=${gaPropertyId}`)
 
         // Verify the property exists
-        const { data: gaProperty, error: gaLookupError } = await supabase
+        const { data: gaProperty, error: gaLookupError } = await writeClient
           .from('ga_properties')
           .select('id')
           .eq('id', gaPropertyId)
@@ -151,8 +174,8 @@ export async function POST(request: Request) {
         }
 
         // Delete then insert (upsert doesn't work well with non-unique company_id)
-        await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
-        const { error: gaError } = await supabase.from('company_ga_mappings').insert({
+        await writeClient.from('company_ga_mappings').delete().eq('company_id', companyId)
+        const { error: gaError } = await writeClient.from('company_ga_mappings').insert({
           company_id: companyId,
           ga_property_id: gaPropertyId
         })
@@ -164,7 +187,7 @@ export async function POST(request: Request) {
       } else {
         // Only delete if explicitly cleared (empty string means user selected "None")
         console.log(`Clearing GA mapping for company ${companyId}`)
-        await supabase.from('company_ga_mappings').delete().eq('company_id', companyId)
+        await writeClient.from('company_ga_mappings').delete().eq('company_id', companyId)
       }
 
       // GSC Site mapping
@@ -172,7 +195,7 @@ export async function POST(request: Request) {
         console.log(`Upserting GSC mapping: company_id=${companyId}, gsc_site_id=${gscSiteId}`)
 
         // Verify the site exists
-        const { data: gscSite, error: gscLookupError } = await supabase
+        const { data: gscSite, error: gscLookupError } = await writeClient
           .from('gsc_sites')
           .select('id')
           .eq('id', gscSiteId)
@@ -183,8 +206,8 @@ export async function POST(request: Request) {
           throw new Error(`GSC site with ID "${gscSiteId}" not found. Please refresh the sites list.`)
         }
 
-        await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
-        const { error: gscError } = await supabase.from('company_gsc_mappings').insert({
+        await writeClient.from('company_gsc_mappings').delete().eq('company_id', companyId)
+        const { error: gscError } = await writeClient.from('company_gsc_mappings').insert({
           company_id: companyId,
           gsc_site_id: gscSiteId
         })
@@ -195,7 +218,7 @@ export async function POST(request: Request) {
         console.log(`Successfully saved GSC mapping for company ${companyId}`)
       } else {
         console.log(`Clearing GSC mapping for company ${companyId}`)
-        await supabase.from('company_gsc_mappings').delete().eq('company_id', companyId)
+        await writeClient.from('company_gsc_mappings').delete().eq('company_id', companyId)
       }
 
       // YouTube Channel mapping
@@ -203,7 +226,7 @@ export async function POST(request: Request) {
         console.log(`Upserting YouTube mapping: company_id=${companyId}, youtube_channel_id=${youtubeChannelId}`)
 
         // Verify the channel exists
-        const { data: ytChannel, error: ytLookupError } = await supabase
+        const { data: ytChannel, error: ytLookupError } = await writeClient
           .from('youtube_channels')
           .select('id')
           .eq('id', youtubeChannelId)
@@ -214,8 +237,8 @@ export async function POST(request: Request) {
           throw new Error(`YouTube channel with ID "${youtubeChannelId}" not found. Please refresh the channels list.`)
         }
 
-        await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
-        const { error: ytError } = await supabase.from('company_youtube_mappings').insert({
+        await writeClient.from('company_youtube_mappings').delete().eq('company_id', companyId)
+        const { error: ytError } = await writeClient.from('company_youtube_mappings').insert({
           company_id: companyId,
           youtube_channel_id: youtubeChannelId
         })
@@ -226,7 +249,7 @@ export async function POST(request: Request) {
         console.log(`Successfully saved YouTube mapping for company ${companyId}`)
       } else {
         console.log(`Clearing YouTube mapping for company ${companyId}`)
-        await supabase.from('company_youtube_mappings').delete().eq('company_id', companyId)
+        await writeClient.from('company_youtube_mappings').delete().eq('company_id', companyId)
       }
 
       // LinkedIn Page mapping
@@ -234,7 +257,7 @@ export async function POST(request: Request) {
         console.log(`Upserting LinkedIn mapping: company_id=${companyId}, linkedin_page_id=${linkedinPageId}`)
 
         // Verify the page exists
-        const { data: liPage, error: liLookupError } = await supabase
+        const { data: liPage, error: liLookupError } = await writeClient
           .from('linkedin_pages')
           .select('id')
           .eq('id', linkedinPageId)
@@ -245,8 +268,8 @@ export async function POST(request: Request) {
           throw new Error(`LinkedIn page with ID "${linkedinPageId}" not found. Please add it first.`)
         }
 
-        await supabase.from('company_linkedin_mappings').delete().eq('company_id', companyId)
-        const { error: liError } = await supabase.from('company_linkedin_mappings').insert({
+        await writeClient.from('company_linkedin_mappings').delete().eq('company_id', companyId)
+        const { error: liError } = await writeClient.from('company_linkedin_mappings').insert({
           company_id: companyId,
           linkedin_page_id: linkedinPageId
         })
@@ -257,7 +280,7 @@ export async function POST(request: Request) {
         console.log(`Successfully saved LinkedIn mapping for company ${companyId}`)
       } else {
         console.log(`Clearing LinkedIn mapping for company ${companyId}`)
-        await supabase.from('company_linkedin_mappings').delete().eq('company_id', companyId)
+        await writeClient.from('company_linkedin_mappings').delete().eq('company_id', companyId)
       }
     }
 
