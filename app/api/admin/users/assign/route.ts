@@ -1,6 +1,6 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { isUserOwner } from '@/lib/auth/check-admin'
+import { isUserOwnerOrAdmin, getUserRole } from '@/lib/auth/check-admin'
 import { EmailService } from '@/lib/services/email-service'
 import { generateTempPassword } from '@/lib/utils/password'
 
@@ -73,15 +73,27 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if current user is owner of ALL the companies
+    // Check if current user is owner or admin of ALL the companies
+    let requesterIsOwnerOfAll = true
     for (const cId of targetCompanyIds) {
-      const isOwner = await isUserOwner(user.id, cId)
-      if (!isOwner) {
+      const requesterRole = await getUserRole(user.id, cId)
+      if (requesterRole !== 'owner' && requesterRole !== 'admin') {
         return NextResponse.json(
-          { error: `Forbidden: You must be an owner of all selected companies` },
+          { error: `Forbidden: You must be an owner or admin of all selected companies` },
           { status: 403 }
         )
       }
+      if (requesterRole !== 'owner') {
+        requesterIsOwnerOfAll = false
+      }
+    }
+
+    // Admins cannot assign the 'owner' role
+    if (!requesterIsOwnerOfAll && role === 'owner') {
+      return NextResponse.json(
+        { error: 'Forbidden: Only owners can assign the owner role' },
+        { status: 403 }
+      )
     }
 
     // If email provided, look up or wait for user

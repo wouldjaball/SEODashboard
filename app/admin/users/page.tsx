@@ -113,6 +113,7 @@ export default function AdminUsersPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [resendingEmail, setResendingEmail] = useState<string | null>(null)
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
+  const [currentUserIsOwner, setCurrentUserIsOwner] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -137,11 +138,21 @@ export default function AdminUsersPage() {
         companiesRes.json()
       ])
 
-      setUsers(usersData.users || [])
+      const fetchedUsers: User[] = usersData.users || []
+      setUsers(fetchedUsers)
       setPendingInvitations(usersData.pendingInvitations || [])
       setCompanies(companiesData.companies || [])
       setCurrentUserEmail(usersData.currentUserEmail || null)
       setHasAdminAccess(true)
+
+      // Determine if current user is an owner of any company
+      const email = usersData.currentUserEmail?.toLowerCase()
+      if (email) {
+        const currentUser = fetchedUsers.find(u => u.email.toLowerCase() === email)
+        setCurrentUserIsOwner(
+          currentUser?.companies.some(c => c.role === 'owner') ?? false
+        )
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error)
     } finally {
@@ -488,7 +499,9 @@ export default function AdminUsersPage() {
                   <SelectContent>
                     <SelectItem value="viewer">Viewer - Can view dashboards</SelectItem>
                     <SelectItem value="admin">Admin - Can manage users</SelectItem>
-                    <SelectItem value="owner">Owner - Full access</SelectItem>
+                    {currentUserIsOwner && (
+                      <SelectItem value="owner">Owner - Full access</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -639,6 +652,7 @@ export default function AdminUsersPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={handleSave}
+        currentUserIsOwner={currentUserIsOwner}
       />
 
       {/* Delete/Revoke Confirmation Dialog */}

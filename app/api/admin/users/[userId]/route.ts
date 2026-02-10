@@ -1,6 +1,6 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { isUserOwner } from '@/lib/auth/check-admin'
+import { isUserOwner, isUserOwnerOrAdmin, getUserRole } from '@/lib/auth/check-admin'
 
 /**
  * GET /api/admin/users/[userId]
@@ -91,17 +91,37 @@ export async function PATCH(
       )
     }
 
-    // Check if current user is owner of the company
-    const isOwner = await isUserOwner(user.id, companyId)
-    if (!isOwner) {
+    // Check if current user is owner or admin of the company
+    const currentUserRole = await getUserRole(user.id, companyId)
+    if (currentUserRole !== 'owner' && currentUserRole !== 'admin') {
       return NextResponse.json(
-        { error: 'Forbidden: Only company owners can update user roles' },
+        { error: 'Forbidden: Only company owners and admins can update user roles' },
         { status: 403 }
       )
     }
 
-    // Update the role
-    const { data, error } = await supabase
+    // Admins cannot assign the 'owner' role
+    if (currentUserRole === 'admin' && role === 'owner') {
+      return NextResponse.json(
+        { error: 'Forbidden: Only owners can assign the owner role' },
+        { status: 403 }
+      )
+    }
+
+    // Admins cannot modify an owner's role
+    if (currentUserRole === 'admin') {
+      const targetRole = await getUserRole(userId, companyId)
+      if (targetRole === 'owner') {
+        return NextResponse.json(
+          { error: 'Forbidden: Only owners can modify another owner\'s role' },
+          { status: 403 }
+        )
+      }
+    }
+
+    // Update the role (use serviceClient to bypass RLS which only allows owners)
+    const serviceClient = createServiceClient()
+    const { data, error } = await serviceClient
       .from('user_companies')
       .update({ role })
       .eq('user_id', userId)
@@ -167,17 +187,30 @@ async function handleRemoveFromCompany(
   userId: string,
   companyId: string
 ) {
-  // Check if current user is owner of the company
-  const ownerCheck = await isUserOwner(user.id, companyId)
-  if (!ownerCheck) {
+  // Check if current user is owner or admin of the company
+  const currentUserRole = await getUserRole(user.id, companyId)
+  if (currentUserRole !== 'owner' && currentUserRole !== 'admin') {
     return NextResponse.json(
-      { error: 'Forbidden: Only company owners can remove users' },
+      { error: 'Forbidden: Only company owners and admins can remove users' },
       { status: 403 }
     )
   }
 
+  // Admins cannot remove owners
+  if (currentUserRole === 'admin') {
+    const targetRole = await getUserRole(userId, companyId)
+    if (targetRole === 'owner') {
+      return NextResponse.json(
+        { error: 'Forbidden: Only owners can remove another owner' },
+        { status: 403 }
+      )
+    }
+  }
+
+  const serviceClient = createServiceClient()
+
   // Prevent removing the last owner
-  const { data: owners, error: ownersError } = await supabase
+  const { data: owners, error: ownersError } = await serviceClient
     .from('user_companies')
     .select('user_id')
     .eq('company_id', companyId)
@@ -194,8 +227,8 @@ async function handleRemoveFromCompany(
     )
   }
 
-  // Delete the assignment
-  const { error } = await supabase
+  // Delete the assignment (use serviceClient to bypass RLS which only allows owners)
+  const { error } = await serviceClient
     .from('user_companies')
     .delete()
     .eq('user_id', userId)
@@ -242,14 +275,30 @@ async function handleFullDeletion(
     throw assignError
   }
 
-  // Verify requesting user is owner of all companies the target belongs to
+  // Verify requesting user is owner or admin of all companies the target belongs to
+  let requesterIsOwnerOfAll = true
   for (const assignment of (assignments || [])) {
-    const ownerCheck = await isUserOwner(user.id, assignment.company_id)
-    if (!ownerCheck) {
+    const requesterRole = await getUserRole(user.id, assignment.company_id)
+    if (requesterRole !== 'owner' && requesterRole !== 'admin') {
       return NextResponse.json(
-        { error: 'Forbidden: You must be an owner of all companies this user belongs to' },
+        { error: 'Forbidden: You must be an owner or admin of all companies this user belongs to' },
         { status: 403 }
       )
+    }
+    if (requesterRole !== 'owner') {
+      requesterIsOwnerOfAll = false
+    }
+  }
+
+  // Admins cannot delete owners
+  if (!requesterIsOwnerOfAll) {
+    for (const assignment of (assignments || [])) {
+      if (assignment.role === 'owner') {
+        return NextResponse.json(
+          { error: 'Forbidden: Only owners can delete another owner' },
+          { status: 403 }
+        )
+      }
     }
   }
 
@@ -294,17 +343,21 @@ async function handleFullDeletion(
   }
 
   // Null out access_codes.created_by FK (no CASCADE on this FK)
-  await serviceClient
+  const { error: accessCodesError } = await serviceClient
     .from('access_codes')
     .update({ created_by: null })
     .eq('created_by', userId)
+
+  if (accessCodesError) {
+    console.error('Error cleaning up access_codes:', accessCodesError)
+  }
 
   // Delete the auth account
   const { error: deleteUserError } = await serviceClient.auth.admin.deleteUser(userId)
   if (deleteUserError) {
     console.error('Error deleting user account:', deleteUserError)
     return NextResponse.json(
-      { error: 'User removed from companies but account deletion failed' },
+      { error: `User removed from companies but account deletion failed: ${deleteUserError.message}` },
       { status: 500 }
     )
   }

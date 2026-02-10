@@ -12,6 +12,7 @@ interface CompanyContextType {
   isLoading: boolean
   error: string | null
   refetchData: (companyId: string, dateRange: { from: Date; to: Date }) => Promise<void>
+  refetchPlatform: (companyId: string, dateRange: { from: Date; to: Date }, platform: string) => Promise<void>
   comparisonEnabled: boolean
   setComparisonEnabled: (enabled: boolean) => void
   findCompanyById: (id: string) => Company | undefined
@@ -334,6 +335,95 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     await fetchAnalyticsForCompany(companyId, dateRange)
   }
 
+  async function refetchPlatform(companyId: string, dateRange: { from: Date; to: Date }, platform: string) {
+    console.log('[CompanyContext] refetchPlatform called:', { companyId, dateRange, platform })
+
+    if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') return
+
+    try {
+      // Don't set global isLoading — avoids full-page spinner for platform-scoped refetches
+      setError(null)
+
+      const params = new URLSearchParams({
+        startDate: dateRange.from.toISOString().split('T')[0],
+        endDate: dateRange.to.toISOString().split('T')[0],
+        platforms: platform
+      })
+
+      const response = await fetch(`/api/analytics/${companyId}?${params}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError(data.message || 'No analytics accounts mapped to this company')
+        } else {
+          setError('Failed to load analytics data')
+        }
+        return
+      }
+
+      // Merge only the platform-specific fields into company state
+      setCompanyState(prev => ({
+        ...prev,
+        ...(platform === 'linkedin' || platform === 'all' ? {
+          liVisitorMetrics: data.liVisitorMetrics ?? prev.liVisitorMetrics,
+          liFollowerMetrics: data.liFollowerMetrics ?? prev.liFollowerMetrics,
+          liContentMetrics: data.liContentMetrics ?? prev.liContentMetrics,
+          liSearchAppearanceMetrics: data.liSearchAppearanceMetrics ?? prev.liSearchAppearanceMetrics,
+          liVisitorDaily: data.liVisitorDaily ?? prev.liVisitorDaily,
+          liFollowerDaily: data.liFollowerDaily ?? prev.liFollowerDaily,
+          liImpressionDaily: data.liImpressionDaily ?? prev.liImpressionDaily,
+          liIndustryDemographics: data.liIndustryDemographics ?? prev.liIndustryDemographics,
+          liSeniorityDemographics: data.liSeniorityDemographics ?? prev.liSeniorityDemographics,
+          liJobFunctionDemographics: data.liJobFunctionDemographics ?? prev.liJobFunctionDemographics,
+          liCompanySizeDemographics: data.liCompanySizeDemographics ?? prev.liCompanySizeDemographics,
+          liUpdates: data.liUpdates ?? prev.liUpdates,
+          liError: data.liError ?? undefined,
+          liErrorType: data.liErrorType ?? undefined,
+          liDataSource: data.liDataSource ?? prev.liDataSource,
+        } : {}),
+        ...(platform === 'ga' || platform === 'all' ? {
+          gaMetrics: data.gaMetrics ?? prev.gaMetrics,
+          gaWeeklyData: data.gaWeeklyData ?? prev.gaWeeklyData,
+          gaChannelData: data.gaChannelData ?? prev.gaChannelData,
+          gaTrafficShare: data.gaTrafficShare ?? prev.gaTrafficShare,
+          gaSourcePerformance: data.gaSourcePerformance ?? prev.gaSourcePerformance,
+          gaLandingPages: data.gaLandingPages ?? prev.gaLandingPages,
+          gaRegions: data.gaRegions ?? prev.gaRegions,
+          gaDevices: data.gaDevices ?? prev.gaDevices,
+          gaGender: data.gaGender ?? prev.gaGender,
+          gaAge: data.gaAge ?? prev.gaAge,
+          gaError: data.gaError ?? undefined,
+          gaErrorType: data.gaErrorType ?? undefined,
+        } : {}),
+        ...(platform === 'gsc' || platform === 'all' ? {
+          gscMetrics: data.gscMetrics ?? prev.gscMetrics,
+          gscWeeklyData: data.gscWeeklyData ?? prev.gscWeeklyData,
+          gscKeywords: data.gscKeywords ?? prev.gscKeywords,
+          gscCountries: data.gscCountries ?? prev.gscCountries,
+          gscDevices: data.gscDevices ?? prev.gscDevices,
+          gscIndexData: data.gscIndexData ?? prev.gscIndexData,
+          gscLandingPages: data.gscLandingPages ?? prev.gscLandingPages,
+          gscError: data.gscError ?? undefined,
+          gscErrorType: data.gscErrorType ?? undefined,
+        } : {}),
+        ...(platform === 'youtube' || platform === 'all' ? {
+          ytMetrics: data.ytMetrics ?? prev.ytMetrics,
+          ytVideos: data.ytVideos ?? prev.ytVideos,
+          ytViewsSparkline: data.ytViewsSparkline ?? prev.ytViewsSparkline,
+          ytWatchTimeSparkline: data.ytWatchTimeSparkline ?? prev.ytWatchTimeSparkline,
+          ytSharesSparkline: data.ytSharesSparkline ?? prev.ytSharesSparkline,
+          ytLikesSparkline: data.ytLikesSparkline ?? prev.ytLikesSparkline,
+          ytError: data.ytError ?? undefined,
+        } : {}),
+        dataFreshness: data.dataFreshness ?? prev.dataFreshness,
+      }))
+    } catch (err) {
+      console.error('[CompanyContext] Failed to refetch platform:', err)
+      setError('Failed to load analytics data')
+    }
+  }
+
   const setCompany = (newCompany: Company) => {
     console.log('[CompanyContext] Setting company:', newCompany.id, newCompany.name)
     setCompanyState(newCompany)
@@ -366,6 +456,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         error,
         refetchData,
+        refetchPlatform,
         comparisonEnabled,
         setComparisonEnabled,
         findCompanyById

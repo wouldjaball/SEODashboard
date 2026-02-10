@@ -190,15 +190,6 @@ export function LIReport({
             </span>
           </div>
         </div>
-        <Button
-          onClick={() => setShowDataEditor(true)}
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          <Edit3 className="h-4 w-4" />
-          Edit Data
-        </Button>
       </div>
 
       {/* Content Performance - TOP PRIORITY */}

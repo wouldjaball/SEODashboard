@@ -1,6 +1,6 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { hasAdminAccess, getUserOwnedCompanies, isUserOwner } from '@/lib/auth/check-admin'
+import { hasAdminAccess, getUserOwnedCompanies, isUserOwnerOrAdmin } from '@/lib/auth/check-admin'
 import { EmailService } from '@/lib/services/email-service'
 import { generateTempPassword } from '@/lib/utils/password'
 
@@ -134,12 +134,12 @@ export async function POST(request: Request) {
         )
       }
 
-      // Check if user is owner of all companies
+      // Check if user is owner or admin of all companies
       for (const inv of invitations) {
-        const isOwner = await isUserOwner(user.id, inv.company_id)
-        if (!isOwner) {
+        const hasAccess = await isUserOwnerOrAdmin(user.id, inv.company_id)
+        if (!hasAccess) {
           return NextResponse.json(
-            { error: 'Forbidden: You must be an owner of all companies to resend invitations' },
+            { error: 'Forbidden: You must be an owner or admin of all companies to resend invitations' },
             { status: 403 }
           )
         }
@@ -280,12 +280,12 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // Check if user is owner of all companies
+    // Check if user is owner or admin of all companies
     for (const inv of invitations) {
-      const isOwner = await isUserOwner(user.id, inv.company_id)
-      if (!isOwner) {
+      const hasAccess = await isUserOwnerOrAdmin(user.id, inv.company_id)
+      if (!hasAccess) {
         return NextResponse.json(
-          { error: 'Forbidden: You must be an owner of all companies to revoke invitations' },
+          { error: 'Forbidden: You must be an owner or admin of all companies to revoke invitations' },
           { status: 403 }
         )
       }

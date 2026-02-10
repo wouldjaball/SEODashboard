@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowLeft, Loader2, Building2, Shield } from "lucide-react"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { subDays, format } from "date-fns"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { LIReport } from "@/components/dashboard/linkedin/li-report"
 import { LinkedInNativeDashboard } from "@/components/dashboard/linkedin/linkedin-native-dashboard"
 
 export default function LinkedInAnalyticsPage() {
-  const { company, isLoading } = useCompany()
+  const { company, isLoading, refetchPlatform } = useCompany()
   const [user, setUser] = useState<any>(null)
   const [hasAccess, setHasAccess] = useState<boolean | null>(null)
 
@@ -20,6 +20,18 @@ export default function LinkedInAnalyticsPage() {
     from: subDays(new Date(), 30),
     to: new Date(),
   })
+
+  // Refetch only LinkedIn data when user changes the date range (not on initial load)
+  const prevDateRange = useRef({ from: dateRange.from.getTime(), to: dateRange.to.getTime() })
+  useEffect(() => {
+    const fromTime = dateRange.from.getTime()
+    const toTime = dateRange.to.getTime()
+    if (prevDateRange.current.from === fromTime && prevDateRange.current.to === toTime) return
+    prevDateRange.current = { from: fromTime, to: toTime }
+    if (company?.id) {
+      refetchPlatform(company.id, dateRange, 'linkedin')
+    }
+  }, [dateRange, company?.id, refetchPlatform])
 
   useEffect(() => {
     const getUser = async () => {

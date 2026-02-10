@@ -36,6 +36,7 @@ interface UserAssignmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: () => void
+  currentUserIsOwner?: boolean
 }
 
 export function UserAssignmentDialog({
@@ -43,7 +44,8 @@ export function UserAssignmentDialog({
   availableCompanies,
   open,
   onOpenChange,
-  onSave
+  onSave,
+  currentUserIsOwner = true
 }: UserAssignmentDialogProps) {
   const [assignments, setAssignments] = useState<Map<string, Assignment>>(new Map())
   const [isSaving, setIsSaving] = useState(false)
@@ -225,14 +227,16 @@ export function UserAssignmentDialog({
                                 </div>
                               </div>
                             </SelectItem>
-                            <SelectItem value="owner">
-                              <div>
-                                <div className="font-medium">Owner</div>
-                                <div className="text-xs text-muted-foreground">
-                                  Full access, can manage users
+                            {currentUserIsOwner && (
+                              <SelectItem value="owner">
+                                <div>
+                                  <div className="font-medium">Owner</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Full access, can manage users
+                                  </div>
                                 </div>
-                              </div>
-                            </SelectItem>
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>

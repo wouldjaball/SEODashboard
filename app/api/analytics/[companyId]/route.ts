@@ -117,7 +117,11 @@ export async function GET(
     console.log('[Analytics API] User', user.email, 'has', userCompanyAccess.role, 'access to', companyData.name)
 
     const { searchParams } = new URL(request.url)
-    
+
+    // Optional platform filter (e.g. ?platforms=linkedin or ?platforms=ga,gsc)
+    const platformsParam = searchParams.get('platforms')
+    const platforms = platformsParam ? platformsParam.split(',') : null
+
     // Get current date and default to last 30 days
     const today = new Date()
     const defaultEndDate = today
@@ -277,14 +281,16 @@ export async function GET(
     // No normalized data — fall through to legacy cache + API path
     console.log(`[Analytics] No normalized data for ${companyId}, falling back to cache/API`)
 
-    // Check cache first (but allow bypass for debugging)
-    const bypassCache = searchParams.get('nocache') === 'true'
+    // Check cache first (but allow bypass for debugging or platform-scoped requests)
+    const bypassCache = searchParams.get('nocache') === 'true' || !!platforms
     const cached = bypassCache ? null : await checkCache(serviceClient, companyId, startDate, endDate)
 
     if (cached && !bypassCache) {
       console.log(`[Analytics] Serving cached data for ${companyId} (${startDate} to ${endDate})`)
       cached.dataFreshness = { source: 'cache', cachedAt: new Date().toISOString() }
       return NextResponse.json(cached)
+    } else if (platforms) {
+      console.log(`[Analytics] Platform-scoped request (${platforms.join(',')}), skipping cache`)
     } else if (bypassCache) {
       console.log(`[Analytics] Cache bypass requested for ${companyId}`)
     } else {
@@ -475,12 +481,12 @@ export async function GET(
       )
     }
 
-    // Run all fetches in parallel
+    // Run all fetches in parallel (skip platforms not requested)
     const [gaResult, gscResult, ytResult, liResult] = await Promise.allSettled([
-      fetchGA(),
-      fetchGSC(),
-      fetchYouTube(),
-      fetchLinkedIn()
+      !platforms || platforms.includes('ga') ? fetchGA() : Promise.resolve(null),
+      !platforms || platforms.includes('gsc') ? fetchGSC() : Promise.resolve(null),
+      !platforms || platforms.includes('youtube') ? fetchYouTube() : Promise.resolve(null),
+      !platforms || platforms.includes('linkedin') ? fetchLinkedIn() : Promise.resolve(null)
     ])
 
     console.log(`[Analytics] All services fetched in ${Date.now() - startServiceTime}ms`)
@@ -627,8 +633,10 @@ export async function GET(
     // Attach freshness metadata for live API fetch
     results.dataFreshness = { source: 'api', fetchedAt: new Date().toISOString() }
 
-    // Cache the results (1 hour expiry) - use the adjusted dates that were actually used for API calls
-    await cacheData(serviceClient, companyId, startDate, endDate, results)
+    // Cache the results (1 hour expiry) - skip for platform-scoped requests (partial data)
+    if (!platforms) {
+      await cacheData(serviceClient, companyId, startDate, endDate, results)
+    }
 
     return NextResponse.json(results)
   } catch (error) {
