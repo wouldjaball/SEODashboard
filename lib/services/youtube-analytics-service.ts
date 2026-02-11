@@ -110,6 +110,33 @@ export class YouTubeAnalyticsService {
     return response.json()
   }
 
+  /**
+   * Make a YouTube Data API request using an API key (no OAuth required).
+   * For reading public channel/video data when OAuth tokens are unavailable.
+   */
+  private static async makePublicDataRequest(
+    endpoint: string,
+    params: Record<string, string>
+  ) {
+    const apiKey = process.env.YOUTUBE_API_KEY
+    if (!apiKey) {
+      throw new Error('YOUTUBE_API_KEY not configured')
+    }
+
+    const queryParams = new URLSearchParams({ ...params, key: apiKey })
+
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`
+    )
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`YouTube Public API Error: ${response.status} - ${error}`)
+    }
+
+    return response.json()
+  }
+
   static async fetchMetrics(
     userId: string,
     channelId: string,
@@ -448,6 +475,179 @@ export class YouTubeAnalyticsService {
     }
   }
 
+  // ============================================================
+  // API KEY FALLBACK METHODS
+  // These use a server-side API key instead of OAuth tokens.
+  // Used as a last resort when OAuth tokens are expired/missing.
+  // ============================================================
+
+  /**
+   * Fetch public channel statistics using API key (no OAuth required)
+   */
+  static async fetchPublicChannelStatsWithApiKey(
+    channelId: string
+  ): Promise<{
+    viewCount: number
+    subscriberCount: number
+    videoCount: number
+    channelTitle: string
+    thumbnailUrl: string
+  }> {
+    const data = await this.makePublicDataRequest('channels', {
+      id: channelId,
+      part: 'snippet,statistics'
+    })
+
+    const channel = data.items?.[0]
+    if (!channel) {
+      throw new Error(`Channel not found: ${channelId}`)
+    }
+
+    return {
+      viewCount: parseInt(channel.statistics?.viewCount || '0', 10),
+      subscriberCount: parseInt(channel.statistics?.subscriberCount || '0', 10),
+      videoCount: parseInt(channel.statistics?.videoCount || '0', 10),
+      channelTitle: channel.snippet?.title || 'Unknown Channel',
+      thumbnailUrl: channel.snippet?.thumbnails?.default?.url || ''
+    }
+  }
+
+  /**
+   * Fetch recent videos with public statistics using API key (no OAuth required)
+   */
+  static async fetchPublicVideosWithApiKey(
+    channelId: string,
+    limit: number = 10
+  ): Promise<YTPublicVideo[]> {
+    const channelData = await this.makePublicDataRequest('channels', {
+      id: channelId,
+      part: 'contentDetails'
+    })
+
+    const uploadsPlaylistId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+    if (!uploadsPlaylistId) {
+      console.log('[YouTube] No uploads playlist found for channel:', channelId)
+      return []
+    }
+
+    const playlistData = await this.makePublicDataRequest('playlistItems', {
+      playlistId: uploadsPlaylistId,
+      part: 'snippet,contentDetails',
+      maxResults: String(limit)
+    })
+
+    const videoIds = (playlistData.items || [])
+      .map((item: any) => item.contentDetails?.videoId)
+      .filter(Boolean)
+      .join(',')
+
+    if (!videoIds) {
+      return []
+    }
+
+    const videoData = await this.makePublicDataRequest('videos', {
+      id: videoIds,
+      part: 'snippet,statistics'
+    })
+
+    return (videoData.items || []).map((video: any) => ({
+      id: video.id,
+      title: video.snippet?.title || 'Unknown Video',
+      thumbnailUrl: video.snippet?.thumbnails?.medium?.url ||
+                    video.snippet?.thumbnails?.default?.url || '',
+      views: parseInt(video.statistics?.viewCount || '0', 10),
+      likes: parseInt(video.statistics?.likeCount || '0', 10),
+      comments: parseInt(video.statistics?.commentCount || '0', 10),
+      publishedAt: video.snippet?.publishedAt || '',
+      avgWatchTime: 0,
+      shares: 0
+    }))
+  }
+
+  /**
+   * Fetch metrics using API key as last-resort fallback (no OAuth required)
+   */
+  static async fetchPublicMetricsWithApiKey(
+    channelId: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<YTPublicMetrics> {
+    console.log('[YouTube] Tier 3: Fetching public metrics via API key for channel:', channelId)
+
+    const [channelStats, recentVideos] = await Promise.all([
+      this.fetchPublicChannelStatsWithApiKey(channelId),
+      this.fetchPublicVideosWithApiKey(channelId, 50)
+    ])
+
+    let filteredVideos = recentVideos
+    if (startDate && endDate) {
+      const startDateObj = new Date(startDate)
+      const endDateObj = new Date(endDate)
+
+      filteredVideos = recentVideos.filter(video => {
+        if (!video.publishedAt) return false
+        const publishDate = new Date(video.publishedAt)
+        return publishDate >= startDateObj && publishDate <= endDateObj
+      })
+
+      console.log(`[YouTube] API key: filtered ${recentVideos.length} videos to ${filteredVideos.length} by date`)
+    }
+
+    const totalLikes = filteredVideos.reduce((sum, v) => sum + v.likes, 0)
+    const totalComments = filteredVideos.reduce((sum, v) => sum + v.comments, 0)
+
+    return {
+      views: channelStats.viewCount,
+      subscriberCount: channelStats.subscriberCount,
+      videoCount: channelStats.videoCount,
+      totalWatchTime: 0,
+      shares: 0,
+      avgViewDuration: 0,
+      likes: totalLikes,
+      dislikes: 0,
+      comments: totalComments,
+      subscriptions: 0,
+      isPublicDataOnly: true,
+      previousPeriod: undefined
+    }
+  }
+
+  /**
+   * Helper to filter and sort public videos by date range
+   */
+  private static filterAndSortPublicVideos(
+    publicVideos: YTPublicVideo[],
+    startDate: string,
+    endDate: string,
+    limit: number
+  ): YTVideo[] {
+    const startDateObj = new Date(startDate)
+    const endDateObj = new Date(endDate)
+
+    const filteredVideos = publicVideos.filter(video => {
+      if (!video.publishedAt) return true
+      const publishDate = new Date(video.publishedAt)
+      return publishDate >= startDateObj && publishDate <= endDateObj
+    })
+
+    return filteredVideos
+      .sort((a, b) => b.views - a.views)
+      .slice(0, limit)
+      .map(v => ({
+        id: v.id,
+        title: v.title,
+        thumbnailUrl: v.thumbnailUrl,
+        views: v.views,
+        avgWatchTime: 0,
+        shares: 0
+      }))
+  }
+
+  // ============================================================
+  // FALLBACK WRAPPERS
+  // Three-tier: Analytics API (OAuth) → Public Data API (OAuth) → Public Data API (API Key)
+  // ============================================================
+
   /**
    * Wrapper that tries Analytics API first, falls back to public Data API
    */
@@ -459,39 +659,65 @@ export class YouTubeAnalyticsService {
     previousStartDate: string,
     previousEndDate: string
   ): Promise<YTMetrics & { isPublicDataOnly?: boolean; subscriberCount?: number; videoCount?: number }> {
+    // Tier 1: Analytics API (OAuth) — date-specific data
     try {
-      // Try Analytics API first
-      console.log('[YouTube] Attempting Analytics API for date range:', { startDate, endDate })
+      console.log('[YouTube] Tier 1: Attempting Analytics API for date range:', { startDate, endDate })
       const metrics = await this.fetchMetrics(
-        userId,
-        channelId,
-        startDate,
-        endDate,
-        previousStartDate,
-        previousEndDate
+        userId, channelId, startDate, endDate, previousStartDate, previousEndDate
       )
-      console.log('[YouTube] Analytics API success - returning date-specific metrics')
+      console.log('[YouTube] Tier 1 success - returning date-specific metrics')
       return { ...metrics, isPublicDataOnly: false }
-    } catch (error: any) {
-      console.log('[YouTube] Analytics API failed, falling back to public Data API:', error.message)
-      console.log('[YouTube] IMPORTANT: Public fallback data will be all-time stats, not date-specific')
+    } catch (analyticsError: any) {
+      console.log('[YouTube] Tier 1 (Analytics API) failed:', analyticsError.message)
 
-      // Fall back to public Data API with date context for video filtering
-      const publicMetrics = await this.fetchPublicMetrics(userId, channelId, startDate, endDate)
+      // Tier 2: Public Data API with OAuth token
+      try {
+        console.log('[YouTube] Tier 2: Attempting Public Data API with OAuth token')
+        const publicMetrics = await this.fetchPublicMetrics(userId, channelId, startDate, endDate)
+        console.log('[YouTube] Tier 2 success - returning public metrics (OAuth)')
+        return {
+          views: publicMetrics.views,
+          totalWatchTime: 0,
+          shares: 0,
+          avgViewDuration: 0,
+          likes: publicMetrics.likes,
+          dislikes: 0,
+          comments: publicMetrics.comments,
+          subscriptions: 0,
+          isPublicDataOnly: true,
+          subscriberCount: publicMetrics.subscriberCount,
+          videoCount: publicMetrics.videoCount,
+          previousPeriod: undefined
+        }
+      } catch (oauthPublicError: any) {
+        console.log('[YouTube] Tier 2 (Public Data API + OAuth) failed:', oauthPublicError.message)
 
-      return {
-        views: publicMetrics.views,
-        totalWatchTime: 0,
-        shares: 0,
-        avgViewDuration: 0,
-        likes: publicMetrics.likes,
-        dislikes: 0,
-        comments: publicMetrics.comments,
-        subscriptions: 0,
-        isPublicDataOnly: true,
-        subscriberCount: publicMetrics.subscriberCount,
-        videoCount: publicMetrics.videoCount,
-        previousPeriod: undefined  // Not available for public data
+        // Tier 3: Public Data API with API key (no OAuth needed)
+        try {
+          console.log('[YouTube] Tier 3: Attempting Public Data API with API key (no OAuth)')
+          const apiKeyMetrics = await this.fetchPublicMetricsWithApiKey(channelId, startDate, endDate)
+          console.log('[YouTube] Tier 3 success - returning public metrics (API key)')
+          return {
+            views: apiKeyMetrics.views,
+            totalWatchTime: 0,
+            shares: 0,
+            avgViewDuration: 0,
+            likes: apiKeyMetrics.likes,
+            dislikes: 0,
+            comments: apiKeyMetrics.comments,
+            subscriptions: 0,
+            isPublicDataOnly: true,
+            subscriberCount: apiKeyMetrics.subscriberCount,
+            videoCount: apiKeyMetrics.videoCount,
+            previousPeriod: undefined
+          }
+        } catch (apiKeyError: any) {
+          console.error('[YouTube] All 3 tiers failed for channel:', channelId)
+          console.error('[YouTube]   Tier 1 (Analytics):', analyticsError.message)
+          console.error('[YouTube]   Tier 2 (OAuth Public):', oauthPublicError.message)
+          console.error('[YouTube]   Tier 3 (API Key):', apiKeyError.message)
+          throw new Error(`YouTube data unavailable: ${analyticsError.message}`)
+        }
       }
     }
   }
@@ -506,43 +732,35 @@ export class YouTubeAnalyticsService {
     endDate: string,
     limit: number = 10
   ): Promise<YTVideo[]> {
+    // Tier 1: Analytics API (OAuth)
     try {
-      // Try Analytics API first
-      console.log('[YouTube] Attempting Analytics API for top videos in date range:', { startDate, endDate })
+      console.log('[YouTube] Videos Tier 1: Attempting Analytics API')
       const result = await this.fetchTopVideos(userId, channelId, startDate, endDate, limit)
-      console.log('[YouTube] Analytics API success - returning date-specific top videos')
+      console.log('[YouTube] Videos Tier 1 success')
       return result
-    } catch (error: any) {
-      console.log('[YouTube] Analytics API failed for videos, falling back to public Data API:', error.message)
-      console.log('[YouTube] WARNING: Public fallback will show recent videos filtered by publish date, not performance in date range')
+    } catch (analyticsError: any) {
+      console.log('[YouTube] Videos Tier 1 failed:', analyticsError.message)
 
-      // Fall back to public Data API
-      const publicVideos = await this.fetchPublicVideos(userId, channelId, limit * 2) // Get more to allow for date filtering
+      // Tier 2: Public Data API with OAuth
+      try {
+        console.log('[YouTube] Videos Tier 2: Attempting Public Data API with OAuth')
+        const publicVideos = await this.fetchPublicVideos(userId, channelId, limit * 2)
+        console.log('[YouTube] Videos Tier 2 success')
+        return this.filterAndSortPublicVideos(publicVideos, startDate, endDate, limit)
+      } catch (oauthError: any) {
+        console.log('[YouTube] Videos Tier 2 failed:', oauthError.message)
 
-      // Filter by publish date if possible
-      const startDateObj = new Date(startDate)
-      const endDateObj = new Date(endDate)
-      
-      const filteredVideos = publicVideos.filter(video => {
-        if (!video.publishedAt) return true // Keep videos without publish date
-        const publishDate = new Date(video.publishedAt)
-        return publishDate >= startDateObj && publishDate <= endDateObj
-      })
-
-      console.log(`[YouTube] Filtered ${publicVideos.length} videos to ${filteredVideos.length} based on publish date range`)
-
-      // Sort by views (most viewed first) since we can't get period-specific performance data
-      return filteredVideos
-        .sort((a, b) => b.views - a.views)
-        .slice(0, limit) // Respect the limit
-        .map(v => ({
-          id: v.id,
-          title: v.title,
-          thumbnailUrl: v.thumbnailUrl,
-          views: v.views,          // All-time views, not date-specific
-          avgWatchTime: 0,         // Not available
-          shares: 0                // Not available
-        }))
+        // Tier 3: Public Data API with API key
+        try {
+          console.log('[YouTube] Videos Tier 3: Attempting Public Data API with API key')
+          const apiKeyVideos = await this.fetchPublicVideosWithApiKey(channelId, limit * 2)
+          console.log('[YouTube] Videos Tier 3 success')
+          return this.filterAndSortPublicVideos(apiKeyVideos, startDate, endDate, limit)
+        } catch (apiKeyError: any) {
+          console.error('[YouTube] All video tiers failed for channel:', channelId)
+          return []
+        }
+      }
     }
   }
 

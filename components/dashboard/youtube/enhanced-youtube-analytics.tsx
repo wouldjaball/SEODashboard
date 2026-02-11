@@ -113,6 +113,11 @@ export function EnhancedYouTubeAnalytics({
       <div className="flex items-center gap-2 mb-4">
         <PlayCircle className="h-5 w-5 text-red-600" />
         <h3 className="text-lg font-semibold">Enhanced YouTube Analytics</h3>
+        {dateRange && (
+          <span className="text-sm font-normal text-muted-foreground">
+            {dateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {dateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </span>
+        )}
         {isPublicDataOnly && (
           <Badge variant="outline" className="text-xs text-amber-600">
             Public Data

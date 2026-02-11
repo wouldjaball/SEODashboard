@@ -173,11 +173,17 @@ export async function GET(
     const previousStartDate = format(subDays(new Date(startDate), daysDiff), 'yyyy-MM-dd')
     const previousEndDate = format(subDays(new Date(endDate), daysDiff), 'yyyy-MM-dd')
 
-    // Pre-fetch LinkedIn mapping in parallel with normalized tables query
-    // This runs concurrently so it's ready if we need to supplement LinkedIn data
+    // Pre-fetch LinkedIn and YouTube mappings in parallel with normalized tables query
+    // These run concurrently so they're ready if we need to supplement missing data
     const linkedinMappingPromise = supabase
       .from('company_linkedin_mappings')
       .select('linkedin_page_id')
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+    const ytMappingPromise = serviceClient
+      .from('company_youtube_mappings')
+      .select('youtube_channel_id')
       .eq('company_id', companyId)
       .maybeSingle()
 
@@ -250,6 +256,56 @@ export async function GET(
               }
             } catch (liError) {
               console.error(`[Analytics] Live LinkedIn API fallback failed for ${companyId}:`, liError)
+            }
+          }
+        }
+
+        // Check if YouTube data is missing from normalized results — supplement if needed
+        const hasYouTubeData = normalizedResult.ytMetrics != null
+        if (!hasYouTubeData) {
+          const cachedYtData = await getCachedServiceData(serviceClient, companyId, 'youtube')
+          if (cachedYtData) {
+            Object.assign(normalizedResult, cachedYtData)
+            console.log(`[Analytics] YouTube data supplemented from cache for ${companyId}`)
+          } else {
+            // No cache — try live YouTube API as last resort
+            console.log(`[Analytics] No YouTube sync history or cache for ${companyId} — trying live API`)
+            try {
+              const { data: ytMapping } = await ytMappingPromise
+              if (ytMapping?.youtube_channel_id) {
+                const { data: ytChannel } = await serviceClient
+                  .from('youtube_channels')
+                  .select('channel_id, user_id')
+                  .eq('id', ytMapping.youtube_channel_id)
+                  .single()
+
+                if (ytChannel?.channel_id && ytChannel?.user_id) {
+                  const [metrics, videos, dailyData] = await Promise.all([
+                    YouTubeAnalyticsService.fetchMetricsWithFallback(
+                      ytChannel.user_id, ytChannel.channel_id,
+                      startDate, endDate, previousStartDate, previousEndDate
+                    ),
+                    YouTubeAnalyticsService.fetchTopVideosWithFallback(
+                      ytChannel.user_id, ytChannel.channel_id,
+                      startDate, endDate, 10
+                    ),
+                    YouTubeAnalyticsService.fetchDailyDataWithFallback(
+                      ytChannel.user_id, ytChannel.channel_id,
+                      startDate, endDate
+                    )
+                  ])
+                  normalizedResult.ytMetrics = metrics
+                  normalizedResult.ytVideos = videos
+                  normalizedResult.ytIsPublicDataOnly = metrics.isPublicDataOnly || false
+                  normalizedResult.ytViewsSparkline = dailyData.map((d: any) => d.views)
+                  normalizedResult.ytWatchTimeSparkline = dailyData.map((d: any) => d.watchTime)
+                  normalizedResult.ytSharesSparkline = dailyData.map((d: any) => d.shares)
+                  normalizedResult.ytLikesSparkline = dailyData.map((d: any) => d.likes)
+                  console.log(`[Analytics] YouTube data fetched live for ${companyId}`)
+                }
+              }
+            } catch (ytError) {
+              console.error(`[Analytics] Live YouTube API fallback failed for ${companyId}:`, ytError)
             }
           }
         }

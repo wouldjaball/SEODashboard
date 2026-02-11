@@ -54,7 +54,7 @@ export function CompanySwitcher() {
         </div>
       </SelectTrigger>
       <SelectContent className="w-[260px]">
-        {companies.map((c) => (
+        {[...companies].sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
           <SelectItem
             key={c.id}
             value={c.id}

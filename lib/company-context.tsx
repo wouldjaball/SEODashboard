@@ -295,11 +295,21 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         }))
 
         setCompanies(companiesWithData)
-        setCompanyState(companiesWithData[0])
         setError(null)
 
-        // Auto-fetch analytics for the first company immediately
-        const firstCompany = companiesWithData[0]
+        // Restore previously selected company, or default to first
+        let selectedCompany = companiesWithData[0]
+        try {
+          const savedId = localStorage.getItem('selectedCompanyId')
+          if (savedId) {
+            const saved = companiesWithData.find((c: any) => c.id === savedId)
+            if (saved) selectedCompany = saved
+          }
+        } catch {}
+        setCompanyState(selectedCompany)
+
+        // Auto-fetch analytics for the selected company immediately
+        const firstCompany = selectedCompany
         if (firstCompany.id && firstCompany.id.includes('-') && firstCompany.id.length > 20) {
           console.log('[CompanyContext] Auto-fetching analytics for first company:', firstCompany.id)
           const defaultDateRange = {
@@ -427,6 +437,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const setCompany = (newCompany: Company) => {
     console.log('[CompanyContext] Setting company:', newCompany.id, newCompany.name)
     setCompanyState(newCompany)
+    try { localStorage.setItem('selectedCompanyId', newCompany.id) } catch {}
+
     
     // Also ensure this company is in the companies list if it's not already
     setCompanies(prevCompanies => {
