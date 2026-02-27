@@ -75,7 +75,8 @@ export class GoogleAnalyticsService {
         { name: 'screenPageViews' },
         { name: 'averageSessionDuration' },
         { name: 'bounceRate' },
-        { name: 'keyEvents' }
+        { name: 'keyEvents' },
+        { name: 'userKeyEventRate' }
       ]
     })
 
@@ -90,7 +91,7 @@ export class GoogleAnalyticsService {
       avgSessionDuration: parseFloat(currentRow[4]?.value || '0'),
       bounceRate: parseFloat(currentRow[5]?.value || '0'),
       keyEvents: parseInt(currentRow[6]?.value || '0'),
-      userKeyEventRate: 0,
+      userKeyEventRate: parseFloat(currentRow[7]?.value || '0'),
       previousPeriod: {
         totalUsers: parseInt(previousRow[0]?.value || '0'),
         newUsers: parseInt(previousRow[1]?.value || '0'),
@@ -99,7 +100,7 @@ export class GoogleAnalyticsService {
         avgSessionDuration: parseFloat(previousRow[4]?.value || '0'),
         bounceRate: parseFloat(previousRow[5]?.value || '0'),
         keyEvents: parseInt(previousRow[6]?.value || '0'),
-        userKeyEventRate: 0
+        userKeyEventRate: parseFloat(previousRow[7]?.value || '0')
       }
     }
   }
@@ -200,7 +201,8 @@ export class GoogleAnalyticsService {
         { name: 'screenPageViews' },
         { name: 'averageSessionDuration' },
         { name: 'bounceRate' },
-        { name: 'keyEvents' }
+        { name: 'keyEvents' },
+        { name: 'userKeyEventRate' }
       ],
       orderBys: [{ dimension: { dimensionName: 'date' } }]
     })
@@ -216,7 +218,7 @@ export class GoogleAnalyticsService {
         avgSessionDuration: parseFloat(row.metricValues[4]?.value || '0'),
         bounceRate: parseFloat(row.metricValues[5]?.value || '0'),
         keyEvents: parseInt(row.metricValues[6]?.value || '0'),
-        userKeyEventRate: 0
+        userKeyEventRate: parseFloat(row.metricValues[7]?.value || '0')
       }
     })
   }

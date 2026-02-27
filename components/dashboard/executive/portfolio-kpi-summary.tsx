@@ -132,11 +132,11 @@ export function PortfolioKPISummary({ companies }: PortfolioKPISummaryProps) {
       description: "Total pages viewed"
     },
     {
-      title: "Conversions",
+      title: "Key Events",
       value: formatNumber(metrics.totalKeyEvents),
       icon: Target,
       growth: null,
-      description: `${metrics.conversionRate.toFixed(1)}% conversion rate`
+      description: `${metrics.conversionRate.toFixed(1)}% event rate`
     },
     {
       title: "Search Impressions",
