@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    let syncUrl = `${baseUrl}/api/cron/sync-analytics?secret=${cronSecret}`
+    let syncUrl = `${baseUrl}/api/cron/sync-analytics?secret=${cronSecret}&mode=full`
 
     if (companyIds) {
       syncUrl += `&companyIds=${companyIds.join(',')}&force=true`

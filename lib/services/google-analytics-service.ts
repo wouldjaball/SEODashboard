@@ -1,4 +1,5 @@
 import { OAuthTokenService, TokenRefreshResult } from './oauth-token-service'
+import { fetchWithTimeout } from '@/lib/utils/cron-utils'
 import { parseISO, format, getISOWeek, startOfWeek, endOfWeek } from 'date-fns'
 import type {
   GAMetrics,
@@ -34,14 +35,14 @@ export class GoogleAnalyticsService {
     const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}${endpoint}`
     console.log('[GA Service] Calling GA API:', url)
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(body)
-    })
+    }, 20_000)
 
     console.log('[GA Service] Response status:', response.status)
 

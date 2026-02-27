@@ -1,5 +1,113 @@
 // Cron Job Utilities for Performance & Error Handling
 
+import { format, subDays, addDays, differenceInDays } from 'date-fns'
+
+// ============================================================
+// FETCH WITH TIMEOUT
+// ============================================================
+
+export async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = 20_000
+): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    })
+    return response
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms: ${url.split('?')[0]}`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+// ============================================================
+// DATE RANGE CHUNKING
+// ============================================================
+
+export function chunkDateRange(
+  startDate: string,
+  endDate: string,
+  maxDaysPerChunk: number = 30
+): Array<{ startDate: string; endDate: string }> {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const totalDays = differenceInDays(end, start)
+
+  if (totalDays <= maxDaysPerChunk) {
+    return [{ startDate, endDate }]
+  }
+
+  const chunks: Array<{ startDate: string; endDate: string }> = []
+  let chunkStart = start
+
+  while (chunkStart < end) {
+    const chunkEnd = new Date(Math.min(
+      addDays(chunkStart, maxDaysPerChunk - 1).getTime(),
+      end.getTime()
+    ))
+    chunks.push({
+      startDate: format(chunkStart, 'yyyy-MM-dd'),
+      endDate: format(chunkEnd, 'yyyy-MM-dd')
+    })
+    chunkStart = addDays(chunkEnd, 1)
+  }
+
+  return chunks
+}
+
+// ============================================================
+// COMPANY TIME BUDGET
+// ============================================================
+
+export class CompanyTimeBudget {
+  private startTime: number
+  private budgetMs: number
+
+  constructor(budgetMs: number = 45_000) {
+    this.startTime = Date.now()
+    this.budgetMs = budgetMs
+  }
+
+  get remaining(): number {
+    return Math.max(0, this.budgetMs - (Date.now() - this.startTime))
+  }
+
+  get elapsed(): number {
+    return Date.now() - this.startTime
+  }
+
+  get isExpired(): boolean {
+    return this.remaining <= 0
+  }
+
+  hasAtLeast(ms: number): boolean {
+    return this.remaining >= ms
+  }
+
+  async raceWithBudget<T>(promise: Promise<T>, label: string): Promise<T> {
+    if (this.isExpired) {
+      throw new Error(`time_budget_exceeded: ${label}`)
+    }
+
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`time_budget_exceeded: ${label}`)), this.remaining)
+      )
+    ])
+  }
+}
+
 export interface PerformanceMetrics {
   startTime: number
   endTime?: number

@@ -1,4 +1,5 @@
 import { OAuthTokenService, TokenRefreshResult } from './oauth-token-service'
+import { fetchWithTimeout } from '@/lib/utils/cron-utils'
 import { format, parseISO, getISOWeek, startOfWeek, endOfWeek } from 'date-fns'
 import type {
   GSCMetrics,
@@ -51,7 +52,7 @@ export class GoogleSearchConsoleService {
     const accessToken = tokenResult.accessToken
 
     const encodedSiteUrl = encodeURIComponent(siteUrl)
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodedSiteUrl}/searchAnalytics/query`,
       {
         method: 'POST',
@@ -60,7 +61,8 @@ export class GoogleSearchConsoleService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
-      }
+      },
+      20_000
     )
 
     if (!response.ok) {

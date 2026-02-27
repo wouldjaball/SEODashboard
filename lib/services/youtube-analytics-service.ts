@@ -1,4 +1,5 @@
 import { OAuthTokenService, TokenRefreshResult } from './oauth-token-service'
+import { fetchWithTimeout } from '@/lib/utils/cron-utils'
 import type { YTMetrics, YTVideo, YTDailyData } from '@/lib/types'
 
 // Extended types for public-only data
@@ -59,13 +60,14 @@ export class YouTubeAnalyticsService {
       ...params
     })
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://youtubeanalytics.googleapis.com/v2/reports?${queryParams}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
-      }
+      },
+      15_000
     )
 
     if (!response.ok) {
@@ -93,13 +95,14 @@ export class YouTubeAnalyticsService {
 
     const queryParams = new URLSearchParams(params)
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
-      }
+      },
+      15_000
     )
 
     if (!response.ok) {
@@ -125,8 +128,10 @@ export class YouTubeAnalyticsService {
 
     const queryParams = new URLSearchParams({ ...params, key: apiKey })
 
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`
+    const response = await fetchWithTimeout(
+      `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`,
+      {},
+      15_000
     )
 
     if (!response.ok) {

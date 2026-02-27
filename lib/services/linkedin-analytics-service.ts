@@ -1,4 +1,5 @@
 import { OAuthTokenService } from './oauth-token-service'
+import { fetchWithTimeout } from '@/lib/utils/cron-utils'
 import { LINKEDIN_API_VERSION, LINKEDIN_API_BASE } from '@/lib/constants/linkedin-oauth-scopes'
 import type {
   LIVisitorMetrics,
@@ -44,7 +45,7 @@ export class LinkedInAnalyticsService {
       headers['LinkedIn-Version'] = LINKEDIN_API_VERSION
     }
 
-    const response = await fetch(url, { headers })
+    const response = await fetchWithTimeout(url, { headers }, 15_000)
 
     if (!response.ok) {
       const errorText = await response.text()
