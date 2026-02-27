@@ -199,9 +199,8 @@ async function syncCompany(
   mode: SyncMode
 ): Promise<SyncResult[]> {
   const results: SyncResult[] = []
-  const budget = new CompanyTimeBudget(COMPANY_TIME_BUDGET_MS)
 
-  // Fetch all mappings in parallel
+  // Fetch all mappings in parallel (before starting time budget)
   const [gaMappingResult, gscMappingResult, ytMappingResult, liMappingResult] = await Promise.all([
     supabase.from('company_ga_mappings').select('ga_property_id').eq('company_id', company.id).maybeSingle(),
     supabase.from('company_gsc_mappings').select('gsc_site_id').eq('company_id', company.id).maybeSingle(),
@@ -225,6 +224,9 @@ async function syncCompany(
   ])
 
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+
+  // Start time budget AFTER mapping lookups so DB time doesn't eat into API budget
+  const budget = new CompanyTimeBudget(COMPANY_TIME_BUDGET_MS)
 
   // === DAILY + FULL: Sync incremental daily data ===
   if (mode === 'daily' || mode === 'full') {
@@ -309,10 +311,12 @@ async function syncCompany(
       else results.push({ company: company.name, platform: 'snapshots', status: 'error', error: r.reason?.message })
     })
 
-    // Update last_snapshot_refresh_at for all platforms
-    const successfulSnaps = snapshotResults.filter(r => r.status === 'fulfilled' && r.value.status === 'success')
+    // Update last_snapshot_refresh_at only for platforms that actually succeeded
+    const successfulSnaps = snapshotResults
+      .filter((r): r is PromiseFulfilledResult<SyncResult> => r.status === 'fulfilled' && r.value.status === 'success')
+      .map(r => r.value.platform.replace('_snapshots', '')) // 'ga_snapshots' → 'ga'
     if (successfulSnaps.length > 0) {
-      await updateSnapshotRefreshTimestamp(supabase, company.id)
+      await updateSnapshotRefreshTimestamp(supabase, company.id, successfulSnaps)
     }
   }
 
@@ -972,11 +976,11 @@ async function updateSyncError(supabase: any, companyId: string, platform: strin
   }).eq('company_id', companyId).eq('platform', platform)
 }
 
-async function updateSnapshotRefreshTimestamp(supabase: any, companyId: string) {
+async function updateSnapshotRefreshTimestamp(supabase: any, companyId: string, platforms: string[]) {
   const now = new Date().toISOString()
   await supabase.from('sync_status').update({
     last_snapshot_refresh_at: now
-  }).eq('company_id', companyId)
+  }).eq('company_id', companyId).in('platform', platforms)
 }
 
 function shouldSkipPlatform(syncStatus: any): boolean {
