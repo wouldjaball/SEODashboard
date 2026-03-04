@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
-import { LINKEDIN_API_VERSION } from '@/lib/constants/linkedin-oauth-scopes'
+import { LINKEDIN_API_VERSION, LINKEDIN_API_BASE } from '@/lib/constants/linkedin-oauth-scopes'
 
 // Parse OAuth state parameter
 interface OAuthState {
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
 
         try {
           const orgAclsResponse = await fetch(
-            `https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id)))`,
+            `${LINKEDIN_API_BASE}/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id)))`,
             {
               headers: {
                 'Authorization': `Bearer ${tokens.access_token}`,

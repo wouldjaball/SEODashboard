@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
-import { LINKEDIN_API_VERSION } from '@/lib/constants/linkedin-oauth-scopes'
+import { LINKEDIN_API_VERSION, LINKEDIN_API_BASE } from '@/lib/constants/linkedin-oauth-scopes'
 
 interface LinkedInOrganization {
   id: string
@@ -39,7 +39,7 @@ export async function GET() {
     for (const role of roles) {
       try {
         const orgAclsResponse = await fetch(
-          `https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id,logoV2(original~:playableStreams))))`,
+          `${LINKEDIN_API_BASE}/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id,logoV2(original~:playableStreams))))`,
           {
             headers: {
               'Authorization': `Bearer ${tokens.accessToken}`,
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 
     const serviceClient = createServiceClient()
 
-    // Check if organization already exists for this user
+    // Check if organization already exists for this user (by numeric ID)
     const { data: existingPage } = await serviceClient
       .from('linkedin_pages')
       .select('id')
@@ -143,24 +143,43 @@ export async function POST(request: Request) {
         .update({ page_name: organizationName })
         .eq('id', pageDbId)
     } else {
-      // Insert new LinkedIn page
-      const { data: newPage, error: pageError } = await serviceClient
+      // Fallback: check for existing entry with vanity name (non-numeric page_id) matching by name
+      // This handles cases like Transit Technologies where page_id was "transit-technologies" instead of numeric ID
+      const { data: vanityMatch } = await serviceClient
         .from('linkedin_pages')
-        .insert({
-          user_id: user.id,
-          page_id: organizationId,
-          page_name: organizationName,
-          is_active: true
-        })
-        .select('id')
-        .single()
+        .select('id, page_id')
+        .eq('user_id', user.id)
+        .ilike('page_name', organizationName)
+        .maybeSingle()
 
-      if (pageError) {
-        console.error('Failed to insert LinkedIn page:', pageError)
-        return NextResponse.json({ error: 'Failed to save organization' }, { status: 500 })
+      if (vanityMatch && !/^\d+$/.test(vanityMatch.page_id)) {
+        // Update vanity name to correct numeric ID — preserves existing company_linkedin_mappings
+        console.log(`Updating LinkedIn page vanity name "${vanityMatch.page_id}" → "${organizationId}" for "${organizationName}"`)
+        await serviceClient
+          .from('linkedin_pages')
+          .update({ page_id: organizationId, page_name: organizationName })
+          .eq('id', vanityMatch.id)
+        pageDbId = vanityMatch.id
+      } else {
+        // Insert new LinkedIn page
+        const { data: newPage, error: pageError } = await serviceClient
+          .from('linkedin_pages')
+          .insert({
+            user_id: user.id,
+            page_id: organizationId,
+            page_name: organizationName,
+            is_active: true
+          })
+          .select('id')
+          .single()
+
+        if (pageError) {
+          console.error('Failed to insert LinkedIn page:', pageError)
+          return NextResponse.json({ error: 'Failed to save organization' }, { status: 500 })
+        }
+
+        pageDbId = newPage.id
       }
-
-      pageDbId = newPage.id
     }
 
     // If companyId provided, create mapping
