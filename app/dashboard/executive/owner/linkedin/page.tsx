@@ -21,6 +21,20 @@ export default function LinkedInAnalyticsPage() {
     to: new Date(),
   })
 
+  // Fetch LinkedIn data on mount if the company context doesn't have it yet
+  const hasFetchedRef = useRef(false)
+  useEffect(() => {
+    if (hasFetchedRef.current || !company?.id || isLoading) return
+    const hasLinkedInData =
+      company.liFollowerMetrics != null ||
+      company.liContentMetrics != null ||
+      company.liVisitorMetrics != null
+    if (!hasLinkedInData) {
+      hasFetchedRef.current = true
+      refetchPlatform(company.id, dateRange, 'linkedin')
+    }
+  }, [company?.id, company?.liFollowerMetrics, company?.liContentMetrics, company?.liVisitorMetrics, isLoading, dateRange, refetchPlatform])
+
   // Refetch only LinkedIn data when user changes the date range (not on initial load)
   const prevDateRange = useRef({ from: dateRange.from.getTime(), to: dateRange.to.getTime() })
   useEffect(() => {
