@@ -248,19 +248,56 @@ export function assembleCompanyAnalytics(
 
   // ---- LinkedIn ----
   const hasLISnapshot = liSnapshot !== null && liSnapshot !== undefined
-  if (hasLISnapshot || (liDaily && liDaily.length > 0)) {
-    results.liVisitorMetrics = liSnapshot?.visitor_metrics || { pageViews: 0, uniqueVisitors: 0, customButtonClicks: 0 }
-    results.liFollowerMetrics = liSnapshot?.follower_metrics || { totalFollowers: 0, newFollowers: 0 }
-    results.liContentMetrics = liSnapshot?.content_metrics || { reactions: 0, comments: 0, reposts: 0, impressions: 0, clicks: 0, engagementRate: 0 }
+  const liDailyData = liDaily || []
+  const hasLIDaily = liDailyData.length > 0
+
+  if (hasLISnapshot || hasLIDaily) {
+    // When daily data exists, aggregate metrics from daily rows so they respond to date range.
+    // Fall back to snapshot for metrics that can't be computed from daily data (totalFollowers, demographics).
+    if (hasLIDaily) {
+      const totalImpressions = sum(liDailyData, 'impressions')
+      const totalClicks = sum(liDailyData, 'clicks')
+      const totalReactions = sum(liDailyData, 'reactions')
+      const totalComments = sum(liDailyData, 'comments')
+      const totalShares = sum(liDailyData, 'shares')
+      const totalEngagements = totalClicks + totalReactions + totalComments + totalShares
+      const engagementRate = totalImpressions > 0 ? (totalEngagements / totalImpressions) * 100 : 0
+
+      results.liContentMetrics = {
+        impressions: totalImpressions,
+        clicks: totalClicks,
+        reactions: totalReactions,
+        comments: totalComments,
+        reposts: totalShares,
+        engagementRate: Math.round(engagementRate * 10) / 10,
+        previousPeriod: liSnapshot?.content_metrics?.previousPeriod || undefined,
+      }
+      results.liVisitorMetrics = {
+        pageViews: sum(liDailyData, 'desktop_visitors') + sum(liDailyData, 'mobile_visitors'),
+        uniqueVisitors: liSnapshot?.visitor_metrics?.uniqueVisitors || 0,
+        customButtonClicks: liSnapshot?.visitor_metrics?.customButtonClicks || 0,
+        previousPeriod: liSnapshot?.visitor_metrics?.previousPeriod || undefined,
+      }
+      results.liFollowerMetrics = {
+        totalFollowers: liSnapshot?.follower_metrics?.totalFollowers || 0,
+        newFollowers: sum(liDailyData, 'organic_follower_gain') + sum(liDailyData, 'paid_follower_gain'),
+        previousPeriod: liSnapshot?.follower_metrics?.previousPeriod || undefined,
+      }
+    } else {
+      // No daily data — use snapshot as-is
+      results.liVisitorMetrics = liSnapshot?.visitor_metrics || { pageViews: 0, uniqueVisitors: 0, customButtonClicks: 0 }
+      results.liFollowerMetrics = liSnapshot?.follower_metrics || { totalFollowers: 0, newFollowers: 0 }
+      results.liContentMetrics = liSnapshot?.content_metrics || { reactions: 0, comments: 0, reposts: 0, impressions: 0, clicks: 0, engagementRate: 0 }
+    }
+
     results.liSearchAppearanceMetrics = liSnapshot?.search_appearance_metrics || { searchAppearances: 0 }
     results.liIndustryDemographics = liSnapshot?.industry_demographics || []
     results.liSeniorityDemographics = liSnapshot?.seniority_demographics || []
     results.liJobFunctionDemographics = liSnapshot?.job_function_demographics || []
     results.liCompanySizeDemographics = liSnapshot?.company_size_demographics || []
     results.liUpdates = liSnapshot?.updates || []
-    results.liDataSource = liSnapshot?.data_source || 'cache'
+    results.liDataSource = hasLIDaily ? 'normalized' : (liSnapshot?.data_source || 'cache')
 
-    const liDailyData = liDaily || []
     results.liVisitorDaily = liDailyData.map((d: any) => ({
       date: d.date,
       desktopVisitors: d.desktop_visitors || 0,

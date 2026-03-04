@@ -310,6 +310,33 @@ export async function GET(
           }
         }
 
+        // Supplement LinkedIn posts from live API if missing (normalized/cache don't store posts)
+        if (normalizedResult.liVisitorMetrics && (!normalizedResult.liUpdates || normalizedResult.liUpdates.length === 0)) {
+          try {
+            const { data: liMapping } = await linkedinMappingPromise
+            if (liMapping?.linkedin_page_id) {
+              const { data: liPage } = await supabase
+                .from('linkedin_pages')
+                .select('page_id, user_id')
+                .eq('id', liMapping.linkedin_page_id)
+                .single()
+
+              if (liPage?.page_id && liPage?.user_id && /^\d+$/.test(liPage.page_id)) {
+                const hasTokens = await OAuthTokenService.hasValidLinkedInTokens(liPage.user_id)
+                if (hasTokens) {
+                  const posts = await LinkedInAnalyticsService.fetchPosts(liPage.user_id, liPage.page_id, 20)
+                  if (posts && posts.length > 0) {
+                    normalizedResult.liUpdates = posts
+                    console.log(`[Analytics] LinkedIn posts supplemented from live API for ${companyId} (${posts.length} posts)`)
+                  }
+                }
+              }
+            }
+          } catch (postsError) {
+            console.error(`[Analytics] LinkedIn posts supplement failed for ${companyId}:`, postsError)
+          }
+        }
+
         const platformFreshness = (platform: string) => {
           const row = syncRows?.find((s: any) => s.platform === platform)
           return row ? {
