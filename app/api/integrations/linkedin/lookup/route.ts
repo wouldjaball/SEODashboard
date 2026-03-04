@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { OAuthTokenService } from '@/lib/services/oauth-token-service'
 import { NextResponse } from 'next/server'
-import { LINKEDIN_API_VERSION } from '@/lib/constants/linkedin-oauth-scopes'
+import { LINKEDIN_API_VERSION, LINKEDIN_API_BASE } from '@/lib/constants/linkedin-oauth-scopes'
 
 /**
  * GET: Lookup a LinkedIn organization by ID
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     // Fetch organization details from LinkedIn API
     const orgResponse = await fetch(
-      `https://api.linkedin.com/rest/organizations/${orgId}?projection=(localizedName,vanityName,logoV2(original~:playableStreams))`,
+      `${LINKEDIN_API_BASE}/organizations/${orgId}`,
       {
         headers: {
           'Authorization': `Bearer ${tokens.accessToken}`,

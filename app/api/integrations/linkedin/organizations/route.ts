@@ -35,11 +35,11 @@ export async function GET() {
     const allOrganizations: LinkedInOrganization[] = []
     const seenOrgIds = new Set<string>()
 
-    // Fetch organizations for each role and combine results
+    // Fetch organizations for each role and collect unique org IDs
     for (const role of roles) {
       try {
         const orgAclsResponse = await fetch(
-          `${LINKEDIN_API_BASE}/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id,logoV2(original~:playableStreams))))`,
+          `${LINKEDIN_API_BASE}/organizationAcls?q=roleAssignee&role=${role}`,
           {
             headers: {
               'Authorization': `Bearer ${tokens.accessToken}`,
@@ -51,35 +51,16 @@ export async function GET() {
 
         if (orgAclsResponse.ok) {
           const orgAcls = await orgAclsResponse.json()
-          console.log(`LinkedIn organizations for role ${role}:`, orgAcls.elements?.length || 0)
+          console.log(`LinkedIn organization ACLs for role ${role}:`, orgAcls.elements?.length || 0)
 
           for (const elem of (orgAcls.elements || [])) {
             const orgUrn = elem.organization || ''
             const orgId = orgUrn.split(':').pop() || ''
-
-            // Skip if we've already seen this organization
-            if (seenOrgIds.has(orgId)) continue
-            seenOrgIds.add(orgId)
-
-            const orgDetails = elem['organization~']
-
-            // Try to extract logo URL
-            let logoUrl: string | undefined
-            try {
-              logoUrl = orgDetails?.['logoV2']?.['original~']?.elements?.[0]?.identifiers?.[0]?.identifier
-            } catch {
-              // No logo available
+            if (orgId && !seenOrgIds.has(orgId)) {
+              seenOrgIds.add(orgId)
             }
-
-            allOrganizations.push({
-              id: orgId,
-              name: orgDetails?.localizedName || 'Unknown Organization',
-              vanityName: orgDetails?.vanityName,
-              logoUrl
-            })
           }
         } else {
-          // Some roles may return 403 if not supported - that's ok
           const status = orgAclsResponse.status
           if (status !== 403 && status !== 400) {
             console.error(`Failed to fetch LinkedIn organizations for role ${role}:`, await orgAclsResponse.text())
@@ -87,9 +68,40 @@ export async function GET() {
         }
       } catch (roleError) {
         console.error(`Error fetching organizations for role ${role}:`, roleError)
-        // Continue with other roles
       }
     }
+
+    // Fetch details for each organization
+    const headers = {
+      'Authorization': `Bearer ${tokens.accessToken}`,
+      'LinkedIn-Version': LINKEDIN_API_VERSION,
+      'X-Restli-Protocol-Version': '2.0.0'
+    }
+
+    await Promise.all(Array.from(seenOrgIds).map(async (orgId) => {
+      try {
+        const orgResponse = await fetch(
+          `${LINKEDIN_API_BASE}/organizations/${orgId}`,
+          { headers }
+        )
+
+        if (orgResponse.ok) {
+          const orgData = await orgResponse.json()
+          allOrganizations.push({
+            id: orgId,
+            name: orgData.localizedName || 'Unknown Organization',
+            vanityName: orgData.vanityName,
+            logoUrl: undefined
+          })
+        } else {
+          console.error(`Failed to fetch org details for ${orgId}:`, orgResponse.status)
+          allOrganizations.push({ id: orgId, name: `Organization ${orgId}` })
+        }
+      } catch (err) {
+        console.error(`Error fetching org details for ${orgId}:`, err)
+        allOrganizations.push({ id: orgId, name: `Organization ${orgId}` })
+      }
+    }))
 
     console.log(`Total LinkedIn organizations found: ${allOrganizations.length}`)
 

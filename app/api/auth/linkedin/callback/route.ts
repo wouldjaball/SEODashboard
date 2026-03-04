@@ -86,13 +86,14 @@ export async function GET(request: Request) {
       // LinkedIn roles that grant access to organization pages
       const roles = ['ADMINISTRATOR', 'CONTENT_ADMIN', 'DIRECT_SPONSORED_CONTENT_POSTER', 'LEAD_GEN_FORMS_MANAGER', 'RECRUITING_POSTER']
 
-      // Try each role until we find an organization
+      // Try each role until we find an organization ID
+      let firstOrgId = ''
       for (const role of roles) {
-        if (identityInfo) break // Stop once we found an organization
+        if (firstOrgId) break
 
         try {
           const orgAclsResponse = await fetch(
-            `${LINKEDIN_API_BASE}/organizationAcls?q=roleAssignee&role=${role}&projection=(elements*(organization~(localizedName,vanityName,id)))`,
+            `${LINKEDIN_API_BASE}/organizationAcls?q=roleAssignee&role=${role}`,
             {
               headers: {
                 'Authorization': `Bearer ${tokens.access_token}`,
@@ -106,20 +107,9 @@ export async function GET(request: Request) {
             const orgAcls = await orgAclsResponse.json()
             console.log(`LinkedIn organization ACLs for role ${role}:`, orgAcls.elements?.length || 0)
 
-            // Get the first organization the user has access to
             if (orgAcls.elements && orgAcls.elements.length > 0) {
-              const firstOrg = orgAcls.elements[0]
-              // Extract organization ID from URN (urn:li:organization:12345 -> 12345)
-              const orgUrn = firstOrg.organization
-              const orgId = orgUrn?.split(':').pop() || ''
-              const orgDetails = firstOrg['organization~']
-
-              identityInfo = {
-                linkedinOrganizationId: orgId,
-                linkedinOrganizationName: orgDetails?.localizedName || orgDetails?.vanityName
-              }
-
-              console.log(`Primary LinkedIn organization (role: ${role}):`, identityInfo)
+              const orgUrn = orgAcls.elements[0].organization
+              firstOrgId = orgUrn?.split(':').pop() || ''
             }
           } else {
             const status = orgAclsResponse.status
@@ -129,7 +119,37 @@ export async function GET(request: Request) {
           }
         } catch (roleError) {
           console.error(`Error fetching organizations for role ${role}:`, roleError)
-          // Continue with other roles
+        }
+      }
+
+      // Fetch org details separately
+      if (firstOrgId) {
+        try {
+          const orgResponse = await fetch(
+            `${LINKEDIN_API_BASE}/organizations/${firstOrgId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${tokens.access_token}`,
+                'LinkedIn-Version': LINKEDIN_API_VERSION,
+                'X-Restli-Protocol-Version': '2.0.0'
+              }
+            }
+          )
+
+          if (orgResponse.ok) {
+            const orgData = await orgResponse.json()
+            identityInfo = {
+              linkedinOrganizationId: firstOrgId,
+              linkedinOrganizationName: orgData.localizedName || orgData.vanityName
+            }
+            console.log('Primary LinkedIn organization:', identityInfo)
+          } else {
+            identityInfo = { linkedinOrganizationId: firstOrgId }
+            console.log('Got org ID but could not fetch name:', firstOrgId)
+          }
+        } catch (detailError) {
+          identityInfo = { linkedinOrganizationId: firstOrgId }
+          console.error('Error fetching org details:', detailError)
         }
       }
     } catch (identityError) {
