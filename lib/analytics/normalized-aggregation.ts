@@ -237,7 +237,10 @@ export function assembleCompanyAnalytics(
   if (hasYTDaily || hasYTSnapshot) {
     results.ytMetrics = hasYTDaily
       ? aggregateYTMetrics(ytDaily, ytDailyPrev || [])
-      : null
+      : {
+          views: 0, totalWatchTime: 0, shares: 0, avgViewDuration: 0,
+          likes: 0, dislikes: 0, comments: 0, subscriptions: 0
+        }
     results.ytVideos = ytSnapshot?.top_videos || []
     results.ytIsPublicDataOnly = ytSnapshot?.is_public_data_only || false
     results.ytViewsSparkline = hasYTDaily ? ytDaily.map((d: any) => d.views || 0) : []

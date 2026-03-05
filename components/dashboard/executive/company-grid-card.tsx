@@ -66,7 +66,8 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
   // Check if this company has any analytics data loaded
   const hasGAData = company.gaMetrics && !company.gaError
   const hasGSCData = company.gscMetrics && !company.gscError
-  const hasAnalyticsData = hasGAData || hasGSCData || company.ytMetrics || company.liVisitorMetrics
+  const hasYTData = (company.ytMetrics || (company.ytVideos && company.ytVideos.length > 0)) && !company.ytError
+  const hasAnalyticsData = hasGAData || hasGSCData || hasYTData || company.liVisitorMetrics
   
   // Debug logging for missing data
   if (!hasAnalyticsData) {
@@ -286,7 +287,7 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
         {/* Integration Status */}
         <div className="flex gap-1 flex-wrap">
           {hasGAData ? (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">GA</Badge>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">GA</Badge>
           ) : company.gaError ? (
             <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`GA Error: ${company.gaError}`}>GA✗</Badge>
           ) : company.gaMetrics === null ? (
@@ -301,7 +302,7 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
             <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-muted-foreground">GSC—</Badge>
           ) : null}
           
-          {company.ytMetrics && !company.ytError ? (
+          {hasYTData ? (
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">YT</Badge>
           ) : company.ytError ? (
             <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`YT Error: ${company.ytError}`}>YT✗</Badge>
