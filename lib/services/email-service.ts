@@ -1,12 +1,12 @@
 import { Resend } from 'resend'
+import { getEnv } from '@/lib/env'
 
-const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@yourdomain.com'
-const REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || 'aaron@salesmonsters.com'
+const FROM_EMAIL = getEnv('FROM_EMAIL', 'noreply@yourdomain.com')
+const REPLY_TO_EMAIL = getEnv('REPLY_TO_EMAIL', 'aaron@salesmonsters.com')
 const APP_NAME = 'SEO Dashboard'
 
-const resend = process.env.RESEND_API_KEY 
-  ? new Resend(process.env.RESEND_API_KEY) 
-  : null
+const resendApiKey = getEnv('RESEND_API_KEY')
+const resend = resendApiKey ? new Resend(resendApiKey) : null
 
 interface SendEmailOptions {
   to: string
@@ -17,7 +17,7 @@ interface SendEmailOptions {
 
 export class EmailService {
   static async sendEmail({ to, subject, html, text }: SendEmailOptions) {
-    if (!process.env.RESEND_API_KEY || !resend) {
+    if (!resendApiKey || !resend) {
       console.warn('RESEND_API_KEY not configured, simulating email success')
       return { 
         success: true, 
@@ -115,7 +115,7 @@ If you didn't request this, you can safely ignore this email. The link will expi
     temporaryPassword?: string
   ) {
     const invitedBy = inviterName ? ` by ${inviterName}` : ''
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl = getEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
 
     // Support both single company name and array of company names
     const names = Array.isArray(companyNames) ? companyNames : [companyNames]
@@ -230,7 +230,7 @@ ${!temporaryPassword ? `Once you sign up with this email address (${email}), you
     assignedByName?: string
   ) {
     const assignedBy = assignedByName ? ` by ${assignedByName}` : ''
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl = getEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
 
     // Format company list for display
     let companyList: string
@@ -340,7 +340,7 @@ Go to Dashboard: ${appUrl}/dashboard
               <li>View all your data in one dashboard</li>
             </ul>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard" style="background: #22c55e; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
+              <a href="${getEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')}/dashboard" style="background: #22c55e; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
                 Go to Dashboard
               </a>
             </div>
@@ -364,7 +364,7 @@ With ${APP_NAME}, you can:
 - Analyze YouTube channel stats
 - View all your data in one dashboard
 
-Get started: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard
+Get started: ${getEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')}/dashboard
 
 - The ${APP_NAME} Team
     `.trim()

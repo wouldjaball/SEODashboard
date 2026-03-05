@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,25 +16,31 @@ export function ForgotPasswordForm({ className, ...props }: ForgotPasswordFormPr
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
-  const supabase = createClient()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password`,
-    })
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
 
-    if (error) {
-      setError(error.message)
+      if (!res.ok) {
+        setError('Something went wrong. Please try again.')
+        setIsLoading(false)
+        return
+      }
+
+      setSuccess(true)
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
       setIsLoading(false)
-      return
     }
-
-    setSuccess(true)
-    setIsLoading(false)
   }
 
   if (success) {
