@@ -286,7 +286,7 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
         {/* Integration Status */}
         <div className="flex gap-1 flex-wrap">
           {hasGAData ? (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">GA</Badge>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">GA</Badge>
           ) : company.gaError ? (
             <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`GA Error: ${company.gaError}`}>GA✗</Badge>
           ) : company.gaMetrics === null ? (
@@ -302,13 +302,13 @@ export function CompanyGridCard({ company, className }: CompanyGridCardProps) {
           ) : null}
           
           {company.ytMetrics && !company.ytError ? (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">YT</Badge>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">YT</Badge>
           ) : company.ytError ? (
             <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`YT Error: ${company.ytError}`}>YT✗</Badge>
           ) : null}
           
           {company.liVisitorMetrics && !company.liError ? (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">LI</Badge>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">LI</Badge>
           ) : company.liError ? (
             <Badge variant="destructive" className="text-xs px-1.5 py-0.5" title={`LI Error: ${company.liError}`}>LI✗</Badge>
           ) : null}

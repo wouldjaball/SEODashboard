@@ -331,16 +331,16 @@ export function CompanyPerformanceTable({ companies, selectedMetric }: CompanyPe
                     <TableCell>
                       <div className="flex gap-1">
                         {company.gaMetrics && !company.gaError && (
-                          <Badge variant="secondary" className="text-xs">GA</Badge>
+                          <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">GA</Badge>
                         )}
                         {company.gscMetrics && !company.gscError && (
-                          <Badge variant="secondary" className="text-xs">GSC</Badge>
+                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">GSC</Badge>
                         )}
                         {company.ytMetrics && !company.ytError && (
-                          <Badge variant="secondary" className="text-xs">YT</Badge>
+                          <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">YT</Badge>
                         )}
                         {company.liVisitorMetrics && !company.liError && (
-                          <Badge variant="secondary" className="text-xs">LI</Badge>
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">LI</Badge>
                         )}
                       </div>
                     </TableCell>
