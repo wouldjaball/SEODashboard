@@ -1,12 +1,7 @@
 import { Resend } from 'resend'
 import { getEnv } from '@/lib/env'
 
-const FROM_EMAIL = getEnv('FROM_EMAIL', 'noreply@yourdomain.com')
-const REPLY_TO_EMAIL = getEnv('REPLY_TO_EMAIL', 'aaron@salesmonsters.com')
 const APP_NAME = 'SEO Dashboard'
-
-const resendApiKey = getEnv('RESEND_API_KEY')
-const resend = resendApiKey ? new Resend(resendApiKey) : null
 
 interface SendEmailOptions {
   to: string
@@ -17,11 +12,12 @@ interface SendEmailOptions {
 
 export class EmailService {
   static async sendEmail({ to, subject, html, text }: SendEmailOptions) {
-    if (!resendApiKey || !resend) {
+    const apiKey = getEnv('RESEND_API_KEY')
+    if (!apiKey) {
       console.warn('RESEND_API_KEY not configured, simulating email success')
-      return { 
-        success: true, 
-        warning: 'Email not configured, simulated success', 
+      return {
+        success: true,
+        warning: 'Email not configured, simulated success',
         debug: {
           to,
           subject,
@@ -31,10 +27,14 @@ export class EmailService {
       }
     }
 
+    const fromEmail = getEnv('FROM_EMAIL', 'noreply@yourdomain.com')
+    const replyTo = getEnv('REPLY_TO_EMAIL', 'aaron@salesmonsters.com')
+    const client = new Resend(apiKey)
+
     try {
-      const { data, error } = await resend.emails.send({
-        from: `${APP_NAME} <${FROM_EMAIL}>`,
-        replyTo: REPLY_TO_EMAIL,
+      const { data, error } = await client.emails.send({
+        from: `${APP_NAME} <${fromEmail}>`,
+        replyTo,
         to,
         subject,
         html,
